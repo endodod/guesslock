@@ -5,6 +5,7 @@ import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mediaUrl } from "../media";
 import { usableText } from "../text/entries";
 import { parseSetup, type HeroSetup } from "../admin/setup";
+import { DEFAULT_EMOJIS } from "../data/emojis";
 import { HERO_COLUMNS, ITEM_COLUMNS, resolveColumns, type Attrs, type ColumnDef } from "./columns";
 
 export type HeroData = {
@@ -108,7 +109,8 @@ export async function loadGameData(): Promise<GameData> {
       species: h.species,
       weaponType: h.weaponTypeOverride || src.gunTag,
       releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null,
-      emojis: h.emojis,
+      // The Cipher needs 10: a hero without a complete set uses the default one (the sync also stores it).
+      emojis: h.emojis.length >= 10 ? h.emojis : DEFAULT_EMOJIS[h.name] ?? h.emojis,
       emojisReviewed: h.emojisReviewed,
       genericVoice: h.genericVoice,
       setup,

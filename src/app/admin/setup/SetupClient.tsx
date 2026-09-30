@@ -84,7 +84,7 @@ export function EmojiList({ initial, min, max, puzzle, save }: {
         <button type="button" className={`${btn} bg-neutral-900 text-white hover:bg-neutral-700`} disabled={pending} onClick={() => run(() => save(list))}>
           {pending ? "Saving…" : "Save emojis"}
         </button>
-        {list.length < min && <span className="text-xs text-amber-700">Below {min}: this hero is out of The Cipher until more are added.</span>}
+        {list.length < min && <span className="text-xs text-amber-700">Below {min}: puzzles use the built-in default set until this one is complete.</span>}
         {msg && <span className="text-xs text-neutral-600">{msg}</span>}
       </div>
     </div>

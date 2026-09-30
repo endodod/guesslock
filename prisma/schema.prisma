@@ -13,7 +13,7 @@ datasource db {
 
 model SyncRun {
   id            Int       @id @default(autoincrement())
-  kind          String // "assets" | "voicelines" | "generate"
+  kind          String // "assets" | "voicelines" | "generate" | "heal"
   status        String // "running" | "ok" | "failed"
   startedAt     DateTime  @default(now())
   finishedAt    DateTime?

@@ -147,6 +147,11 @@ budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data
 for a day (fresh install, a short harvest, an API outage), the unused seed scenarios are imported and used, so every
 Omen still gets its daily puzzle. Refresh it with `npm run omens:seed` after a harvest and commit the file.
 
+**Migrations and self-healing:** on Vercel the build runs `prisma migrate deploy` (`scripts/migrate-on-build.mjs`;
+set `MIGRATE_ON_BUILD=1` to do the same elsewhere, or run `npm run db:migrate` before starting a Docker image). If a
+visitor opens today's vault while a lock has no puzzle yet (a fresh deploy, a missed cron), generation for those locks
+runs right after the response, at most once per 10 minutes.
+
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 
