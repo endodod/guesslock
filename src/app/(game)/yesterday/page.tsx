@@ -25,8 +25,8 @@ export default async function YesterdayPage() {
                 {answer?.image && <img src={answer.image} alt="" loading="lazy" className={answerImageClass(lock.guess)} />}
               </div>
               <div className="min-w-0">
-                <p className="smallcaps text-xs text-brass">{lock.numeral} · {lock.name}</p>
-                <p className="truncate text-lg">{answer ? answer.name : <span className="text-ash">Nothing in this box.</span>}</p>
+                <p className="smallcaps text-xs text-brass">{lock.numeral} · {lock.name}{lock.table ? ` · ${lock.table.label}` : ""}</p>
+                <p className={lock.box ? "text-sm leading-snug" : "truncate text-lg"}>{answer ? answer.name : <span className="text-ash">Nothing in this box.</span>}</p>
                 {answer?.sub && <p className="truncate text-xs text-ash">{answer.sub}</p>}
               </div>
             </DecoFrame>

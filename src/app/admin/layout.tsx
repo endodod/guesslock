@@ -23,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ["/admin/items", "Items"],
               ["/admin/calendar", "Calendar"],
               ["/admin/omens", "Omens"],
+              ["/admin/categories", "Séance"],
             ].map(([href, label]) => (
               <Link key={href} href={href} className="text-blue-700 hover:underline">{label}</Link>
             ))}

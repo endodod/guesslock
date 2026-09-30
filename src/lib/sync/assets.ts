@@ -8,6 +8,7 @@ import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mirrorAll } from "../media";
 import { heroTerms, upsertTextEntry } from "../text/entries";
 import { alert } from "../monitoring";
+import { syncCategories } from "../seance/library";
 import type { Prisma } from "@/generated/prisma/client";
 
 type Diff = { added: string[]; removed: string[]; changed: { name: string; fields: string[] }[] };
@@ -37,6 +38,11 @@ export async function runAssetSync(): Promise<{ id: number; status: string; diff
     await syncAbilities(norm.abilities, diff);
     await syncItems(items, diff);
     await syncTexts();
+    // The Séance: refresh API-derived categories. A failure here is logged, never fails the sync.
+    const categories = await syncCategories(heroesRaw, itemsRaw).catch((e) => {
+      norm.issues.push({ entity: "seance", id: "categories", reason: String((e as Error).message) });
+      return null;
+    });
 
     const imageUrls = [
       ...norm.heroes.flatMap((h) => [h.images.card, h.images.small, h.images.vertical]),
@@ -53,7 +59,10 @@ export async function runAssetSync(): Promise<{ id: number; status: string; diff
       where: { id: run.id },
       data: {
         status: "ok", finishedAt: new Date(), clientVersion,
-        counts: { heroes: norm.heroes.length, abilities: norm.abilities.length, items: items.length, images: imageUrls.length },
+        counts: {
+          heroes: norm.heroes.length, abilities: norm.abilities.length, items: items.length, images: imageUrls.length,
+          ...(categories ? { categoriesCreated: categories.created, categoriesChanged: categories.changed.length } : {}),
+        },
         diff: diff as unknown as Prisma.InputJsonValue,
         issues: issues as unknown as Prisma.InputJsonValue,
       },

@@ -4,6 +4,7 @@ import { LOCKS } from "@/locks.config";
 import type { BasePayload } from "../engine/mode";
 import type { AnswerView } from "../engine/types";
 import type { BeastAnswer, ClashAnswer, OmenPayload, RiftAnswer } from "../omens/types";
+import type { SeancePayload } from "../seance/types";
 
 const TEAM = { amber: "Amber", sapphire: "Sapphire" } as const;
 
@@ -43,7 +44,12 @@ export async function dayMeta(date: string): Promise<LockMeta[]> {
 export async function answersFor(date: string) {
   const rows = await db.dailyPuzzle.findMany({ where: { date, sealed: false } });
   const by = new Map(rows.map((r) => {
-    const payload = r.payload as unknown as BasePayload | OmenPayload;
+    const payload = r.payload as unknown as BasePayload | OmenPayload | SeancePayload;
+    if (payload.mode === "seance") {
+      // The Séance: the day's four group names, easiest first.
+      const p = payload as SeancePayload;
+      return [r.mode, { id: r.answerId, name: p.groups.map((g) => g.label).join(" · "), image: null, sub: `${p.redHerrings} red herrings` }];
+    }
     return [r.mode, payload.mode === "omen" ? omenOutcome(payload as OmenPayload) : (payload as BasePayload).answer];
   }));
   return LOCKS.map((l) => ({ lock: l, answer: by.get(l.slug) ?? null }));

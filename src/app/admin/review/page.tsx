@@ -4,6 +4,11 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import { ECHO_MIN_LINES } from "@/lib/engine/modes/hero";
 import { markAllReviewed, markReviewed } from "../actions";
 import { ActionButton } from "../ui";
+import { SEANCE_LOCKS } from "@/locks.config";
+import { todayDate } from "@/lib/day";
+import { addDays } from "@/lib/time";
+import { loadCategoryRows } from "@/lib/seance/library";
+import { completeness } from "@/lib/seance/rules";
 
 export default async function ReviewQueue() {
   await requireAdminPage();
@@ -22,9 +27,43 @@ export default async function ReviewQueue() {
   const fewLines = heroes.filter((h) => !h.genericVoice && (approvedLines.get(h.id) ?? 0) < ECHO_MIN_LINES);
   const pendingTexts = texts.filter((t) => t.status === "auto" || t.stale);
 
+  // The Séance: incomplete categories (e.g. after a new hero), sync-changed ones, and sealed tables.
+  const [categories, sealedTables] = await Promise.all([
+    loadCategoryRows({ status: { not: "retired" } }),
+    db.dailyPuzzle.findMany({
+      where: { mode: { in: SEANCE_LOCKS.map((l) => l.slug) }, sealed: true, date: { gte: addDays(todayDate(), -7) } },
+      orderBy: [{ date: "desc" }, { mode: "asc" }],
+    }),
+  ]);
+  const activeIds = heroes.map((h) => h.id);
+  const heroName = new Map(heroes.map((h) => [h.id, h.name]));
+  const incomplete = categories.map((c) => ({ c, unknown: completeness(c.memberships, activeIds).unknown })).filter((x) => x.unknown.length > 0);
+  const changed = categories.filter((c) => c.flagged);
+
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold">Review queue</h1>
+
+      <Box title={`The Séance: incomplete categories (${incomplete.length}), changed by a sync (${changed.length}), sealed tables in the last week (${sealedTables.length})`} id="seance">
+        {incomplete.map(({ c, unknown }) => (
+          <li key={`i${c.id}`}>
+            <Link className="text-blue-700 hover:underline" href={`/admin/categories/${c.id}`}>{c.label}</Link>{" "}
+            <span className="text-xs text-neutral-600">({c.type}, {c.status}) unknown: {unknown.map((h) => heroName.get(h)).join(", ")}</span>
+          </li>
+        ))}
+        {changed.map((c) => (
+          <li key={`c${c.id}`}>
+            <Link className="text-blue-700 hover:underline" href={`/admin/categories/${c.id}`}>{c.label}</Link>{" "}
+            <span className="text-xs text-amber-700">{c.flagReason}</span>
+          </li>
+        ))}
+        {sealedTables.map((r) => (
+          <li key={`s${r.id}`}>
+            <Link className="text-blue-700 hover:underline" href={`/admin/categories/preview?date=${r.date}&table=${r.mode.replace("seance-", "")}`}>{r.date} {r.mode}</Link>{" "}
+            <span className="text-xs text-red-700">sealed: {r.sealedReason}</span>
+          </li>
+        ))}
+      </Box>
 
       <Box title={`Heroes flagged by sync (${flagged.length})`}>
         {flagged.map((h) => (
@@ -92,9 +131,9 @@ export default async function ReviewQueue() {
   );
 }
 
-function Box({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Box({ title, children, action, id }: { title: string; children: React.ReactNode; action?: React.ReactNode; id?: string }) {
   return (
-    <section className="rounded border border-neutral-300 bg-white p-4">
+    <section id={id} className="rounded border border-neutral-300 bg-white p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h2 className="font-semibold">{title}</h2>
         {action}

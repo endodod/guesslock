@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { LOCKS, OMEN_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
+import { LOCKS, OMEN_LOCKS, SEANCE_BOX, SEANCE_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, VAULT_UNITS, type LockDef } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
-import { daySouls, streaks, type LockRecord } from "@/lib/client/store";
-import { shareDay, type LockResult } from "@/lib/game/scoring";
+import { streaks, type LockRecord } from "@/lib/client/store";
+import { dayTotals, shareDay, type LockResult } from "@/lib/game/scoring";
+import { boxSouls } from "@/lib/seance/scoring";
+import { WaxSeal, type SealState } from "./seance/WaxSeal";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
@@ -99,6 +101,72 @@ export function VaultBox({
   );
 }
 
+/**
+ * The Séance box: one wide box for the four tables, with a wax seal per table on the door.
+ * Opened once every table in play is finished; sealed when all four are sealed.
+ */
+export function SeanceBox({ metaBy, day, q }: { metaBy: Map<string, LockMeta>; day: Record<string, LockRecord>; q: string }) {
+  const tables = SEANCE_LOCKS.map((l) => {
+    const rec = day[l.slug];
+    const inPlay = metaBy.get(l.slug)?.state === "available";
+    const seal: SealState = !inPlay ? "sealed" : rec?.s === "won" ? "won" : rec?.s === "lost" ? "lost" : "intact";
+    return { l, rec, inPlay, seal };
+  });
+  const live = tables.filter((x) => x.inPlay);
+  const done = live.filter((x) => x.seal === "won" || x.seal === "lost");
+  const state: BoxState = live.length === 0 ? "sealed" : done.length === live.length ? "opened" : tables.some((x) => (x.rec?.g.length ?? 0) > 0) ? "progress" : "locked";
+  const souls = boxSouls(done.map((x) => x.rec!.souls), live.length);
+  const target = live.find((x) => x.seal === "intact") ?? live[0];
+  const href = target ? `/lock/${target.l.slug}${q}` : null;
+  const open = state === "opened";
+  const label = `${SEANCE_BOX.numeral}. ${SEANCE_BOX.name}: ${SEANCE_BOX.subtitle} ${state === "sealed" ? t.vault.sealed : state}. ${tables.map((x) => `${x.l.table!.label}: ${t.seance.seal[x.seal === "intact" ? "open" : x.seal]}`).join(", ")}`;
+
+  const inner = (
+    <div className="group relative flex min-h-40 overflow-hidden rounded-[3px] border border-brass/50 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)]">
+      {/* A wide door doesn't swing well: once every table is finished, the séance table shows through instead. */}
+      <div className="relative w-full">
+        <div className={`relative flex h-full flex-col items-center justify-between gap-3 border px-4 pt-3 pb-11 sm:flex-row sm:pb-10 ${open ? "seance-table border-ecto/40 shadow-[inset_0_0_50px_rgba(127,227,194,0.35)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}>
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <div className="rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2.5 py-0.5 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+              {SEANCE_BOX.numeral}
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="font-display text-lg leading-tight text-paper">{SEANCE_BOX.name}</div>
+              <div className="text-[0.8rem] leading-snug text-ash">{SEANCE_BOX.subtitle}</div>
+            </div>
+          </div>
+          {open && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="text-center">
+              <span className="block font-mono text-4xl text-paper">{souls}</span>
+              <span className="text-xs text-ash">souls · average of {live.length} {live.length === 1 ? "table" : "tables"}</span>
+            </motion.div>
+          )}
+          {/* one wax seal per table */}
+          <ul className="grid grid-cols-4 gap-2 sm:gap-4" aria-hidden>
+            {tables.map((x) => (
+              <li key={x.l.slug} className="flex flex-col items-center gap-1">
+                <WaxSeal state={x.seal} className="h-9 w-9" />
+                <span className={`text-[0.7rem] ${x.seal === "won" ? "text-ecto" : x.seal === "lost" ? "text-[#d08a8a]" : "text-ash"}`}>{x.l.table!.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
+        {state === "locked" && <span className="text-ash">{t.vault.states.locked}</span>}
+        {state === "progress" && <span className="text-ecto">{done.length} / {live.length} tables</span>}
+        {state === "opened" && <span className="text-ecto">Opened · {souls} souls</span>}
+        {state === "sealed" && <span className="text-ash">{t.vault.sealed}</span>}
+      </div>
+    </div>
+  );
+  return href ? (
+    <Link href={href} aria-label={label} className="block rounded-[3px]">{inner}</Link>
+  ) : (
+    <div aria-label={label}>{inner}</div>
+  );
+}
+
 export function Vault({
   date, number, meta, isArchive, nextReset, site,
 }: { date: string; number: number; meta: LockMeta[]; isArchive: boolean; nextReset: number; site: string }) {
@@ -106,10 +174,9 @@ export function Vault({
   const day = store.progress[date] ?? {};
   const metaBy = new Map(meta.map((m) => [m.slug, m]));
   const available = LOCKS.filter((l) => metaBy.get(l.slug)?.state === "available");
-  const openCount = LOCKS.filter((l) => day[l.slug]?.s === "won").length;
+  const seanceInPlay = SEANCE_LOCKS.filter((l) => metaBy.get(l.slug)?.state === "available").length;
   const finished = available.filter((l) => ["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const complete = hydrated && available.length > 0 && finished.length === available.length;
-  const souls = daySouls(day) + (isArchive ? Object.values(day).filter((r) => r.archive).reduce((a, r) => a + r.souls, 0) : 0);
   const streak = streaks(store.progress, today).current;
   const q = isArchive ? `?d=${date}` : "";
   const next = available.find((l) => !["won", "lost"].includes(day[l.slug]?.s ?? ""));
@@ -118,10 +185,15 @@ export function Vault({
   const results: Record<string, LockResult> = Object.fromEntries(
     LOCKS.map((l) => {
       const r = day[l.slug];
-      return [l.slug, { status: r ? (r.s === "won" ? "won" : r.s === "lost" ? "lost" : "playing") : "none", guesses: r?.g.length ?? 0, souls: r?.souls ?? 0 }];
+      return [l.slug, {
+        status: r ? (r.s === "won" ? "won" : r.s === "lost" ? "lost" : "playing") : "none",
+        guesses: r?.g.length ?? 0, souls: r?.souls ?? 0, mistakes: r?.w,
+      }];
     }),
   );
-  const best = LOCKS.filter((l) => day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
+  // The Séance's four tables count as one box (worth their average, opened when all are finished).
+  const { souls, opened: openCount } = dayTotals(results, seanceInPlay);
+  const best = LOCKS.filter((l) => !l.box && day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
 
   const box = (l: LockDef, large = false) => {
     const m = metaBy.get(l.slug);
@@ -144,7 +216,7 @@ export function Vault({
         <div>
           <p className="smallcaps text-sm text-brass">{t.vault.soulTally} · #{number}</p>
           <p className="font-mono text-3xl text-paper" suppressHydrationWarning>{hydrated ? souls : 0} <span className="text-base text-ash">souls</span></p>
-          <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, LOCKS.length)}</p>
+          <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, VAULT_UNITS.length)}</p>
         </div>
         {next && (
           <Link
@@ -169,7 +241,7 @@ export function Vault({
             {!isArchive && <> · {t.vault.nextIn} <Countdown target={nextReset} /></>}
           </p>
           <div className="mt-4 flex justify-center">
-            <ShareButton text={shareDay({ number, results, streak, site })} />
+            <ShareButton text={shareDay({ number, results, streak, site, seanceInPlay })} />
           </div>
         </DecoFrame>
       )}
@@ -199,6 +271,12 @@ export function Vault({
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
           {OMEN_LOCKS.map((l) => box(l))}
         </ul>
+      </section>
+
+      {/* The Séance: four tables behind one wide box */}
+      <section aria-labelledby="seance-h" className="mt-8">
+        <h2 id="seance-h" className="smallcaps mb-3 text-brass">{t.groups.seance}</h2>
+        <SeanceBox metaBy={metaBy} day={day} q={q} />
       </section>
 
       {!isArchive && (

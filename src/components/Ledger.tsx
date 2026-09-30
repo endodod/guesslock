@@ -1,6 +1,6 @@
 "use client";
-import { LOCKS, OMEN_LOCKS, type LockDef } from "@/locks.config";
-import type { StoreData } from "@/lib/client/store";
+import { LOCKS, OMEN_LOCKS, SEANCE_BOX, SEANCE_LOCKS, type LockDef } from "@/locks.config";
+import type { LockRecord, StoreData } from "@/lib/client/store";
 import { daySouls, lockStats, streaks } from "@/lib/client/store";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
@@ -31,6 +31,30 @@ function OmenCard({ l, progress }: { l: LockDef; progress: StoreData["progress"]
         <div><div className="text-paper">{s.played}</div><div className="font-body text-xs text-ash">{t.ledger.played}</div></div>
         <div><div className="text-paper">{s.played ? s.avg : "–"}</div><div className="font-body text-xs text-ash">Avg. souls</div></div>
         <div><div className="text-paper">{s.played ? s.best : "–"}</div><div className="font-body text-xs text-ash">Best</div></div>
+      </div>
+    </DecoFrame>
+  );
+}
+
+/** The Séance: per table, tables finished (live, not archive), win rate and average mistakes. */
+function SeanceCard({ progress }: { progress: StoreData["progress"] }) {
+  return (
+    <DecoFrame className="p-4" corners={false}>
+      <h3 className="mb-3 font-display text-lg"><span className="mr-2 text-sm text-brass">{SEANCE_BOX.numeral}</span>{SEANCE_BOX.name}</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {SEANCE_LOCKS.map((l) => {
+          const recs = Object.values(progress).map((d) => d[l.slug]).filter((r): r is LockRecord => !!r && !r.archive && (r.s === "won" || r.s === "lost"));
+          const wins = recs.filter((r) => r.s === "won");
+          return (
+            <div key={l.slug} className="rounded-sm border border-brass/20 p-2 text-center font-mono text-sm">
+              <div className="mb-1 font-body text-xs text-brass">{l.table!.label}</div>
+              <div className="text-paper">{recs.length} · {recs.length ? Math.round((wins.length / recs.length) * 100) : 0}%</div>
+              <div className="font-body text-xs text-ash">{t.ledger.played} · {t.ledger.winRate}</div>
+              <div className="mt-1 text-paper">{wins.length ? (Math.round((wins.reduce((a, r) => a + r.w, 0) / wins.length) * 10) / 10) : "–"}</div>
+              <div className="font-body text-xs text-ash">Avg. mistakes (solved)</div>
+            </div>
+          );
+        })}
       </div>
     </DecoFrame>
   );
@@ -103,6 +127,7 @@ export function Ledger() {
           <ul className="grid gap-4 md:grid-cols-2">
             {LOCKS.map((l) => {
               if (l.group === "omens") return <li key={l.slug}><OmenCard l={l} progress={p} /></li>;
+              if (l.box === "seance") return l === SEANCE_LOCKS[0] ? <li key="seance" className="md:col-span-2"><SeanceCard progress={p} /></li> : null;
               const s = lockStats(p, l.slug, today);
               return (
                 <li key={l.slug}>

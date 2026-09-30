@@ -6,7 +6,8 @@ import { getCatalog, lookupFor } from "@/lib/engine/catalog";
 import { evaluate } from "@/lib/engine/play";
 import { getPuzzle } from "@/lib/server/puzzles";
 import { currentUser } from "@/lib/auth/server";
-import { playAsUser } from "@/lib/accounts/service";
+import { playAsUser, playSeanceAsUser } from "@/lib/accounts/service";
+import { evaluateSeance } from "@/lib/seance/play";
 
 const Body = z.object({
   date: z.string().refine(isDay),
@@ -30,6 +31,15 @@ export async function POST(req: Request) {
 
   const headers = { "cache-control": "no-store" };
   const user = await currentUser();
+  if (lock.box === "seance") {
+    // The Séance: guesses are submissions ("id,id,id,id") and hint requests; see src/lib/seance/play.ts.
+    if (user) {
+      const r = await playSeanceAsUser(user, row, slug, guesses, noHints);
+      return NextResponse.json({ ...r.view, account: { guesses: r.guesses, ranked: r.ranked } }, { headers });
+    }
+    const { view, accepted } = evaluateSeance(lock, row, numberFor(date), guesses, { noHints });
+    return NextResponse.json({ ...view, entries: accepted }, { headers });
+  }
   if (user) {
     // Signed in: the server records the play and its guess list is authoritative.
     const r = await playAsUser(user, row, slug, guesses, bonus, noHints, giveUp);

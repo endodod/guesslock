@@ -54,7 +54,7 @@ export default async function AdminStatus() {
             const m = meta.find((x) => x.slug === l.slug)!;
             return (
               <li key={l.slug} className={m.state === "available" ? "text-green-800" : "text-red-700"}>
-                {l.numeral} {l.name}: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
+                {l.numeral} {l.name}{l.table ? ` · ${l.table.label}` : ""}: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
               </li>
             );
           })}

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLock } from "@/locks.config";
+import { getLock, SEANCE_LOCKS } from "@/locks.config";
+import { SeanceLock } from "@/components/seance/SeanceLock";
+import { evaluateSeance } from "@/lib/seance/play";
 import { LockGame } from "@/components/LockGame";
 import { DecoFrame, Icon } from "@/components/ui";
 import { config } from "@/lib/config";
@@ -43,8 +45,16 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   const back = date < today ? `/archive/${date}` : "/";
 
   const isOmen = lock.group === "omens";
+  // The Séance: all four tables are rendered (as tabs); each starts from its empty view.
+  const seance = lock.box === "seance"
+    ? await Promise.all(SEANCE_LOCKS.map(async (l) => {
+        const r = l.slug === slug ? row : await getPuzzle(date, l.slug);
+        const empty = { date, mode: l.slug, sealed: true, sealedReason: "not generated", payload: {} };
+        return evaluateSeance(l, r ?? empty, number, []).view;
+      }))
+    : null;
   return (
-    <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : "max-w-[760px]"}`}>
+    <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : seance ? "max-w-[820px]" : "max-w-[760px]"}`}>
       <div className="mb-5 flex items-center gap-3">
         <Link href={back} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-brass/30 text-brass hover:border-brass" aria-label={t.nav.back}>
           <Icon name="back" />
@@ -55,7 +65,17 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           <p className="text-sm text-ash">{lock.subtitle}</p>
         </div>
       </div>
-      {isOmen && row && !row.sealed ? (
+      {seance ? (
+        <SeanceLock
+          initialSlug={slug}
+          date={date}
+          number={number}
+          tables={seance}
+          site={config.siteUrl}
+          available={available}
+          rules={RULES.seance}
+        />
+      ) : isOmen && row && !row.sealed ? (
         <OmenLock
           slug={slug}
           date={date}
@@ -73,7 +93,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           date={date}
           number={number}
           initialView={evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess))}
-          entries={lock.guess === "number" || lock.guess === "omen" ? [] : catalog[lock.guess]}
+          entries={lock.guess === "number" || lock.guess === "omen" || lock.guess === "seance" ? [] : catalog[lock.guess]}
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}

@@ -1,8 +1,10 @@
 // Single source of truth for lock numbering, names, order and per-mode rules.
 // Local player data is keyed by `slug`, never by numeral, so renumbering is safe.
 
-export type LockGroup = "spirits" | "shop" | "omens";
-export type GuessKind = "hero" | "ability" | "item" | "number" | "omen";
+export type LockGroup = "spirits" | "shop" | "omens" | "seance";
+export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance";
+/** The Séance's four tables: which category types a table draws from (see src/lib/seance/). */
+export type SeanceTable = "mechanics" | "visuals" | "lore" | "mixed";
 
 export type HintDef = {
   id: string;
@@ -29,6 +31,13 @@ export type LockDef = {
   bonusRound?: boolean;
   /** No-repeat window override (days). Default: min(60, poolSize * 0.6). */
   noRepeatDays?: number;
+  /**
+   * Internal locks that share one Vault box (The Séance: four tables). The Vault renders them as a
+   * single box that counts as one lock, and the lock screen shows them as tabs.
+   */
+  box?: "seance";
+  /** The Séance: this lock's table. */
+  table?: { kind: SeanceTable; label: string };
 };
 
 export const LOCKS: LockDef[] = [
@@ -148,6 +157,16 @@ export const LOCKS: LockDef[] = [
     slug: "rift", mode: "omen-rift", numeral: "XVI", name: "The Rift",
     subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
   },
+  // The Séance: 16 heroes, 4 hidden groups of 4. Four tables a day, each its own frozen puzzle,
+  // sharing one Vault box. 4 mistakes lose a table (src/lib/seance/play.ts).
+  ...(
+    [["mechanics", "Mechanics"], ["visuals", "Visuals"], ["lore", "Lore"], ["mixed", "Mixed"]] as const
+  ).map(([kind, label]): LockDef => ({
+    slug: `seance-${kind}`, mode: "seance", numeral: "XVII", name: "The Séance",
+    subtitle: "Sort 16 heroes into 4 hidden groups.", group: "seance", guess: "seance", picks: 4, maxTries: 4,
+    box: "seance", table: { kind, label },
+    hints: [{ id: "category", label: "Reveal a category name", after: 2 }],
+  })),
 ];
 
 export const LOCK_BY_SLUG: Record<string, LockDef> = Object.fromEntries(LOCKS.map((l) => [l.slug, l]));
@@ -159,8 +178,23 @@ export function getLock(slug: string): LockDef | undefined {
 export const SPIRIT_LOCKS = LOCKS.filter((l) => l.group === "spirits");
 export const SHOP_LOCKS = LOCKS.filter((l) => l.group === "shop");
 export const OMEN_LOCKS = LOCKS.filter((l) => l.group === "omens");
+export const SEANCE_LOCKS = LOCKS.filter((l) => l.box === "seance");
 /** Slug -> Omen kind. */
 export const omenOf = (l: LockDef) => (l.group === "omens" ? (l.slug as "clash" | "beast" | "rift") : null);
+export const isSeance = (slug: string) => LOCK_BY_SLUG[slug]?.box === "seance";
+
+/** The Séance box as the Vault shows it (one box, one numeral, counts as one lock). */
+export const SEANCE_BOX = { slug: "seance", numeral: "XVII", name: "The Séance", subtitle: "Sort 16 heroes into 4 hidden groups." };
+
+/**
+ * What the Vault counts as "a lock": every lock on its own, except the Séance tables, which fold
+ * into one box. Used for "x / N locks open", the daily share and per-day summaries.
+ */
+export type VaultUnit = { kind: "lock"; lock: LockDef } | { kind: "seance"; locks: LockDef[] };
+export const VAULT_UNITS: VaultUnit[] = [
+  ...LOCKS.filter((l) => !l.box).map((lock) => ({ kind: "lock" as const, lock })),
+  { kind: "seance", locks: SEANCE_LOCKS },
+];
 
 /** Old 11-lock numbering (before The Cipher and The Echo), for migrating legacy local data. */
 export const LEGACY_11_NUMERALS: Record<string, string> = {
