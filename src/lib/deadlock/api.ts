@@ -4,6 +4,11 @@ import { config } from "../config";
 import { HeroStatsRowSchema, ItemStatsRowSchema, SteamInfoSchema } from "./schemas";
 import { loadSnapshot, saveSnapshot } from "./snapshots";
 
+/** Request headers for deadlock-api (the API key, when configured, raises rate limits). */
+export function apiHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { accept: "application/json", "user-agent": "guesslock/1.0 (+https://guesslock.paulkuehn.ch)", ...(config.apiKey ? { "x-api-key": config.apiKey } : {}), ...extra };
+}
+
 /** How a call behaves when the API is down: "none" rethrows, "snapshot" returns the stored copy. */
 export type BackupMode = "none" | "snapshot" | "snapshot-any-age";
 
@@ -28,14 +33,15 @@ async function getJson(
   }
 }
 
-async function fetchJson(path: string, { timeoutMs, retries }: { timeoutMs: number; retries: number }): Promise<unknown> {
+/** Raw GET without the snapshot layer (per-match data is cached by its own tables). */
+export async function fetchJson(path: string, { timeoutMs = 45000, retries = 2 }: { timeoutMs?: number; retries?: number } = {}): Promise<unknown> {
   const url = path.startsWith("http") ? path : `${config.apiBase}${path}`;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url, {
         signal: AbortSignal.timeout(timeoutMs),
-        headers: { accept: "application/json", "user-agent": "guesslock/1.0" },
+        headers: apiHeaders(),
         cache: "no-store",
       });
       if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status} for ${url}`);

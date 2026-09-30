@@ -17,7 +17,7 @@ export const en = {
     states: { locked: "Locked", progress: (n: number) => `${n} ${n === 1 ? "guess" : "guesses"}`, opened: (n: number, s: number) => `Opened in ${n} · ${s} souls`, jammed: "Jammed", sealed: "Sealed" },
   },
   lock: {
-    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…" },
+    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "" },
     submit: "Pick",
     hintRevealed: "Hint revealed",
     hintLocked: (n: number) => `Unlocks after ${n} wrong ${n === 1 ? "guess" : "guesses"}`,

@@ -167,3 +167,54 @@ model ApiSnapshot {
   byteSize  Int
   fetchedAt DateTime
 }
+
+// ───────────── The Omens ─────────────
+
+// A match harvested for Omen scenarios: replay queries in flight, then the compressed timeline.
+model OmenMatch {
+  matchId     BigInt     @id
+  status      String // "queued" | "fetching" | "ready" | "failed" | "rejected"
+  source      String // "daily" | "practice" | "mine"
+  priority    Int        @default(0)
+  rank        Int?
+  startTime   DateTime?
+  jobs        Json? // { players: { id, status }, world: …, events: … }
+  submittedAt DateTime?
+  timelineGz  Bytes? // gzip(JSON MatchTimeline); pruned after OMEN_TIMELINE_DAYS
+  error       String?
+  requestedBy String? // sha1 of the requester's IP (practice "My matches" rate limit)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  scenarios   Scenario[]
+
+  @@index([status, priority])
+}
+
+// A frozen moment T in a match. payload = OmenPayload (snapshot, window, answer).
+model Scenario {
+  id        String    @id // `${matchId}-${omen}-${t}`
+  omen      String // "clash" | "beast" | "rift"
+  matchId   BigInt
+  match     OmenMatch @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  t         Int
+  window    Int
+  positive  Boolean
+  quality   Float
+  source    String // "daily" | "practice" | "mine"
+  rank      Int
+  patch     String? // match day (YYYY-MM-DD), used as the patch label
+  status    String    @default("candidate") // "candidate" | "approved" | "rejected" | "used"
+  dailyDate String? // set when frozen into a DailyPuzzle
+  payload   Json
+  createdAt DateTime  @default(now())
+
+  @@index([omen, source, status])
+  @@index([dailyDate])
+}
+
+// Admin-editable detection tuning (overrides DEFAULT_TUNING in src/lib/omens/scenario.ts).
+model OmenConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

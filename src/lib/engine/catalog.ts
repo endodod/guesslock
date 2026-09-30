@@ -16,8 +16,8 @@ export async function buildCatalog(): Promise<Catalog> {
 
 export const getCatalog = unstable_cache(buildCatalog, ["catalog"], { revalidate: 600, tags: ["catalog"] });
 
-export function lookupFor(catalog: Catalog, kind: "hero" | "ability" | "item" | "number") {
-  if (kind === "number") return () => undefined;
+export function lookupFor(catalog: Catalog, kind: "hero" | "ability" | "item" | "number" | "omen") {
+  if (kind === "number" || kind === "omen") return () => undefined;
   const map = new Map<string, CatalogEntry>(catalog[kind].map((e) => [e.id, e]));
   return (id: string) => map.get(id);
 }

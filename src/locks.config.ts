@@ -1,8 +1,8 @@
 // Single source of truth for lock numbering, names, order and per-mode rules.
 // Local player data is keyed by `slug`, never by numeral, so renumbering is safe.
 
-export type LockGroup = "spirits" | "shop";
-export type GuessKind = "hero" | "ability" | "item" | "number";
+export type LockGroup = "spirits" | "shop" | "omens";
+export type GuessKind = "hero" | "ability" | "item" | "number" | "omen";
 
 export type HintDef = {
   id: string;
@@ -134,6 +134,20 @@ export const LOCKS: LockDef[] = [
     maxTries: 5,
     hints: [],
   },
+  // The Omens: predict what happens next from a frozen moment of a real high-rank match.
+  // No guesses or win/loss: one lock-in, scored out of 100 souls (src/lib/omens/scoring.ts).
+  {
+    slug: "clash", mode: "omen-clash", numeral: "XIV", name: "The Clash",
+    subtitle: "Predict the teamfight", group: "omens", guess: "omen", picks: 0, hints: [],
+  },
+  {
+    slug: "beast", mode: "omen-beast", numeral: "XV", name: "The Beast",
+    subtitle: "Predict the midboss", group: "omens", guess: "omen", picks: 0, hints: [],
+  },
+  {
+    slug: "rift", mode: "omen-rift", numeral: "XVI", name: "The Rift",
+    subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
+  },
 ];
 
 export const LOCK_BY_SLUG: Record<string, LockDef> = Object.fromEntries(LOCKS.map((l) => [l.slug, l]));
@@ -144,6 +158,9 @@ export function getLock(slug: string): LockDef | undefined {
 
 export const SPIRIT_LOCKS = LOCKS.filter((l) => l.group === "spirits");
 export const SHOP_LOCKS = LOCKS.filter((l) => l.group === "shop");
+export const OMEN_LOCKS = LOCKS.filter((l) => l.group === "omens");
+/** Slug -> Omen kind. */
+export const omenOf = (l: LockDef) => (l.group === "omens" ? (l.slug as "clash" | "beast" | "rift") : null);
 
 /** Old 11-lock numbering (before The Cipher and The Echo), for migrating legacy local data. */
 export const LEGACY_11_NUMERALS: Record<string, string> = {

@@ -47,7 +47,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           date={date}
           number={number}
           initialView={evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess))}
-          entries={lock.guess === "number" ? [] : catalog[lock.guess]}
+          entries={lock.guess === "number" || lock.guess === "omen" ? [] : catalog[lock.guess]}
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}
