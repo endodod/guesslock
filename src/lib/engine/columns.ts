@@ -11,6 +11,8 @@ export type ColumnDef<T> = {
   label: string;
   info: string;
   type: CompareType;
+  /** Filled by hand in /admin: the column is only used once every eligible row has a value. */
+  curated?: boolean;
   get: (row: T, ctx: { buildsInto: (cls: string) => NormItem[] }) => CellValue;
   format?: (v: CellValue) => string;
 };
@@ -24,13 +26,21 @@ const fmtDate = (v: CellValue) => {
 
 export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "gender", label: "Gender", info: "The hero's gender.", type: "exact", get: (h) => h.gender, format: (v) => (v ? cap(String(v)) : "?") },
-  { key: "species", label: "Species", info: "What the hero is. Orange means at least one shared species.", type: "multi", get: (h) => h.species },
+  { key: "species", label: "Species", info: "What the hero is. Orange means at least one shared species.", type: "multi", curated: true, get: (h) => h.species },
   { key: "complexity", label: "Complexity", info: "In-game complexity rating (1-4 stars).", type: "exact", get: (h) => h.src.complexity, format: (v) => (v == null ? "?" : "★".repeat(Number(v))) },
   { key: "weapon", label: "Weapon", info: "Weapon type as listed in the hero picker.", type: "exact", get: (h) => h.weaponType },
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
   { key: "dps", label: "Gun DPS", info: "Base weapon damage per second (without reloads). Arrows point toward the answer.", type: "numeric", get: (h) => h.src.dps },
-  { key: "release", label: "Released", info: "When the hero became playable. Arrows point toward the answer.", type: "date", get: (h) => h.releaseDate, format: fmtDate },
+  { key: "release", label: "Released", info: "When the hero became playable. Arrows point toward the answer.", type: "date", curated: true, get: (h) => h.releaseDate, format: fmtDate },
 ];
+
+/**
+ * Columns in play: API columns always; curated columns only once every hero in the pool has a value,
+ * so the lock opens without curation and gains columns as curation is completed.
+ */
+export function activeColumns<T>(columns: ColumnDef<T>[], pool: T[], ctx: { buildsInto: (cls: string) => NormItem[] }): ColumnDef<T>[] {
+  return columns.filter((c) => !c.curated || (pool.length > 0 && pool.every((row) => c.get(row, ctx) !== null)));
+}
 
 export const ITEM_COLUMNS: ColumnDef<ItemData>[] = [
   { key: "slot", label: "Slot", info: "Weapon, Vitality or Spirit.", type: "exact", get: (i) => i.src.slot, format: (v) => cap(String(v)) },

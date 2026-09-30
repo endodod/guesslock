@@ -25,7 +25,10 @@ type Props = {
   rules: string;
 };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean }): Promise<PlayView> {
+/** Signed-in responses carry the account's authoritative guess list. */
+type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean } };
+
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; noHints: boolean; giveUp?: boolean }): Promise<PlayResponse> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -33,42 +36,37 @@ async function evaluateRemote(body: { date: string; slug: string; guesses: strin
 
 export function LockGame({ slug, date, number, initialView, entries, site, available, rules }: Props) {
   const lock = LOCK_BY_SLUG[slug];
-  const { store, hydrated, today, setRecord, play, toast } = useGame();
+  const { store, hydrated, today, setRecord, play, toast, user } = useGame();
   const rec = store.progress[date]?.[slug];
   const [view, setView] = useState<PlayView>(initialView);
+  const [ranked, setRanked] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [restoreDone, setRestoreDone] = useState(false);
   const restored = useRef(false);
-  const restoring = hydrated && !restoreDone && !!rec && (rec.g.length > 0 || !!rec.b);
+  // Signed in: always ask the server (the lock may have been played on another device).
+  const restoring = hydrated && !restoreDone && (!!user || (!!rec && (rec.g.length > 0 || !!rec.b)));
   const [showRules, setShowRules] = useState(false);
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   // Bumped on every wrong guess so the input can shake.
   const [wrongPulse, setWrongPulse] = useState(0);
   const isArchive = date < today;
-
-  // Restore saved guesses once localStorage is available.
-  useEffect(() => {
-    if (!hydrated || restored.current) return;
-    restored.current = true;
-    if (rec && (rec.g.length || rec.b)) {
-      evaluateRemote({ date, slug, guesses: rec.g, bonus: rec.b, giveUp: rec.gu })
-        .then(setView)
-        .catch(() => toast(t.lock.error))
-        .finally(() => setRestoreDone(true));
-    } else {
-      void Promise.resolve().then(() => setRestoreDone(true));
-    }
-  }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
+  const noHints = store.settings.noHints;
 
   const persist = useCallback(
-    (v: PlayView, guesses: string[], bonus?: string, giveUp?: boolean) => {
+    (v: PlayResponse, guessesIn: string[], bonusIn?: string, giveUp?: boolean) => {
+      // The account's list wins over what this device sent.
+      const guesses = v.account?.guesses ?? guessesIn;
+      const bonus = v.account ? v.account.bonus : bonusIn;
+      if (v.account) setRanked(v.account.ranked);
+      if (guesses.length === 0 && !bonus) return;
       const done = v.status === "won" || v.status === "lost";
-      const hintsUsed = store.settings.noHints ? 0 : v.hintsUsed;
+      const hintsUsed = noHints ? 0 : v.hintsUsed;
       const bonusCorrect = v.bonus?.correct ?? false;
       const next: LockRecord = {
         g: guesses,
         b: bonus,
-        gu: giveUp || undefined,
+        gu: giveUp || rec?.gu || v.gaveUp || undefined,
+        ranked: v.account?.ranked,
         s: v.status === "won" ? "won" : v.status === "lost" ? "lost" : "playing",
         w: v.wrong,
         h: hintsUsed,
@@ -81,8 +79,22 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       setRecord(date, slug, next);
       return next;
     },
-    [store.settings.noHints, rec, isArchive, setRecord, date, slug],
+    [noHints, rec, isArchive, setRecord, date, slug],
   );
+
+  // Restore saved guesses (local or account) once hydrated.
+  useEffect(() => {
+    if (!hydrated || restored.current) return;
+    restored.current = true;
+    if (user || (rec && (rec.g.length || rec.b))) {
+      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, noHints, giveUp: rec?.gu })
+        .then((v) => { setView(v); persist(v, rec?.g ?? [], rec?.b); })
+        .catch(() => toast(t.lock.error))
+        .finally(() => setRestoreDone(true));
+    } else {
+      void Promise.resolve().then(() => setRestoreDone(true));
+    }
+  }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const guessed = useMemo(() => new Set(view.rows.map((r) => r.id)), [view.rows]);
   const done = view.status === "won" || view.status === "lost";
@@ -94,7 +106,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setRestoreDone(true);
     const guesses = [...view.rows.map((r) => r.id), id];
     try {
-      const v = await evaluateRemote({ date, slug, guesses });
+      const v = await evaluateRemote({ date, slug, guesses, noHints });
       setView(v);
       persist(v, guesses);
       if (v.status === "won") {
@@ -122,7 +134,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setBusy(true);
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, giveUp: true });
+      const v = await evaluateRemote({ date, slug, guesses, noHints, giveUp: true });
       setView(v);
       persist(v, guesses, undefined, true);
       play("tick");
@@ -137,7 +149,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (view.bonus?.picked) return;
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, bonus: id, giveUp: rec?.gu });
+      const v = await evaluateRemote({ date, slug, guesses, bonus: id, noHints, giveUp: rec?.gu });
       setView(v);
       persist(v, guesses, id, rec?.gu);
       play(v.bonus?.correct ? "click" : "tick");
@@ -222,6 +234,11 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
       {isArchive && (
         <div className="rounded-sm border border-brass/50 bg-brass/10 px-4 py-2 text-center text-sm text-brass">{t.vault.archiveBanner}</div>
+      )}
+      {user && !isArchive && ranked === false && (
+        <p className="text-center text-xs text-ash">
+          Unranked: this lock was started before you signed in, so it counts for your stats but not the <Link href="/hall" className="text-brass underline-offset-4 hover:underline">leaderboards</Link>.
+        </p>
       )}
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>

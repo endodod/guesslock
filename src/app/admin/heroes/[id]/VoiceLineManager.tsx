@@ -64,7 +64,7 @@ export function VoiceLineManager({
         {msg && <span className="text-neutral-600">{msg}</span>}
       </div>
       <p className="text-xs text-neutral-500">
-        Text-only for now (no audio). Lines under 6 words are excluded; lines naming the hero or their abilities are redacted and need approval.
+        Text-only for now (no audio). Lines under 6 words are excluded; lines naming the hero or their abilities are used with those names redacted. Set a line to &quot;excluded&quot; to keep it out.
         Re-importing never overwrites manual edits; changed wiki lines are flagged. Starred lines are revealed last.
       </p>
       <div className="flex flex-wrap items-center gap-2">

@@ -2,7 +2,7 @@
 export const en = {
   brand: "GUESSLOCK",
   tagline: "Pick today's lock.",
-  nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault" },
+  nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault", hall: "The Hall (leaderboards)", account: "Your account", signIn: "Sign in" },
   groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens" },
   vault: {
     progress: (open: number, total: number) => `${open} / ${total} locks open`,

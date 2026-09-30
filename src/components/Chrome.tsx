@@ -8,7 +8,8 @@ import { useGame } from "./GameProvider";
 import { Button, Countdown, DecoFrame, Icon, Logo } from "./ui";
 
 export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset: number }) {
-  const { toast } = useGame();
+  const { toast, user } = useGame();
+  const navBtn = "flex h-11 w-10 items-center justify-center text-brass hover:text-paper sm:w-11";
   const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-brass/20 bg-ink/90 backdrop-blur">
@@ -24,15 +25,29 @@ export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset:
           </span>
         </div>
         <nav className="flex items-center" aria-label="Main">
-          <Link href="/ledger" className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.ledger} title={t.nav.ledger}>
+          <Link href="/hall" className={navBtn} aria-label={t.nav.hall} title={t.nav.hall}>
+            <Icon name="crown" />
+          </Link>
+          <Link href="/ledger" className={navBtn} aria-label={t.nav.ledger} title={t.nav.ledger}>
             <Icon name="ledger" />
           </Link>
-          <Link href="/archive" className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.archive} title={t.nav.archive}>
+          <Link href="/archive" className={navBtn} aria-label={t.nav.archive} title={t.nav.archive}>
             <Icon name="archive" />
           </Link>
-          <button type="button" onClick={() => setSettingsOpen(true)} className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.settings} title={t.nav.settings}>
+          <button type="button" onClick={() => setSettingsOpen(true)} className={navBtn} aria-label={t.nav.settings} title={t.nav.settings}>
             <Icon name="settings" />
           </button>
+          {user ? (
+            <Link href="/account" className={navBtn} aria-label={`${t.nav.account}: ${user.name}`} title={user.name}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-ecto/70 bg-ecto/10 font-display text-sm text-ecto">
+                {user.name.trim().charAt(0).toUpperCase() || "?"}
+              </span>
+            </Link>
+          ) : (
+            <Link href="/auth/sign-in" className={navBtn} aria-label={t.nav.signIn} title={t.nav.signIn}>
+              <Icon name="user" />
+            </Link>
+          )}
         </nav>
       </div>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

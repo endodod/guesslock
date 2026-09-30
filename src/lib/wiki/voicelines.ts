@@ -2,6 +2,7 @@
 // Uses the MediaWiki API (action=query, revisions + imageinfo), not HTML scraping.
 // Wiki text is CC BY-NC-SA 4.0: we keep page + revision id per line for attribution.
 import { db } from "../db";
+import type { Prisma } from "@/generated/prisma/client";
 import { config } from "../config";
 import { normalize, wordCount } from "../text/normalize";
 import { redact } from "../text/redact";
@@ -142,6 +143,7 @@ export async function importHeroVoiceLines(heroId: number): Promise<ImportResult
     const existing = new Map((await db.voiceLine.findMany({ where: { heroId } })).map((l) => [l.fileName, l]));
     let changed = 0;
     const seen = new Set<string>();
+    const toCreate: Prisma.VoiceLineCreateManyInput[] = [];
     for (const l of lines) {
       seen.add(l.fileName);
       const sourceHash = sha(l.text);
@@ -154,7 +156,7 @@ export async function importHeroVoiceLines(heroId: number): Promise<ImportResult
       const prev = existing.get(l.fileName);
       const base = { wikiPage: page.title, revisionId: page.revid, section: l.section, audioUrl: audio.get(l.fileName) ?? null, wordCount: words };
       if (!prev) {
-        await db.voiceLine.create({ data: { heroId, fileName: l.fileName, sourceText: l.text, sourceHash, autoText, ...base, ...auto } });
+        toCreate.push({ heroId, fileName: l.fileName, sourceText: l.text, sourceHash, autoText, ...base, ...auto });
       } else if (prev.sourceHash !== sourceHash) {
         changed++;
         // Never overwrite manual edits: flag them for review instead.
@@ -164,10 +166,13 @@ export async function importHeroVoiceLines(heroId: number): Promise<ImportResult
             ? { ...base, sourceText: l.text, sourceHash, autoText, sourceChanged: true }
             : { ...base, sourceText: l.text, sourceHash, autoText, ...auto, sourceChanged: false },
         });
-      } else {
-        await db.voiceLine.update({ where: { id: prev.id }, data: prev.manuallyEdited ? { revisionId: page.revid, audioUrl: base.audioUrl } : { ...base, autoText, ...auto } });
+      } else if (!prev.manuallyEdited && (prev.autoText !== autoText || prev.status !== auto.status || prev.section !== base.section)) {
+        // Unchanged source: only write when the automatic result changed (e.g. new aliases).
+        await db.voiceLine.update({ where: { id: prev.id }, data: { ...base, autoText, ...auto } });
       }
     }
+    // One round-trip for all new lines instead of one per line.
+    if (toCreate.length) await db.voiceLine.createMany({ data: toCreate, skipDuplicates: true });
     for (const prev of existing.values())
       if (!seen.has(prev.fileName) && prev.status !== "excluded")
         await db.voiceLine.update({ where: { id: prev.id }, data: { status: "excluded", autoReason: "removed from wiki", sourceChanged: true } });
@@ -181,6 +186,30 @@ export async function importHeroVoiceLines(heroId: number): Promise<ImportResult
   } catch (e) {
     return { heroId, hero: hero.name, status: "error", note: (e as Error).message };
   }
+}
+
+const REFRESH_DAYS = 30;
+
+/**
+ * Automatic import for the daily job: heroes never imported first, then imports older than 30 days.
+ * Stops when the time budget is used up; the next run continues where this one stopped.
+ */
+export async function importDueVoiceLines(budgetMs: number): Promise<ImportResult[]> {
+  const started = Date.now();
+  const cutoff = new Date(Date.now() - REFRESH_DAYS * 86400000);
+  const due = await db.hero.findMany({
+    where: { active: true, OR: [{ voiceImportedAt: null }, { voiceImportedAt: { lt: cutoff } }] },
+    orderBy: [{ voiceImportedAt: { sort: "asc", nulls: "first" } }, { name: "asc" }],
+  });
+  const results: ImportResult[] = [];
+  for (const h of due) {
+    if (Date.now() - started > budgetMs) break;
+    const r = await importHeroVoiceLines(h.id);
+    results.push(r);
+    if (r.status === "error" && r.note?.includes("blocked")) break;
+    await sleep(1000);
+  }
+  return results;
 }
 
 export async function importAllVoiceLines(onProgress?: (r: ImportResult) => void): Promise<ImportResult[]> {

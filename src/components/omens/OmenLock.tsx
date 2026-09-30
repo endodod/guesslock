@@ -60,7 +60,9 @@ export function OmenLock({ slug, date, number, initial, cat, map, site, availabl
         onLocked={(v, answers) => {
           if (rec?.o) return;
           setRecord(date, slug, {
-            g: [], o: answers, s: "won", w: 0, h: 0, souls: v.reveal!.result.total,
+            // Signed in: the account's recorded answers win (the Omen may be locked in on another device).
+            g: [], o: (v as OmenView & { account?: { answers: OmenAnswer } }).account?.answers ?? answers,
+            s: "won", w: 0, h: 0, souls: v.reveal!.result.total,
             archive: isArchive, at: Date.now(),
           });
         }}

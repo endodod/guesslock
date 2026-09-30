@@ -11,7 +11,7 @@ export type HeroData = {
   className: string;
   aliases: string[];
   exclude: string[];
-  /** Eligible as an answer: active and not a newly added, uncurated hero. */
+  /** Eligible as an answer (every active hero; no curation gate). */
   eligible: boolean;
   src: NormHero;
   gender: string | null;
@@ -68,7 +68,8 @@ export async function loadGameData(): Promise<GameData> {
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.textEntry.findMany(),
-    db.voiceLine.findMany({ where: { status: "approved" }, orderBy: { id: "asc" } }),
+    // Every line that passed the automatic filters; "needs_redaction" lines use their redacted text.
+    db.voiceLine.findMany({ where: { status: { not: "excluded" } }, orderBy: { id: "asc" } }),
   ]);
 
   const heroes: HeroData[] = heroRows.map((h) => {
@@ -79,7 +80,7 @@ export async function loadGameData(): Promise<GameData> {
       className: h.className,
       aliases: h.aliases,
       exclude: h.excludeFromModes,
-      eligible: !h.reviewReasons.includes("new"),
+      eligible: true,
       src,
       gender: h.genderOverride || src.gender,
       species: h.species,

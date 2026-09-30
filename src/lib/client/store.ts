@@ -13,6 +13,7 @@ export type LockRecord = {
   souls: number;
   bonusCorrect?: boolean;
   archive?: boolean; // replay of a past day: excluded from stats and streaks
+  ranked?: boolean; // signed in: counts for leaderboards (set from the server)
   answer?: { name: string; image: string | null };
   at?: number; // finished at (ms)
 };
@@ -87,6 +88,23 @@ export function saveStore(data: StoreData) {
   } catch {
     /* storage full or blocked: play continues without persistence */
   }
+}
+
+/**
+ * Adopts the account's progress from the server: server records replace local ones for the same
+ * day and lock (the server is authoritative when signed in); local-only records are kept.
+ */
+export function adoptServerProgress(local: StoreData["progress"], server: Record<string, Record<string, LockRecord>>): StoreData["progress"] {
+  const out: StoreData["progress"] = {};
+  for (const [d, locks] of Object.entries(local)) out[d] = { ...locks };
+  for (const [d, locks] of Object.entries(server ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    for (const [slug, rec] of Object.entries(locks ?? {})) {
+      if (!rec || !Array.isArray(rec.g)) continue;
+      (out[d] ??= {})[slug] = { ...rec, s: rec.s === "won" || rec.s === "lost" ? rec.s : "playing" };
+    }
+  }
+  return out;
 }
 
 // ───────────── stats ─────────────

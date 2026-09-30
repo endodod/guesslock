@@ -59,7 +59,8 @@ export default async function TextsAdmin({ searchParams }: { searchParams: Promi
         </form>
       </div>
       <p className="text-xs text-neutral-500">
-        Players only see approved or rewritten texts. ▇▇▇ marks a redaction. Also redact place/faction names or unique terms that give the answer away.
+        Puzzles use the automatic redaction right away; review is optional. A rewrite saved here replaces it in future puzzles.
+        ▇▇▇ marks a redaction. Worth redacting by hand: place/faction names or unique terms that give the answer away.
         Showing up to 60 entries.
       </p>
       {pendingIds.length > 0 && (

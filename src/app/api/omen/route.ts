@@ -6,6 +6,8 @@ import { isDay, todayDate } from "@/lib/day";
 import { getPuzzle } from "@/lib/server/puzzles";
 import { omenView, parseAnswer } from "@/lib/omens/serve";
 import type { OmenPayload } from "@/lib/omens/types";
+import { currentUser } from "@/lib/auth/server";
+import { recordOmen, recordedOmen } from "@/lib/accounts/service";
 
 const Body = z.object({ date: z.string().refine(isDay), slug: z.string(), answers: z.unknown().optional() });
 
@@ -21,5 +23,17 @@ export async function POST(req: Request) {
   if (!row || row.sealed) return NextResponse.json({ error: "empty" }, { status: 404 });
   const guess = answers === undefined ? null : parseAnswer(omen, answers);
   if (answers !== undefined && !guess) return NextResponse.json({ error: "bad answers" }, { status: 400 });
-  return NextResponse.json(omenView(row.payload as unknown as OmenPayload, guess), { headers: { "cache-control": "no-store" } });
+  const headers = { "cache-control": "no-store" };
+  const payload = row.payload as unknown as OmenPayload;
+  const user = await currentUser();
+  if (user) {
+    // Signed in: the first lock-in is recorded and final; other devices get the recorded answers.
+    if (guess) {
+      const r = await recordOmen(user, row, slug, guess);
+      return NextResponse.json({ ...omenView(payload, r.answers), account: { answers: r.answers, ranked: r.ranked } }, { headers });
+    }
+    const recorded = await recordedOmen(user.id, date, slug);
+    if (recorded) return NextResponse.json({ ...omenView(payload, recorded), account: { answers: recorded, ranked: null } }, { headers });
+  }
+  return NextResponse.json(omenView(payload, guess), { headers });
 }

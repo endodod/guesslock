@@ -54,8 +54,12 @@ export async function upsertTextEntry(entityType: TextEntityType, entityId: numb
   return "changed" as const;
 }
 
-/** Display text if the entry is usable in a puzzle, else null. */
+/**
+ * Display text for a puzzle. No admin approval needed: the automatic redaction is used directly;
+ * an admin rewrite (finalText) takes precedence when one exists and its source hasn't changed since.
+ */
 export function usableText(e: { status: string; stale: boolean; finalText: string | null; autoText: string } | null | undefined): string | null {
-  if (!e || e.status === "auto" || e.stale) return null;
-  return (e.finalText ?? e.autoText).trim() || null;
+  if (!e) return null;
+  const text = e.finalText && !e.stale ? e.finalText : e.autoText;
+  return text.trim() || null;
 }
