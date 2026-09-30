@@ -23,6 +23,8 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
   /** Enables /admin/setup: per-hero, per-puzzle setup editing (ADMIN_SETUP_MODE=1). */
   adminSetup: ["1", "true", "on", "yes"].includes((process.env.ADMIN_SETUP_MODE ?? "").toLowerCase()),
+  /** Shows an "Admin login" shortcut under the sign-in form (ADMIN_DEBUG=1, local use). */
+  adminDebug: ["1", "true", "on", "yes"].includes((process.env.ADMIN_DEBUG ?? "").toLowerCase()),
   sessionSecret: env("SESSION_SECRET", ""),
   cronSecret: process.env.CRON_SECRET ?? "",
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL ?? "",

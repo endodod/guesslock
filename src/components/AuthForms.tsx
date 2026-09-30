@@ -63,7 +63,7 @@ function Submit({ pending, label, busy }: { pending: boolean; label: string; bus
 
 const link = "text-brass underline-offset-4 hover:underline";
 
-export function SignInForm({ next }: { next: string }) {
+export function SignInForm({ next, adminLink = false }: { next: string; adminLink?: boolean }) {
   const [state, action, pending] = useActionState(signIn, null);
   return (
     <Shell title="Sign the register" sub="Sign in to keep your souls, streaks and place on the leaderboards.">
@@ -74,6 +74,11 @@ export function SignInForm({ next }: { next: string }) {
         <Status state={state} />
         <Submit pending={pending} label="Sign in" busy="Turning the key…" />
       </form>
+      {adminLink && (
+        <Link href="/admin/login" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-[3px] border border-brass/50 text-brass hover:bg-brass/10">
+          Admin login
+        </Link>
+      )}
       <div className="mt-5 space-y-2 text-center text-sm">
         <p><Link className={link} href={`/auth/code?next=${encodeURIComponent(next)}`}>Email me a sign-in code instead</Link></p>
         <p><Link className={link} href="/auth/reset">Forgot your password?</Link></p>
