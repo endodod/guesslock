@@ -1,5 +1,5 @@
 "use client";
-// Clue stage renderers for all 13 locks. Clue images get neutral alt text so answers don't leak.
+// Clue stage renderers for the 13 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Clue, GuessRow } from "@/lib/engine/types";

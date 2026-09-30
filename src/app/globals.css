@@ -28,6 +28,10 @@
   --slot-vitality: #6ab04c;
   --slot-spirit: #a66ad8;
 
+  /* Omen team colours (the game's own team1/team2 colours) */
+  --amber: #e0962a;
+  --sapphire: #5b82d6;
+
   color-scheme: dark;
 }
 
@@ -61,6 +65,8 @@
   --color-slot-weapon: var(--slot-weapon);
   --color-slot-vitality: var(--slot-vitality);
   --color-slot-spirit: var(--slot-spirit);
+  --color-amber: var(--amber);
+  --color-sapphire: var(--sapphire);
   --font-display: var(--font-limelight), "Georgia", serif;
   --font-body: var(--font-spectral), "Georgia", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;

@@ -1,5 +1,6 @@
 // Souls and share text (pure; unit-tested). Share text never contains clue content.
-import { LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
+import { LOCKS, OMEN_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
+import { omenSymbol } from "../omens/scoring";
 import type { Tile } from "../engine/types";
 
 export const BONUS_SOULS = 25;
@@ -28,7 +29,13 @@ export function shareLock(opts: {
   return `${head}\n${line}${grid}\n${site}`;
 }
 
-export function symbolFor(r: LockResult | undefined): string {
+/** Per-Omen share: one ✓/✗ per question, never the scenario itself. */
+export function shareOmen(opts: { lock: LockDef; number: number; ticks: string; souls: number; site: string }): string {
+  return `GUESSLOCK #${opts.number} — ${opts.lock.name}\n${opts.ticks} · ${opts.souls} souls\n${opts.site}`;
+}
+
+export function symbolFor(r: LockResult | undefined, lock?: LockDef): string {
+  if (lock?.group === "omens") return r?.status === "won" ? omenSymbol(r.souls) : "▫️";
   if (!r) return "▫️";
   if (r.status === "won") return r.guesses <= 3 ? "✨" : "🔓";
   if (r.status === "lost") return "🔒";
@@ -45,6 +52,7 @@ export function shareDay(opts: {
     `GUESSLOCK #${number} — ${open}/${LOCKS.length} locks · ${souls} souls`,
     `Spirits  ${SPIRIT_LOCKS.map((l) => symbolFor(results[l.slug])).join("")}`,
     `Shop     ${SHOP_LOCKS.map((l) => symbolFor(results[l.slug])).join("")}`,
+    `Omens    ${OMEN_LOCKS.map((l) => symbolFor(results[l.slug], l)).join("")}`,
     `🔥 ${streak} ${streak === 1 ? "day" : "days"}`,
     site,
   ].join("\n");

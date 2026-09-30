@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { db } from "../db";
 import { config } from "../config";
-import { fetchClientVersion, fetchHeroes, fetchItems } from "../deadlock/api";
+import { fetchClientVersion, fetchHeroes, fetchItems, fetchMap } from "../deadlock/api";
 import { normalizeAll, type SyncIssue } from "../deadlock/normalize";
 import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mirrorAll } from "../media";
@@ -43,6 +43,9 @@ export async function runAssetSync(): Promise<{ id: number; status: string; diff
       ...norm.abilities.map((a) => a.image),
       ...items.flatMap((i) => [i.image, i.glyph]),
     ].filter((u): u is string => !!u);
+    // The Omens' minimap (stored as the "assets-map" snapshot; a failure here must not fail the sync).
+    const map = (await fetchMap().catch(() => null)) as { images?: { minimap?: string } } | null;
+    if (map?.images?.minimap) imageUrls.push(map.images.minimap);
     const failedImages = await mirrorAll(imageUrls);
 
     const issues: SyncIssue[] = [...norm.issues, ...failedImages.map((u) => ({ entity: "image", id: u, reason: "mirror failed" }))];

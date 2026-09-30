@@ -7,7 +7,7 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 text-paper/90">
       <h1 className="font-display text-3xl text-brass">About GUESSLOCK</h1>
-      <p>GUESSLOCK is a fan-made daily guessing game for Valve&apos;s Deadlock: 13 small puzzles a day about the game&apos;s heroes and shop items.</p>
+      <p>GUESSLOCK is a fan-made daily guessing game for Valve&apos;s Deadlock: 16 small puzzles a day: 13 about the game&apos;s heroes and shop items, and 3 Omens, where you predict what happens next in a real high-rank match. Omen matches and replay data come from deadlock-api.com.</p>
       <h2 className="font-display pt-2 text-xl text-paper">Credits</h2>
       <ul className="list-disc space-y-2 pl-5">
         <li>

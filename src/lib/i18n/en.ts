@@ -3,7 +3,7 @@ export const en = {
   brand: "GUESSLOCK",
   tagline: "Pick today's lock.",
   nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault" },
-  groups: { spirits: "The Spirits", shop: "The Curiosity Shop" },
+  groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens" },
   vault: {
     progress: (open: number, total: number) => `${open} / ${total} locks open`,
     continue: "Continue",
@@ -72,7 +72,7 @@ export const en = {
     close: "Close",
   },
   onboarding: [
-    { title: "The Vault", body: "Every day, 13 answers are locked away: 9 about Deadlock's heroes, 4 about its shop items. Everyone gets the same locks. They reset at midnight, Zurich time." },
+    { title: "The Vault", body: "Every day, 16 locks wait: 9 about Deadlock's heroes, 4 about its shop items, and 3 Omens, where you predict what happens next in a real match. Everyone gets the same locks. They reset at midnight, Zurich time." },
     { title: "Picking a lock", body: "Each lock is a guessing game. Guess wrong and you get a better clue. Guess right and the box swings open." },
     { title: "Picks and souls", body: "Every wrong guess snaps a lockpick. Some picks hold hints. Solve fast for more souls, and keep your streak alive by opening at least one lock a day." },
   ],

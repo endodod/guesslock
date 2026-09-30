@@ -6,6 +6,7 @@ export type LockRecord = {
   g: string[]; // guesses (ids or numbers as strings)
   b?: string; // bonus pick
   gu?: boolean; // gave up
+  o?: unknown; // The Omens: the locked-in answers (the record's souls = the Omen score)
   s: "playing" | "won" | "lost";
   w: number; // wrong guesses
   h: number; // hints used
@@ -31,6 +32,8 @@ export type StoreData = {
   progress: Record<string, Record<string, LockRecord>>; // date -> slug -> record
   settings: Settings;
   onboarded: boolean;
+  /** Omen practice (never counts toward souls/streaks): per Omen, rounds played and souls scored. */
+  practice: Record<string, { n: number; souls: number }>;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,7 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const STORE_KEY = "guesslock";
 
 export function emptyStore(): StoreData {
-  return { version: 2, progress: {}, settings: { ...DEFAULT_SETTINGS }, onboarded: false };
+  return { version: 2, progress: {}, settings: { ...DEFAULT_SETTINGS }, onboarded: false, practice: {} };
 }
 
 /**
@@ -53,6 +56,7 @@ export function migrateStore(raw: unknown): StoreData {
   const out = emptyStore();
   out.onboarded = !!r.onboarded;
   out.settings = { ...DEFAULT_SETTINGS, ...((r.settings as Partial<Settings>) ?? {}) };
+  if (r.practice && typeof r.practice === "object") out.practice = r.practice as StoreData["practice"];
   const progress = (r.progress ?? {}) as Record<string, Record<string, LockRecord>>;
   const validSlugs = new Set(LOCKS.map((l) => l.slug));
   for (const [date, locks] of Object.entries(progress)) {

@@ -12,5 +12,8 @@ export const RULES: Record<string, string> = {
   relic: "An item's icon is shown blurred. Each wrong guess makes it sharper. Hints unlock after 4 and 6 wrong guesses.",
   appraisal: "Guess any item. Each guess shows how its slot, tier, type, components, cooldown and number of stat bonuses compare to the answer. Arrows show whether the answer's value is higher or lower.",
   lineage: "One item is shown along with its build path direction. Guess the item on the other side: either what it builds into, or its component. If several items fit, any of them counts. The slot color of the answer is shown from the start.",
+  clash: "A frozen moment from a real high-rank match: every hero's position, exact HP, level, net worth, items and ultimate. Predict the next 30 seconds: does anyone die, how many per team, and who. Answer everything, then lock in; the match plays out on the map. Up to 100 souls: 20 for yes/no, 15 per team count (7 if off by one), 50 for picking the right heroes (wrong picks cost points).",
+  beast: "A real high-rank match, 30 to 60 seconds before something might happen at the midboss. Predict the next 60 seconds: is it killed, by which team, who takes the rejuv (steals happen), and how many rejuvs each team has afterwards. Up to 100 souls.",
+  rift: "A real high-rank match just before the Unstable Rift opens. Predict which team claims it (or nobody, if it expires) and how many heroes die at the rift per team. Up to 100 souls: 50 for the claimer, 25 per team count (12 if off by one).",
   measure: "An item's stat card is shown with one value hidden. Guess the number: each guess tells you whether the real value is higher or lower. You have 5 tries. Guesses within 10% of the value (at least 1 unit) count as correct.",
 };

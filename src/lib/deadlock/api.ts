@@ -68,6 +68,11 @@ export async function fetchItems(backup: BackupMode = "none"): Promise<unknown[]
   return data;
 }
 
+/** Minimap metadata (image URLs, objective positions). Used by The Omens' map. */
+export async function fetchMap(backup: BackupMode = "none"): Promise<unknown> {
+  return getJson("/v1/assets/map", { key: "assets-map", backup });
+}
+
 export async function fetchClientVersion(backup: BackupMode = "none"): Promise<number | null> {
   try {
     return SteamInfoSchema.parse(await getJson("/v1/assets/steam-info", { key: "assets-steam-info", backup })).client_version;
