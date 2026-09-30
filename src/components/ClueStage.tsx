@@ -162,7 +162,7 @@ function EmojiStage({ clue }: { clue: Extract<Clue, { kind: "emoji" }> }) {
   const color = store.settings.colorEmoji;
   return (
     <DecoFrame className="clue-layer p-4 md:p-6">
-      <ol className="grid grid-cols-3 gap-3 md:grid-cols-6">
+      <ol className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: `repeat(${clue.slots.length}, minmax(0, 1fr))` }}>
         {clue.slots.map((e, i) => (
           <li key={i} className="aspect-square [perspective:600px]">
             <motion.div

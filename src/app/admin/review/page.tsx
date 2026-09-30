@@ -18,7 +18,7 @@ export default async function ReviewQueue() {
   const flagged = heroes.filter((h) => h.needsReview);
   const approvedLines = new Map(voiceCounts.map((v) => [v.heroId, v._count]));
   const missingClassic = heroes.filter((h) => !h.species || !h.releaseDate);
-  const missingEmoji = heroes.filter((h) => h.emojis.length !== 6);
+  const missingEmoji = heroes.filter((h) => h.emojis.length < 10);
   const fewLines = heroes.filter((h) => !h.genericVoice && (approvedLines.get(h.id) ?? 0) < ECHO_MIN_LINES);
   const pendingTexts = texts.filter((t) => t.status === "auto" || t.stale);
 

@@ -17,36 +17,49 @@ const lookup = (data: ReturnType<typeof makeData>) => (id: string) => {
 };
 
 describe("The Cipher", () => {
-  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶"];
+  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶", "🌲", "🪃", "🦌", "🪤"];
   const talon = hero(17, "Grey Talon", { emojis: set, emojisReviewed: true });
   const data = makeData({
     heroes: [
       talon,
-      hero(1, "Infernus", { emojis: ["🔥"], emojisReviewed: true }), // incomplete set
-      hero(2, "Seven", { emojis: ["🎩", "⚡", "🌩️", "🏙️", "🎭", "7️⃣"], emojisReviewed: false }), // no review needed
+      hero(1, "Infernus", { emojis: ["🔥", "💨", "🏃", "💥", "☄️", "😈"], emojisReviewed: true }), // incomplete (6 < 10)
+      hero(2, "Seven", { emojis: ["🎩", "⚡", "🌩️", "🏙️", "🎭", "🔌", "🎲", "🌀", "💡", "⛈️"], emojisReviewed: false }), // no review needed
       hero(3, "Excluded", { emojis: set, exclude: ["emoji"] }),
     ],
   });
 
-  it("only heroes with a complete set are eligible (no review gate)", () => {
+  it("only heroes with a complete 10-emoji set are eligible (no review gate)", () => {
     expect(cipher.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([17, 2]);
   });
 
-  it("reveals in stored order, one per wrong guess", async () => {
-    const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data));
-    const slots = (w: number) => (cipher.clue(p, w, false) as { slots: (string | null)[] }).slots;
-    expect(slots(0)).toEqual(["🎩", null, null, null, null, null]);
-    expect(slots(2)).toEqual(["🎩", "🐦", "🌙", null, null, null]);
-    expect(slots(9)).toEqual(set);
+  it("shows 5 of the 10, hardest first, always ending with one of the 3 most obvious", async () => {
+    const seen = new Set<string>();
+    for (const seed of ["a", "b", "c", "d", "e", "f"]) {
+      const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data, seed));
+      const picked = (cipher.clue(p, 9, false) as { slots: string[] }).slots;
+      expect(picked).toHaveLength(5);
+      const idx = picked.map((e) => set.indexOf(e));
+      expect(idx).toEqual([...idx].sort((a, b) => a - b));
+      expect(idx[4]).toBeGreaterThanOrEqual(7);
+      seen.add(picked.join(""));
+    }
+    expect(seen.size).toBeGreaterThan(1); // not the same every time
   });
 
-  it("hints: gender after 7, first letter after 9 wrong guesses", async () => {
+  it("reveals one per wrong guess and freezes only the 5 picked", async () => {
+    const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data));
+    const slots = (w: number) => (cipher.clue(p, w, false) as { slots: (string | null)[] }).slots;
+    expect(slots(0).filter(Boolean)).toHaveLength(1);
+    expect(slots(2).filter(Boolean)).toHaveLength(3);
+    expect(p.clue.emojis).toHaveLength(5);
+  });
+
+  it("hints: gender after 6, first letter after 8 wrong guesses", async () => {
     const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data));
     const row = { date: "2026-10-01", mode: "cipher", sealed: false, sealedReason: null, payload: p };
-    const wrongs = ["1", "2", "3"];
-    const v = evaluate(LOCK_BY_SLUG.cipher, row, 1, wrongs, undefined, lookup(data));
+    const v = evaluate(LOCK_BY_SLUG.cipher, row, 1, ["1", "2", "3"], undefined, lookup(data));
     expect(v.hints.every((h) => !h.unlocked)).toBe(true);
-    expect(LOCK_BY_SLUG.cipher.hints.map((h) => h.after)).toEqual([7, 9]);
+    expect(LOCK_BY_SLUG.cipher.hints.map((h) => h.after)).toEqual([6, 8]);
   });
 
   it("share text never contains the emoji set", () => {
@@ -154,7 +167,7 @@ describe("souls", () => {
 });
 
 describe("Giving up", () => {
-  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶"];
+  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶", "🌲", "🪃", "🦌", "🪤"];
   const data = makeData({ heroes: [hero(17, "Grey Talon", { emojis: set, emojisReviewed: true }), hero(1, "Infernus"), hero(2, "Seven")] });
   const build = async () => {
     const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data));
@@ -166,7 +179,7 @@ describe("Giving up", () => {
     expect(v.status).toBe("lost");
     expect(v.gaveUp).toBe(true);
     expect(v.answer?.name).toBe("Grey Talon");
-    expect((v.clue as { slots: (string | null)[] }).slots).toEqual(set);
+    expect((v.clue as { slots: (string | null)[] }).slots.every(Boolean)).toBe(true);
   });
 
   it("is ignored without a guess, and a correct guess still wins", async () => {
@@ -179,12 +192,12 @@ describe("Giving up", () => {
 });
 
 describe("The Cipher default emoji sets", () => {
-  it("has 6 emojis per hero and no two heroes share their first 3", async () => {
+  it("has 10 distinct emojis per hero and no two heroes share their first 3", async () => {
     const { DEFAULT_EMOJIS } = await import("@/lib/data/emojis");
     const firsts = new Map<string, string>();
     for (const [hero, set] of Object.entries(DEFAULT_EMOJIS)) {
-      expect(set, hero).toHaveLength(6);
-      expect(new Set(set).size, hero).toBe(6);
+      expect(set, hero).toHaveLength(10);
+      expect(new Set(set).size, hero).toBe(10);
       const key = set.slice(0, 3).join("");
       expect(firsts.get(key), `${hero} vs ${firsts.get(key)}`).toBeUndefined();
       firsts.set(key, hero);

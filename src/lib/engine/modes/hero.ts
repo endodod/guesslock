@@ -316,19 +316,34 @@ export const ascension: ModeImpl<AscClue> = {
 
 // ---------- VIII. The Cipher (emoji) ----------
 
+/** Each hero has 10 emojis (hardest first); a puzzle shows 5 of them, so a hero looks different each time. */
+export const EMOJI_SET_SIZE = 10;
+export const EMOJI_PUZZLE_SIZE = 5;
+
+/**
+ * Seeded pick of 5 of a hero's 10 emojis, kept in hardest-to-easiest order. One always comes from the
+ * 3 most obvious so the last reveal is a real giveaway.
+ */
+export function pickEmojis(set: string[], rng: { int(n: number): number; shuffle<T>(a: readonly T[]): T[] }): string[] {
+  const easy = set.length - 3 + rng.int(3);
+  const rest = rng.shuffle(Array.from({ length: set.length - 3 }, (_, i) => i)).slice(0, EMOJI_PUZZLE_SIZE - 1);
+  return [...rest, easy].sort((a, b) => a - b).map((i) => set[i]);
+}
+
 export const cipher: ModeImpl<{ emojis: string[] }> = {
   mode: "emoji",
-  candidates: (data) => heroPool(data, "emoji", (h) => h.emojis.length === 6),
-  build(c, { data }) {
+  candidates: (data) => heroPool(data, "emoji", (h) => h.emojis.length >= EMOJI_SET_SIZE),
+  build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
     return {
       v: 1, mode: "emoji", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
       hints: { gender: { value: cap(h.gender) }, initial: { value: h.name[0].toUpperCase() } },
-      clue: { emojis: h.emojis },
+      // Only the 5 picked emojis are frozen into the puzzle.
+      clue: { emojis: pickEmojis(h.emojis.slice(0, EMOJI_SET_SIZE), rng) },
     };
   },
   clue: (p, wrong, done) => {
-    const n = done ? 6 : Math.min(6, 1 + wrong);
+    const n = done ? EMOJI_PUZZLE_SIZE : Math.min(EMOJI_PUZZLE_SIZE, 1 + wrong);
     return { kind: "emoji", slots: p.clue.emojis.map((e, i) => (i < n ? e : null)) };
   },
   displayed: (p) => p.clue.emojis,

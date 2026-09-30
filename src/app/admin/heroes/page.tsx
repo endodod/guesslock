@@ -30,7 +30,7 @@ export default async function HeroesAdmin() {
                 <td>{h.species ?? ok(false)}</td>
                 <td>{h.weaponTypeOverride ?? src.gunTag ?? ok(false)}</td>
                 <td>{h.releaseDate?.toISOString().slice(0, 10) ?? ok(false)}</td>
-                <td>{h.emojis.join("")} {ok(h.emojis.length === 6 && h.emojisReviewed)}</td>
+                <td>{h.emojis.join("")} {ok(h.emojis.length >= 10 && h.emojisReviewed)}</td>
                 <td>{approved.get(h.id) ?? 0}</td>
                 <td>{h.genericVoice ? "yes" : ""}</td>
                 <td className="text-xs">{h.excludeFromModes.join(", ")}</td>

@@ -7,7 +7,7 @@ export const RULES: Record<string, string> = {
   incantation: "An ability description is shown with names blacked out. Guess the hero it belongs to. After 3 wrong guesses you see which slot the ability is in; after 6, a blurred icon. Bonus round: name the ability.",
   belongings: "Items that are unusually popular on one hero are shown, starting with the least telling one. Each wrong guess adds another item. Guess the hero.",
   ascension: "The upgrade texts of one ability are shown, starting with Tier III. Wrong guesses reveal Tier II, then Tier I, then a blurred icon. Guess the ability; the list is grouped by hero.",
-  cipher: "Six emojis describe a hero. You start with one; each wrong guess reveals the next. After all six are shown, 2 more wrong guesses reveal the gender and 2 more the first letter.",
+  cipher: "Five emojis describe a hero, picked from a set of ten, so the same hero looks different each time. You start with one; each wrong guess reveals the next, from the hardest to the most obvious. After all five are shown, 2 more wrong guesses reveal the gender and 2 more the first letter.",
   echo: "Voice lines spoken by one hero are shown with names blacked out. You start with one line; each wrong guess adds another, up to five. After that, 2 more wrong guesses reveal the hero's gender.",
   relic: "An item's icon is shown blurred. Each wrong guess makes it sharper. Hints unlock after 4 and 6 wrong guesses.",
   appraisal: "Guess any item. Each guess shows how its slot, tier, type, components, cooldown and number of stat bonuses compare to the answer. Arrows show whether the answer's value is higher or lower.",

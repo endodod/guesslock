@@ -10,9 +10,9 @@ import { heroTerms, upsertTextEntry } from "../text/entries";
 import { alert } from "../monitoring";
 import { DEFAULT_EMOJIS } from "../data/emojis";
 
-/** The Cipher: a default 6-emoji set for heroes that have none yet (admin-curated sets win). */
+/** The Cipher: the default 10-emoji set for heroes without a complete set (complete admin sets win). */
 const emojiDefaults = (name: string, current: string[] = []) =>
-  current.length === 0 && DEFAULT_EMOJIS[name] ? { emojis: DEFAULT_EMOJIS[name], emojisReviewed: true } : {};
+  current.length < 10 && DEFAULT_EMOJIS[name] ? { emojis: DEFAULT_EMOJIS[name], emojisReviewed: true } : {};
 import type { Prisma } from "@/generated/prisma/client";
 
 type Diff = { added: string[]; removed: string[]; changed: { name: string; fields: string[] }[] };

@@ -101,8 +101,8 @@ export async function saveHero(heroId: number, form: FormData) {
 
 export async function saveEmojis(heroId: number, emojis: string[], reviewed: boolean) {
   await requireAdmin();
-  const clean = emojis.map((e) => e.trim()).filter(Boolean).slice(0, 6);
-  await db.hero.update({ where: { id: heroId }, data: { emojis: clean, emojisReviewed: reviewed && clean.length === 6 } });
+  const clean = emojis.map((e) => e.trim()).filter(Boolean).slice(0, 10);
+  await db.hero.update({ where: { id: heroId }, data: { emojis: clean, emojisReviewed: reviewed && clean.length === 10 } });
   revalidatePath(`/admin/heroes/${heroId}`);
 }
 

@@ -3,7 +3,8 @@ import { useState, useTransition } from "react";
 import { saveEmojis } from "../../actions";
 
 const GUIDE = [
-  "Order: hardest first, most obvious last. The order is the reveal order.",
+  "10 emojis per hero. Each puzzle shows 5 of them (always one of the last 3), in this order.",
+  "Order: hardest first, most obvious last.",
   "Mix appearance, abilities, personality and lore.",
   "No emoji that is basically the hero's name, especially not first.",
   "No two heroes may share the same first 3 emojis.",
@@ -13,7 +14,7 @@ const GUIDE = [
 export function EmojiEditor({
   heroId, initial, reviewed, others,
 }: { heroId: number; initial: string[]; reviewed: boolean; others: { name: string; emojis: string[] }[] }) {
-  const [slots, setSlots] = useState<string[]>(() => Array.from({ length: 6 }, (_, i) => initial[i] ?? ""));
+  const [slots, setSlots] = useState<string[]>(() => Array.from({ length: 10 }, (_, i) => initial[i] ?? ""));
   const [ok, setOk] = useState(reviewed);
   const [drag, setDrag] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export function EmojiEditor({
         <p className="text-sm text-red-700">Overlap: the first 3 emojis match {overlaps.map((o) => o.name).join(", ")}. Each set must be unique.</p>
       )}
       <label className="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} /> Reviewed (optional; any complete 6-emoji set is used)
+        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} /> Reviewed (optional; any complete 10-emoji set is used; each puzzle shows 5 of them)
       </label>
       <div className="flex items-center gap-3">
         <button
@@ -81,7 +82,7 @@ export function EmojiEditor({
           Save emoji set
         </button>
         {msg && <span className="text-xs text-neutral-600">{msg}</span>}
-        {slots.some((s) => !s) && ok && <span className="text-xs text-red-700">All 6 slots are needed to mark it reviewed.</span>}
+        {slots.some((s) => !s) && ok && <span className="text-xs text-red-700">All 10 slots are needed to mark it reviewed.</span>}
       </div>
     </div>
   );

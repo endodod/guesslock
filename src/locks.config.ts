@@ -93,10 +93,11 @@ export const LOCKS: LockDef[] = [
   },
   {
     slug: "cipher", mode: "emoji", numeral: "VIII", name: "The Cipher",
-    subtitle: "Guess the hero from emojis", group: "spirits", guess: "hero", picks: 9,
+    subtitle: "Guess the hero from emojis", group: "spirits", guess: "hero", picks: 8,
+    // 5 emojis per puzzle: all shown after 4 wrong guesses, then 2 more for each hint.
     hints: [
-      { id: "gender", label: "Gender", after: 7 },
-      { id: "initial", label: "First letter", after: 9 },
+      { id: "gender", label: "Gender", after: 6 },
+      { id: "initial", label: "First letter", after: 8 },
     ],
   },
   {
