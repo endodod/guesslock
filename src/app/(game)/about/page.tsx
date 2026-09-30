@@ -25,7 +25,13 @@ export default function AboutPage() {
       </ul>
       <h2 className="font-display pt-2 text-xl text-paper">Disclaimer</h2>
       <p>{t.footer.disclaimer}</p>
-      <p>GUESSLOCK is non-commercial. It stores your progress only in your own browser and uses no accounts or tracking.</p>
+      <h2 className="font-display pt-2 text-xl text-paper">Privacy</h2>
+      <p>GUESSLOCK is non-commercial and uses no ads or tracking. Without an account, your progress stays in your own browser.</p>
+      <p>
+        Accounts are optional. If you create one, we store your email, your display name and the puzzles you play while signed in,
+        so your progress follows you across devices and you can appear on the leaderboards. Sign-in is handled by Neon Auth.
+        You can hide yourself from the leaderboards, download your data or delete your account at any time on your account page.
+      </p>
     </div>
   );
 }

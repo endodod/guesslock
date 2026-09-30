@@ -60,11 +60,13 @@ export function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
 // ───────────── Icons (thin-line brass) ─────────────
 
-type IconName = "ledger" | "archive" | "settings" | "back" | "info" | "question" | "flame" | "speaker" | "lock" | "unlock" | "check" | "approx" | "cross" | "up" | "down" | "share" | "close" | "seal" | "arrow-right" | "arrow-left";
+type IconName = "crown" | "user" | "ledger" | "archive" | "settings" | "back" | "info" | "question" | "flame" | "speaker" | "lock" | "unlock" | "check" | "approx" | "cross" | "up" | "down" | "share" | "close" | "seal" | "arrow-right" | "arrow-left";
 
 export function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const paths: Record<IconName, React.ReactNode> = {
+    crown: <><path d="M4 17l-1-9 5 4 4-7 4 7 5-4-1 9z" {...p} /><path d="M5 20h14" {...p} /></>,
+    user: <><circle cx="12" cy="8" r="4" {...p} /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" {...p} /></>,
     ledger: <><rect x="5" y="3" width="14" height="18" rx="1" {...p} /><path d="M9 7h6M9 11h6M9 15h4" {...p} /></>,
     archive: <><rect x="3" y="4" width="18" height="5" rx="1" {...p} /><path d="M5 9v10h14V9M10 13h4" {...p} /></>,
     settings: <><circle cx="12" cy="12" r="3" {...p} /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" {...p} /></>,

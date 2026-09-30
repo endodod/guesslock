@@ -57,6 +57,24 @@ over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji se
   An admin rewrite replaces it; if the source text changes later, the rewrite is marked stale and the fresh automatic text is used.
 - **Leak check**: `npm run validate:leaks` fails if any scheduled puzzle shows the answer's name or aliases.
 
+## Accounts & leaderboards (optional for players)
+
+- **Identity:** Neon Auth (Managed Better Auth), enabled via `neon.ts` (`auth: true`) + `neon deploy`. Users/sessions live in
+  the `neon_auth` schema; GUESSLOCK's own tables are `Profile`, `Play` and `UserStats`. Code: `src/lib/auth/`, `src/lib/accounts/`.
+- **Sign-in:** email + password, or a one-time code by email (also used for password recovery). Pages under `/auth/*`,
+  account page `/account` (protected by `src/proxy.ts`), leaderboards at `/hall`.
+- **Recording:** when signed in, `/api/play` records every guess server-side. Guesses are append-only, finished locks are frozen,
+  and the "no hints" choice is fixed at the first guess (hint values are then never sent).
+- **Ranked vs. unranked:** a lock counts for leaderboards only if it was played on its own day, one guess per request, while
+  signed in. Plays brought in from a device's local history (`/api/account/sync`, runs once per browser session) count for
+  personal stats only.
+- **Boards:** Today, This week (Mon–Sun), All time (total souls), Streaks. Players can hide themselves.
+- **Data rights:** `/api/account/export` (JSON download) and account deletion (profile, plays, stats and the Neon Auth user,
+  in one transaction).
+- **Before production:** add the site origin as a trusted domain (`neon neon-auth domain add https://…`; done for
+  `guesslock.paulkuehn.ch`), set `NEON_AUTH_BASE_URL` + `NEON_AUTH_COOKIE_SECRET` on the host, and configure custom SMTP in
+  Neon (the shared sender is for development).
+
 ## Operations
 
 | Job | Endpoint | Schedule |

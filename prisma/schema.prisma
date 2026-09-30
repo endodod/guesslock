@@ -157,3 +157,54 @@ model DailyPuzzle {
   @@unique([date, mode])
   @@index([mode, date])
 }
+
+// ───────────── Accounts (identity lives in Neon Auth's neon_auth schema) ─────────────
+
+model Profile {
+  userId       String     @id // neon_auth user id
+  displayName  String
+  nameKey      String     @unique // lowercased displayName, for case-insensitive uniqueness
+  showOnBoards Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  plays        Play[]
+  stats        UserStats?
+}
+
+// One player's attempt at one lock on one day, recorded by the server.
+model Play {
+  id           Int       @id @default(autoincrement())
+  userId       String
+  profile      Profile   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  date         String // puzzle day (YYYY-MM-DD)
+  lock         String // lock slug
+  guesses      String[]
+  bonus        String?
+  status       String // "playing" | "won" | "lost"
+  hintsUsed    Int       @default(0)
+  noHints      Boolean   @default(false)
+  souls        Int       @default(0)
+  bonusCorrect Boolean   @default(false)
+  archive      Boolean   @default(false) // replay of a past day
+  // "live": played guess by guess while signed in (counts for leaderboards)
+  // "import": brought in from a device's local history (personal stats only)
+  source       String    @default("live")
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, date, lock])
+  @@index([date, source, archive])
+}
+
+// Denormalized per-user totals for leaderboards, recomputed when a ranked play finishes.
+model UserStats {
+  userId        String   @id
+  profile       Profile  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  totalSouls    Int      @default(0)
+  daysUnlocked  Int      @default(0)
+  currentStreak Int      @default(0)
+  bestStreak    Int      @default(0)
+  lastDay       String? // last day with a ranked win
+  updatedAt     DateTime @updatedAt
+}
