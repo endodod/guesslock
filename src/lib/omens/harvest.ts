@@ -71,7 +71,8 @@ export async function discover(opts: { source: "daily" | "practice"; badge: [num
 
 // ───────────── processing ─────────────
 
-async function queriesLastHour(): Promise<number> {
+/** Replay queries submitted in the last hour (the rate budget). */
+export async function queriesLastHour(): Promise<number> {
   const n = await db.omenMatch.count({ where: { submittedAt: { gte: new Date(Date.now() - 3600_000) } } });
   return n * QUERY_NAMES.length;
 }
@@ -153,7 +154,7 @@ export async function createScenarios(tl: MatchTimeline, source: "daily" | "prac
   for (const omen of OMENS) {
     const cands = detect(omen, tl, String(tl.matchId), tuning).filter((c) => c.quality > 0);
     // Rift outcomes need no artificial mix ("nobody" is a real answer).
-    const picked = omen === "rift" ? cands : mixPool(cands, source === "mine" ? 8 : 6, `${tl.matchId}|${omen}`);
+    const picked = omen === "rift" ? cands : mixPool(cands, source === "mine" ? 8 : 6, `${tl.matchId}|${omen}`, tuning.positiveShare);
     for (const [i, c] of picked.entries()) {
       const id = `${tl.matchId}-${omen}-${c.t}`;
       const payload: OmenPayload = {
@@ -218,7 +219,7 @@ export async function assignOmen(omen: OmenKind, date: string, seed: string, exc
       take: 200,
     });
     if (!pool.length) return null;
-    const wantPositive = omen === "rift" ? null : makeRng(`${seed}|side`).next() < 0.6;
+    const wantPositive = omen === "rift" ? null : makeRng(`${seed}|side`).next() < (await loadTuning()).positiveShare;
     const ranked = [...pool].sort((a, b) => Number(b.status === "approved") - Number(a.status === "approved"));
     pick = ranked.find((s) => wantPositive === null || s.positive === wantPositive) ?? ranked[0];
   }

@@ -73,22 +73,25 @@
   --font-emoji: var(--font-noto-emoji), sans-serif;
 }
 
-html {
-  background: var(--ink);
-}
+/* Base layer: the (plain, light) admin layout overrides these with utility classes. */
+@layer base {
+  html {
+    background: var(--ink);
+  }
 
-body {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(201 164 92 / 0.07), transparent 70%),
-    var(--ink);
-  color: var(--paper);
-  font-family: var(--font-body);
-  font-size: 17px;
-  line-height: 1.55;
-  min-height: 100dvh;
-}
-@media (min-width: 768px) {
-  body { font-size: 16px; }
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(201 164 92 / 0.07), transparent 70%),
+      var(--ink);
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.55;
+    min-height: 100dvh;
+  }
+  @media (min-width: 768px) {
+    body { font-size: 16px; }
+  }
 }
 
 /* Grain: one tiny tiled PNG, fixed, very low opacity, painted behind all content.

@@ -87,12 +87,31 @@ The site keeps running for at least a week if deadlock-api or the wiki goes down
 Refresh the backup with `npm run backup`: it fetches everything live, stores it in the database, rewrites
 `data/api-backup/`, and generates puzzles 8 days ahead. Commit the updated files.
 
+### The Omens (XIV–XVI)
+
+Omens freeze a moment from a real high-rank match and ask what happens next. They need exact per-second data
+(net worth, HP, level, ultimates, midboss and rift state), which only the match **replay** has. deadlock-api runs SQL
+against replays (`/v1/matches/demo/query`), so the pipeline is:
+
+1. **Discover**: recent high-rank matches (average badge ≥ 100) that have a replay (about 1 in 5 do, and the share
+   drops as matches age).
+2. **Query**: three replay queries per match (players per second, game-rules changes, midboss spawns), plus metadata.
+3. **Build**: a per-second timeline -> detected moments (Clash: fights with and without deaths; Beast: midboss kills
+   and survived pit visits; Rift: every rift) -> frozen scenarios with snapshot, reveal window and answer.
+4. **Assign**: daily generation freezes one scenario per Omen per day (admin-approved first, else best quality, with a
+   60/40 positive/negative mix for Clash and Beast).
+
+The harvest runs inside both daily cron jobs (and `npm run omens:harvest`, or *Harvest now* on `/admin/omens`) and
+resumes pending work. Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h and bigger practice
+pools (`OMEN_QUERIES_PER_HOUR` tunes the budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md).
+Practice lives at `/omens/practice`; `/admin/omens` has the 7-day calendar, candidate pool, tuning and inspector.
+
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 
 ## Scripts
 
-`npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `validate:leaks [-- --all]` ·
+`npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `omens:harvest [-- --minutes N]` · `validate:leaks [-- --all]` ·
 `import:voicelines [-- --hero <id>]` · `make:grain`
 
 `/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production).

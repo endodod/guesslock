@@ -13,6 +13,8 @@ export type OmenTuning = {
   beastWindow: number; beastLead: [number, number]; beastPitRadius: number; beastMinHeroes: number; beastSkipStart: number;
   riftLead: [number, number]; riftDeathRadius: number;
   skipStart: number; sampleEvery: number; maxNetWorthGap: number;
+  /** Share of positive (something happens) Clash/Beast scenarios in pools and daily picks. */
+  positiveShare: number;
 };
 export const DEFAULT_TUNING: OmenTuning = {
   clashWindow: 30, clashLead: [10, 20], clashFightRange: 3000, clashMinPerTeam: 3,
@@ -20,6 +22,7 @@ export const DEFAULT_TUNING: OmenTuning = {
   beastWindow: 60, beastLead: [30, 50], beastPitRadius: 3000, beastMinHeroes: 3, beastSkipStart: 600,
   riftLead: [15, 25], riftDeathRadius: 3000,
   skipStart: 180, sampleEvery: 20, maxNetWorthGap: 0.3,
+  positiveShare: 0.6,
 };
 
 export type Candidate = {
