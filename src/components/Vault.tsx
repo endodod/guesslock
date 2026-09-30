@@ -49,12 +49,19 @@ export function VaultBox({
         )}
       </div>
 
+      {/* The door hides the numeral once open: repeat it on the box frame */}
+      {open && (
+        <span className="absolute right-1.5 top-1.5 z-10 rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-1.5 font-display text-[0.7rem] tracking-widest text-[#2a1f08]">
+          {lock.numeral}
+        </span>
+      )}
       {/* Door */}
       <div className="relative h-full [perspective:1000px]">
         <motion.div
-          className={`relative flex h-full flex-col items-center justify-between border px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden] ${omen ? "border-cursed/40 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)] shadow-[inset_0_0_28px_rgba(140,107,216,0.28)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}
+          className={`relative flex h-full flex-col items-center justify-between border px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden] [&>*]:transition-opacity [&>*]:duration-200 ${open ? "[&>*]:opacity-0" : ""} ${omen ? "border-cursed/40 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)] shadow-[inset_0_0_28px_rgba(140,107,216,0.28)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}
           initial={false}
-          animate={open ? { rotateY: -78, opacity: 0.94 } : { rotateY: 0, opacity: 1 }}
+          // Open: the door swings almost edge-on (a thin panel at the hinge); its face is hidden.
+          animate={open ? { rotateY: -86, opacity: 1 } : { rotateY: 0, opacity: 1 }}
           transition={{ duration: 0.45, ease: "easeInOut" }}
           style={{ transformStyle: "preserve-3d" }}
         >

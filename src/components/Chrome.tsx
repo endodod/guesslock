@@ -1,6 +1,8 @@
 "use client";
 // Global header/footer, settings modal and onboarding overlay.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useHydrated } from "@/lib/client/hooks";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "@/lib/i18n/en";
@@ -90,6 +92,7 @@ function Toggle({ label, checked, onChange, desc }: { label: string; checked: bo
 
 export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const hydrated = useHydrated();
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
@@ -98,24 +101,29 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); prev?.focus(); };
   }, [open, onClose]);
-  return (
+  // Portal to <body>: an ancestor with backdrop-filter (the sticky header) would otherwise become
+  // the containing block for this fixed overlay and push the dialog off-screen.
+  if (!hydrated) return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/75 p-0 sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/75 p-2 sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
           <motion.div ref={ref} role="dialog" aria-modal="true" aria-label={title} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
-            <DecoFrame className="max-h-[90dvh] overflow-y-auto p-5">
-              <div className="mb-3 flex items-center justify-between">
+            {/* The frame stays put (corners and double rule intact); only the body scrolls. */}
+            <DecoFrame className="flex max-h-[calc(100dvh-2.5rem)] flex-col p-5 sm:max-h-[88dvh]">
+              <div className="mb-3 flex shrink-0 items-center justify-between">
                 <h2 className="font-display text-xl text-brass">{title}</h2>
                 <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center text-ash hover:text-paper" aria-label={t.settings.close}>
                   <Icon name="close" />
                 </button>
               </div>
-              {children}
+              <div className="thin-scroll -mr-3 min-h-0 overflow-y-auto overscroll-contain pr-3">{children}</div>
             </DecoFrame>
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
