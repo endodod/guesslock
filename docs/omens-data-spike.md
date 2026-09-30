@@ -104,3 +104,62 @@ Most of the prompt holds, but **six assumptions are wrong or unverified** (marke
 4. **Team colours:** confirm team 0 = Amber (bottom base) once, e.g. from a replay or screenshot.
 5. **Top-players source:** resolve leaderboard `possible_account_ids` by intersecting them with match participants, or use "high average badge" matches (≥ 100) as the top-player pool?
 6. **HP display:** percent only (paths are percent; absolute max HP is only in coarse stats). OK to show HP rings as percent?
+
+---
+
+# Round 2 — replay data (after review)
+
+Review answers: **exact values** (no interpolation), **no proxy signal** for midboss attempts, **research the midboss timers and the team mapping**, **high-rank matches are the top-player pool**, **HP as absolute amounts**.
+
+Exact per-moment values aren't in the metadata, but deadlock-api can run SQL against a match's **replay file**: `POST /v1/matches/demo/query` → `job_id` → `GET /v1/matches/demo/query/{job_id}` → an NDJSON or Parquet artifact.
+- The engine is DataFusion. Column names are case-sensitive and must be double-quoted (`"m_iTeamNum"`).
+- A job takes about 1 minute.
+- Limits: **20 queries/h per IP, 200/h with an API key** (`X-API-KEY`).
+- The schema (921 entity and event tables) is at `GET /v1/matches/demo/schema`.
+- Requests need a normal User-Agent; Python's default gets a 403.
+
+Verified on match 108658648 (high rank):
+
+| Need | Replay source | Result |
+|---|---|---|
+| Exact net worth at T | `CCitadelPlayerController."m_PlayerDataGlobal__m_iGoldNetWorth"` | ✅ every tick (64 ticks/s) |
+| Absolute HP, max HP, level | `…m_iHealth`, `…m_iHealthMax`, `…m_iLevel` | ✅ every tick (e.g. 345 / 2244 HP) |
+| Ultimate cooldown | `…m_bUltimateTrained`, `…m_flUltimateCooldownStart/End` | ✅ (Phase 2's cooldown feature without a separate worker) |
+| Real midboss attempt signal | `BossDamagedEvent`; `CNPC_MidBoss."m_iHealth"/"m_iMaxHealth"` (13,000 first spawn, 18,460 second) | ✅ replaces the rejected proxy |
+| Midboss spawn/kill | `MidBossSpawnedEvent`, `BossKilledEvent` (team 4 = midboss), `RejuvStatusEvent`, `CCitadelGameRulesProxy."m_pGameRules__m_tNextMidBossSpawnTime"` | ✅ see below |
+| The Rift | `CCitadelGameRulesProxy` "koth" fields (`m_nKothScoringTeam`, `m_timeKothScoring`, capture progress) | ✅ The Rift is buildable the same way |
+| Player ↔ metadata | `CCitadelPlayerController."m_steamID"` − 76561197960265728 = `account_id` | ✅ 12/12 players matched |
+
+**Time base:** metadata seconds = replay `tick / 64`. Event `gametime` = metadata seconds + `m_flGameStartTime` (≈ 57.1 s of pregame).
+
+## Team mapping — resolved
+
+- Metadata team 0 = in-game team 2; metadata team 1 = in-game team 3 (all 12 players matched by Steam ID).
+- `m_pGameRules__m_hTowerAmber` = handle 558979 → entity index 558979 & 0x3FFF = 1923, which is the patron (`CNPC_Boss_Tier3`) of **in-game team 2**.
+- ⇒ **Metadata team 0 = Amber (Hidden King), bottom base. Metadata team 1 = Sapphire (Archmother), top base.** This agrees with `colors.team1_color` being amber (the game counts its teams from 2).
+
+## Midboss timers — resolved
+
+- **The midboss exists from the start of the match** (entity from tick 3, first `MidBossSpawnedEvent` at tick 3, 13,000 HP). There's no initial spawn delay. First kills landing at 16–26 min (spike set) come from its HP, not from a timer.
+- **After a kill the game schedules the next spawn about 6 min later.** Kill at game time 1306.6 s (= metadata 1249 s) → `m_tNextMidBossSpawnTime` = 1669.5 s, so +362.9 s.
+- The second `MidBossSpawnedEvent` actually fired at metadata 1734 s (+485 s), with 18,460 HP (the midboss scales up).
+- Since scheduled and actual spawn differ, alive windows are taken **from the replay's spawn and kill events**, not from a fixed rule.
+
+## Replay availability — the new constraint
+
+Replays exist only for matches with a known `replay_salt` (`GET /v1/matches/{id}/salts?disable_steam=true`). Sample of 30 high-rank (badge ≥ 100) matches per age:
+
+| Match age | With a replay |
+|---|---|
+| ~1 day | 6 / 30 (20%) |
+| ~3 days | 4 / 30 (13%) |
+| ~7 days | 1 / 30 (3%) |
+
+None of the 10 same-day spike matches had one yet. The Steam salt fallback exists, but it's limited to 10 requests per 30 min per IP.
+
+**Implications:**
+1. **Daily Omens:** fine. The generator only considers high-rank matches from the last ~1–2 days that have a replay (6 in every 30), and needs 2–3 per day.
+2. **Pre-generated practice pools:** limited by 20 queries/h. About 3–4 queries per match (controllers per second, events, midboss/rift state) means ~5 matches/h, ~120/day without a key and 10× that with a key. **An API key is strongly recommended.**
+3. **"My matches" practice:** only works for the player's matches that have a replay. The prompt said never to parse on demand; queries would run through the rate-limited queue and be cached.
+4. **Phase 1 and Phase 2 merge.** No separate Python/boon worker or replay download is needed: the replay query API provides exact values, cooldowns and The Rift. That changes the prompt's architecture (§10).
+5. Replay retention seems short (3% after a week), so candidates must be queried within a day or two of the match. Cached results in Postgres are then permanent.
