@@ -10,7 +10,8 @@ import { todayDate } from "@/lib/day";
 import { LOCKS } from "@/locks.config";
 import { ActionButton } from "../../ui";
 import { HERO_MODES, heroStatuses, type ModeStatus } from "../status";
-import { BuildItems, EmojiList, ModeSwitch, SplashForm } from "../SetupClient";
+import { AttributesForm, BuildItems, EmojiList, ModeSwitch, SplashForm } from "../SetupClient";
+import { cellSource } from "@/lib/admin/categories";
 import {
   addVoiceLine, editVoiceLine, rebuildDay, removeVoiceLine, restoreVoiceLine, saveAttributes, saveBuildItems,
   saveClueText, saveEmojiList, saveSplash, setAbilityMode, setEchoVoice, setHeroMode,
@@ -134,24 +135,19 @@ export default async function HeroSetup({ params }: { params: Promise<{ id: stri
       )}
 
       <Section heroId={heroId} mode="classic" label={label.classic} status={status.classic}>
-        <form action={saveAttributes.bind(null, heroId)} className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm">Species <span className="text-xs text-neutral-500">(comma-separate multiple)</span>
-            <input name="species" defaultValue={hero.species ?? ""} className={input} />
-          </label>
-          <label className="text-sm">Release date
-            <input name="releaseDate" type="date" defaultValue={hero.releaseDate?.toISOString().slice(0, 10) ?? ""} className={input} />
-          </label>
-          <label className="text-sm">Gender <span className="text-xs text-neutral-500">(API: {h.src.gender ?? "none"}; empty = API)</span>
-            <input name="genderOverride" defaultValue={hero.genderOverride ?? ""} className={input} />
-          </label>
-          <label className="text-sm">Weapon type <span className="text-xs text-neutral-500">(API: {h.src.gunTag ?? "none"}; empty = API)</span>
-            <input name="weaponTypeOverride" defaultValue={hero.weaponTypeOverride ?? ""} className={input} />
-          </label>
-          <label className="text-sm md:col-span-2">Aliases <span className="text-xs text-neutral-500">(comma-separated; search and redaction in every mode)</span>
-            <input name="aliases" defaultValue={hero.aliases.join(", ")} className={input} />
-          </label>
-          <div><button className={saveBtn}>Save attributes</button></div>
-        </form>
+        <p className="mb-2 text-sm text-neutral-600">
+          Values for this hero. Rename, reorder or add categories (e.g. Role, Height) under <Link href="/admin/categories" className="text-blue-700 hover:underline">Categories</Link>;
+          a custom one joins the puzzle once every hero has a value.
+        </p>
+        <AttributesForm
+          heroId={heroId}
+          aliases={hero.aliases.join(", ")}
+          fields={data.heroColumns.map((c) => {
+            const v = c.get(h, data);
+            return { key: c.key, label: c.label, type: c.type, unit: c.unit, disabled: !!c.disabled, value: v === null ? "" : String(v), source: cellSource("hero", c as never, h, v) };
+          })}
+          action={saveAttributes.bind(null, heroId)}
+        />
       </Section>
 
       <Section heroId={heroId} mode="splash" label={label.splash} status={status.splash}>

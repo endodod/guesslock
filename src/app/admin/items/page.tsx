@@ -12,7 +12,7 @@ export default async function ItemsAdmin() {
   return (
     <div className="rounded border border-neutral-300 bg-white p-4">
       <h1 className="mb-1 text-lg font-semibold">Items ({items.length})</h1>
-      <p className="mb-3 text-xs text-neutral-500">Tier 5 (Street Brawl) and disabled items are excluded at sync. Aliases help search.</p>
+      <p className="mb-3 text-xs text-neutral-500">Tier 5 (Street Brawl) and disabled items are excluded at sync. Aliases help search. Attribute values for The Appraisal are reviewed and edited under <a href="/admin/categories?entity=item" className="text-blue-700 hover:underline">Categories</a>.</p>
       <ul className="divide-y divide-neutral-200">
         {items.map((i) => {
           const src = i.source as unknown as NormItem;

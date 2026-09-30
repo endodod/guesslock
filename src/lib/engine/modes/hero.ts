@@ -1,9 +1,9 @@
 // Hero modes: Reckoning, Visage, Sigil, Testament, Incantation, Belongings, Ascension, Cipher, Echo.
 import { config } from "../../config";
-import { HERO_COLUMNS, activeColumns, formatCell, type CellValue } from "../columns";
+import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData } from "../context";
-import { cap, SkipCandidate, SealedError, slotLabel, type BasePayload, type Candidate, type ModeImpl } from "../mode";
+import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta, Tile } from "../types";
 
 // ---------- helpers ----------
@@ -85,7 +85,7 @@ function gridTiles(p: BasePayload<GridClue>, guessId: string): Tile[] | null {
 /** Columns in play for The Reckoning (curated columns join once fully filled in). */
 function reckoningColumns(data: GameData) {
   const pool = data.heroes.filter((h) => h.eligible && !h.exclude.includes("classic"));
-  return activeColumns(HERO_COLUMNS, pool, data);
+  return activeColumns(data.heroColumns, pool, data);
 }
 
 export const reckoning: ModeImpl<GridClue> = {
@@ -105,7 +105,7 @@ export const reckoning: ModeImpl<GridClue> = {
       });
     return {
       v: 1, mode: "classic", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
-      hints: { archetype: { value: cap(h.src.heroType) }, initial: { value: h.name[0].toUpperCase() } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: {
         columns: cols.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
         table,
@@ -128,7 +128,7 @@ export const visage: ModeImpl<{ image: string; originX: number; originY: number 
     const h = data.hero(c.ref as number)!;
     return {
       v: 1, mode: "splash", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
-      hints: { gender: { value: cap(h.gender) }, archetype: { value: cap(h.src.heroType) } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       // Portrait cards have the face in the upper half: bias the crop there.
       clue: { image: h.splash!, originX: Math.round(25 + rng.next() * 50), originY: Math.round(18 + rng.next() * 42) },
     };
@@ -155,7 +155,7 @@ export const sigil: ModeImpl<{ image: string; order: number[] }> = {
     return {
       v: 1, mode: "ability-icon", answer: heroAnswer(h), correctIds: [String(h.id)],
       leakTerms: heroLeakTerms(h),
-      hints: { slot: { value: slotLabel(ability.slot) }, archetype: { value: cap(h.src.heroType) } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       bonus: bonusFor(data, h.id, ability, rng),
       clue: { image: ability.icon!, order },
     };
@@ -179,10 +179,7 @@ export const testament: ModeImpl<{ chunks: string[] }> = {
     const chunks = chunkText(data.text("hero_lore", h.id)!, LORE_CHUNKS);
     return {
       v: 1, mode: "lore", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
-      hints: {
-        gender: { value: cap(h.gender) },
-        species: h.species ? { value: h.species } : { label: "Archetype", value: cap(h.src.heroType) },
-      },
+      hints: {},
       clue: { chunks },
     };
   },
@@ -206,7 +203,7 @@ export const incantation: ModeImpl<{ text: string; abilityName: string }> = {
     return {
       v: 1, mode: "ability-desc", answer: heroAnswer(h), correctIds: [String(h.id)],
       leakTerms: [...heroLeakTerms(h), ability.name, ...ability.aliases],
-      hints: { slot: { value: slotLabel(ability.slot) }, icon: { image: ability.icon ?? undefined } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       bonus: bonusFor(data, h.id, ability, rng),
       clue: { text: data.text("ability_desc", ability.id)!, abilityName: ability.name },
     };
@@ -235,7 +232,7 @@ export const belongings: ModeImpl<{ items: BuildItem[] }> = {
     if (items.length < 5) throw new SkipCandidate(`not enough item data for ${h.name}`);
     return {
       v: 1, mode: "whose-build", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
-      hints: { archetype: { value: cap(h.src.heroType) }, weapon: { value: h.weaponType ?? "Unknown" } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: { items },
     };
   },
@@ -304,7 +301,7 @@ export const ascension: ModeImpl<AscClue> = {
       answer: { id: String(a.id), name: a.name, image: a.icon, sub: h.name, extra: { hero: { name: h.name, image: h.card } } },
       correctIds: [String(a.id)],
       leakTerms: [a.name, ...a.aliases, ...heroLeakTerms(h)],
-      hints: { archetype: { value: cap(h.src.heroType) }, initial: { value: h.name[0].toUpperCase() } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       // T3 first, then T2, then T1
       clue: { tiers: [data.text("ability_t3", a.id)!, data.text("ability_t2", a.id)!, data.text("ability_t1", a.id)!], icon: a.icon },
     };
@@ -345,7 +342,7 @@ export const cipher: ModeImpl<{ emojis: string[] }> = {
     const h = data.hero(c.ref as number)!;
     return {
       v: 1, mode: "emoji", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
-      hints: { gender: { value: cap(h.gender) }, initial: { value: h.name[0].toUpperCase() } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       // Only the 5 picked emojis are frozen into the puzzle.
       clue: { emojis: pickEmojis(h.emojis.slice(0, EMOJI_SET_SIZE), rng) },
     };
@@ -381,13 +378,12 @@ export const echo: ModeImpl<{ lines: EchoLine[] }> = {
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
     const lines = pickEchoLines(data.voiceLines(h.id), rng);
-    const first = lines[0];
     return {
       v: 1, mode: "quote",
       answer: { ...heroAnswer(h), extra: { lines } },
       correctIds: [String(h.id)],
       leakTerms: [...heroLeakTerms(h), ...data.abilitiesOf(h.id).map((a) => a.name)],
-      hints: { audio: first.audio ? { label: "Voice clip", audio: first.audio } : { value: cap(h.gender) } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: { lines },
     };
   },

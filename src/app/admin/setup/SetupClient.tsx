@@ -163,3 +163,34 @@ export function SplashForm({ current, action }: { current: string; action: (form
     </form>
   );
 }
+
+type AttrField = { key: string; label: string; type: string; unit?: string; disabled: boolean; value: string; source: "api" | "admin" | "missing" };
+const TYPE_HINT: Record<string, string> = { exact: "", multi: "comma-separated", numeric: "number", date: "YYYY-MM-DD" };
+
+/** The Reckoning: every category's value for one hero (empty = API value, or no value for custom ones). */
+export function AttributesForm({ heroId, fields, aliases, action }: {
+  heroId: number; fields: AttrField[]; aliases: string; action: (form: FormData) => Promise<string>;
+}) {
+  const [msg, submit, pending] = useActionState(async (_: string | undefined, form: FormData) => action(form), undefined);
+  return (
+    <form action={submit} className="grid gap-3 md:grid-cols-3">
+      {fields.map((f) => (
+        <label key={f.key} className={`text-sm ${f.disabled ? "text-neutral-400" : ""}`}>
+          {f.label}{f.unit ? ` (${f.unit})` : ""}{" "}
+          <span className="text-xs text-neutral-500">
+            {[TYPE_HINT[f.type], f.disabled ? "switched off" : f.source === "missing" ? "missing" : f.source === "admin" ? "set by admin" : "from API"].filter(Boolean).join(" · ")}
+          </span>
+          <input name={`v|${heroId}|${f.key}`} defaultValue={f.value}
+            className={`w-full rounded border px-2 py-1 ${f.source === "missing" && !f.disabled ? "border-red-300 bg-red-50" : f.source === "admin" ? "border-blue-300 bg-blue-50" : "border-neutral-400"}`} />
+        </label>
+      ))}
+      <label className="text-sm md:col-span-3">Aliases <span className="text-xs text-neutral-500">(comma-separated; search and redaction in every mode)</span>
+        <input name="aliases" defaultValue={aliases} className="w-full rounded border border-neutral-400 px-2 py-1" />
+      </label>
+      <div className="flex items-center gap-3 md:col-span-3">
+        <button className="rounded bg-neutral-900 px-3 py-1 text-sm text-white hover:bg-neutral-700" disabled={pending}>{pending ? "Saving…" : "Save attributes"}</button>
+        {msg && <span className="text-xs text-neutral-600">{msg}</span>}
+      </div>
+    </form>
+  );
+}

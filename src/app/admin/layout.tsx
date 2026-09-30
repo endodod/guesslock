@@ -22,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ["/admin/heroes", "Heroes"],
               ["/admin/texts", "Texts"],
               ["/admin/items", "Items"],
+              ["/admin/categories", "Categories"],
               ["/admin/calendar", "Calendar"],
               ["/admin/omens", "Omens"],
               ...(config.adminSetup ? [["/admin/setup", "Puzzle setup"]] : []),

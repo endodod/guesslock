@@ -3,11 +3,19 @@
 // hasn't been unlocked is never sent to the browser.
 import type { LockDef } from "@/locks.config";
 import { checkMeasure } from "./compare";
-import type { BasePayload } from "./mode";
+import type { BasePayload, HintValue } from "./mode";
 import { MODES } from "./registry";
 import type { CatalogEntry, GuessRow, HintView, PlayView } from "./types";
 
 export type PuzzleRow = { date: string; mode: string; sealed: boolean; sealedReason: string | null; payload: unknown };
+
+/** Letter hints come from the answer's name (also for puzzles frozen before they existed). */
+function letterHint(id: string, name: string): HintValue | null {
+  const letters = name.replace(/[^\p{L}\p{N}]/gu, "");
+  if (id === "initial") return { value: letters.slice(0, 1).toUpperCase() };
+  if (id === "initial2") return { value: letters.slice(0, 2).toUpperCase() };
+  return null;
+}
 
 export function evaluate(
   lock: LockDef,
@@ -65,7 +73,7 @@ export function evaluate(
   // "No hints" mode: hint values are never sent, and no hint penalty applies.
   const hints: HintView[] = lock.hints.map((h) => {
     const unlocked = !opts.noHints && wrong >= h.after;
-    const v = payload.hints[h.id] ?? {};
+    const v = letterHint(h.id, payload.answer.name) ?? payload.hints[h.id] ?? {};
     return {
       id: h.id, label: v.label ?? h.label, after: h.after, unlocked,
       ...(unlocked ? { value: v.value, image: v.image, audio: v.audio } : {}),

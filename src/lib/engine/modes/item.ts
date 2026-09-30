@@ -1,5 +1,5 @@
 // Item modes: Relic, Appraisal, Lineage, Measure.
-import { ITEM_COLUMNS, formatCell, type CellValue } from "../columns";
+import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { GameData, ItemData } from "../context";
 import { cap, type BasePayload, type Candidate, type ModeImpl } from "../mode";
@@ -24,7 +24,7 @@ export const relic: ModeImpl<{ image: string; rotation: number }> = {
     const i = data.item(c.ref as number)!;
     return {
       v: 1, mode: "item-picture", answer: itemAnswer(i), correctIds: [String(i.id)], leakTerms: itemLeak(i),
-      hints: { slot: { value: cap(i.src.slot) }, tier: { value: `Tier ${i.src.tier}` } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       // Rotation is only applied in hard mode; keep it well away from upright.
       clue: { image: i.image!, rotation: Math.round(40 + rng.next() * 280) },
     };
@@ -48,17 +48,19 @@ export const appraisal: ModeImpl<GridClue> = {
   candidates: (data) => itemPool(data, "item-classic"),
   build(c, { data }) {
     const i = data.item(c.ref as number)!;
+    // Custom categories join once every item in the pool has a value.
+    const cols = activeColumns(data.itemColumns, data.items.filter((x) => !x.exclude.includes("item-classic")), data);
     const table: GridClue["table"] = {};
     for (const x of data.items)
-      table[String(x.id)] = ITEM_COLUMNS.map((col) => {
+      table[String(x.id)] = cols.map((col) => {
         const v = col.get(x, data);
         return { v, d: formatCell(col, v) };
       });
     return {
       v: 1, mode: "item-classic", answer: itemAnswer(i), correctIds: [String(i.id)], leakTerms: itemLeak(i),
-      hints: { initial: { value: i.name[0].toUpperCase() } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: {
-        columns: ITEM_COLUMNS.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" })),
+        columns: cols.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
         table,
       },
     };
@@ -111,13 +113,12 @@ export const lineage: ModeImpl<LineageClue> = {
     const shown = data.item(c.ref as number)!;
     const answers = lineageAnswers(data, shown, dir);
     const [first, ...rest] = answers;
-    const tiers = [...new Set(answers.map((a) => a.src.tier))].sort();
     return {
       v: 1, mode: "build-path",
       answer: { ...itemAnswer(first), extra: rest.length ? { alsoValid: rest.map((r) => ({ name: r.name, image: r.image })) } : undefined },
       correctIds: answers.map((a) => String(a.id)),
       leakTerms: answers.flatMap(itemLeak),
-      hints: { tier: { value: tiers.map((t) => `Tier ${t}`).join(" or ") } },
+      hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: { direction: dir, shown: card(shown), answerSlot: first.src.slot },
     };
   },

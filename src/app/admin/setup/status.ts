@@ -1,7 +1,7 @@
 // Whether each hero is in each hero mode's answer pool, and why not.
 import type { GameData, HeroData } from "@/lib/engine/context";
 import { MODES } from "@/lib/engine/registry";
-import { HERO_COLUMNS, activeColumns } from "@/lib/engine/columns";
+import { activeColumns } from "@/lib/engine/columns";
 import { ECHO_MIN_LINES, EMOJI_SET_SIZE } from "@/lib/engine/modes/hero";
 import { MODE_OPTIONS } from "../shared";
 
@@ -14,7 +14,7 @@ function reason(data: GameData, h: HeroData, mode: string): string {
   switch (mode) {
     case "classic": {
       const pool = data.heroes.filter((x) => x.eligible && !x.exclude.includes("classic"));
-      const missing = activeColumns(HERO_COLUMNS, pool, data).filter((c) => c.get(h, data) === null).map((c) => c.label);
+      const missing = activeColumns(data.heroColumns, pool, data).filter((c) => c.get(h, data) === null).map((c) => c.label);
       return missing.length ? `Missing: ${missing.join(", ")}` : "Not eligible";
     }
     case "splash": return "No portrait";

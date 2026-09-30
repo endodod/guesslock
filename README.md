@@ -45,6 +45,14 @@ npm run dev
 Optionally run `npm run import:voicelines` once to fill The Echo right away (otherwise the daily job imports them
 over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji sets, species/release dates, rewrites and overrides.
 
+**Categories** (`/admin/categories`) holds the attribute columns of The Reckoning and The Appraisal: rename, reorder or
+switch off the built-in (API) columns, fix single values per hero or item in a spreadsheet-style grid, and add custom
+categories (Role and Height ship empty). A category that isn't from the API joins the puzzle once every hero or item in
+the pool has a value.
+
+Hints are the same in every guessing lock: the answer's first letter, then its first two letters, at the unlock points
+set in `src/locks.config.ts` (`LETTER_HINTS`).
+
 Set `ADMIN_SETUP_MODE=1` to turn on **Puzzle setup** (`/admin/setup`): a hero × mode overview of who is in each
 answer pool (and why not), and a per-hero editor to switch each mode (or single abilities) on or off and to edit, add
 or remove its clues: Reckoning attributes, a custom Visage portrait, lore/ability/upgrade texts, Belongings items to
