@@ -11,6 +11,7 @@ import { MODES } from "./registry";
 import { SealedError, SkipCandidate, type BasePayload, type Candidate } from "./mode";
 import { noRepeatWindow, orderCandidates } from "./select";
 import { alert } from "../monitoring";
+import { assignOmen } from "../omens/harvest";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type GenResult = { date: string; slug: string; status: "created" | "exists" | "sealed" | "skipped" | "error"; answerId?: string; note?: string };
@@ -34,6 +35,25 @@ async function recentAnswers(slug: string, date: string, windowDays: number): Pr
     select: { answerId: true },
   });
   return rows.map((r) => r.answerId);
+}
+
+/** The Omens: freeze a harvested scenario (see src/lib/omens/harvest.ts) into the day's puzzle. */
+async function buildOmen(lock: LockDef, date: string, exclude: string[] = []): Promise<{ candidate: Candidate; payload: BasePayload } | null> {
+  const picked = await assignOmen(lock.slug as "clash" | "beast" | "rift", date, puzzleSeed(date, lock.slug, config.salt), exclude);
+  if (!picked) throw new SealedError("no Omen scenario harvested yet");
+  return { candidate: { answerId: picked.id, ref: picked.id }, payload: picked.payload as unknown as BasePayload };
+}
+
+/** Admin: replace a day's Omen with the next best candidate and reject the old one. */
+export async function regenerateOmen(date: string, slug: string): Promise<void> {
+  const lock = LOCKS.find((l) => l.slug === slug && l.group === "omens");
+  if (!lock) throw new Error("not an Omen");
+  const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
+  const old = existing && !existing.sealed ? existing.answerId : null;
+  if (old) await db.scenario.update({ where: { id: old }, data: { status: "rejected" } }).catch(() => undefined);
+  const built = await buildOmen(lock, date, old ? [old] : []);
+  const row = { answerId: built!.candidate.answerId, payload: built!.payload as unknown as Prisma.InputJsonValue, sealed: false, sealedReason: null, overridden: true };
+  await db.dailyPuzzle.upsert({ where: { date_mode: { date, mode: slug } }, create: { date, mode: slug, ...row }, update: row });
 }
 
 /** Build a payload for one lock/day. Returns null when the pool is empty. */
@@ -83,7 +103,7 @@ export async function generateDay(
       }
     }
     try {
-      const built = await buildPuzzle(lock, date, data, analytics);
+      const built = lock.group === "omens" ? await buildOmen(lock, date) : await buildPuzzle(lock, date, data, analytics);
       if (!built) throw new SealedError("no eligible answers");
       const row = {
         answerId: built.candidate.answerId,

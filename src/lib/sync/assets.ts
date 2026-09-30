@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { db } from "../db";
 import { config } from "../config";
-import { fetchClientVersion, fetchHeroes, fetchItems } from "../deadlock/api";
+import { fetchClientVersion, fetchHeroes, fetchItems, fetchMap } from "../deadlock/api";
 import { normalizeAll, type SyncIssue } from "../deadlock/normalize";
 import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mirrorAll } from "../media";
@@ -22,7 +22,11 @@ function changedFields(a: Record<string, unknown>, b: Record<string, unknown>): 
 export async function runAssetSync(): Promise<{ id: number; status: string; diff?: Diff; error?: string }> {
   const run = await db.syncRun.create({ data: { kind: "assets", status: "running" } });
   try {
-    const [heroesRaw, itemsRaw, clientVersion] = await Promise.all([fetchHeroes(), fetchItems(), fetchClientVersion()]);
+    // With data already in the DB, a failed sync just keeps it. Only a fresh database may be
+    // filled from the stored/bundled API backup (any age), so a new install works during an outage.
+    const fresh = (await db.hero.count()) === 0;
+    const backup = fresh ? "snapshot-any-age" : "none";
+    const [heroesRaw, itemsRaw, clientVersion] = await Promise.all([fetchHeroes(backup), fetchItems(backup), fetchClientVersion(backup)]);
     const norm = normalizeAll(heroesRaw, itemsRaw);
     const items = norm.items.filter((i) => !config.excludedItemTiers.includes(i.tier));
     if (norm.heroes.length < 10 || items.length < 50)
@@ -39,6 +43,9 @@ export async function runAssetSync(): Promise<{ id: number; status: string; diff
       ...norm.abilities.map((a) => a.image),
       ...items.flatMap((i) => [i.image, i.glyph]),
     ].filter((u): u is string => !!u);
+    // The Omens' minimap (stored as the "assets-map" snapshot; a failure here must not fail the sync).
+    const map = (await fetchMap().catch(() => null)) as { images?: { minimap?: string } } | null;
+    if (map?.images?.minimap) imageUrls.push(map.images.minimap);
     const failedImages = await mirrorAll(imageUrls);
 
     const issues: SyncIssue[] = [...norm.issues, ...failedImages.map((u) => ({ entity: "image", id: u, reason: "mirror failed" }))];

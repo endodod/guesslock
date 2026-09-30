@@ -157,3 +157,116 @@ model DailyPuzzle {
   @@unique([date, mode])
   @@index([mode, date])
 }
+
+// Last good response of every external API call the app depends on, so puzzle generation keeps
+// working through an upstream outage (see src/lib/deadlock/snapshots.ts and `npm run backup`).
+model ApiSnapshot {
+  key       String   @id // stable name, e.g. "assets-heroes", "analytics-item-stats"
+  url       String
+  data      Json
+  byteSize  Int
+  fetchedAt DateTime
+}
+
+// ───────────── The Omens ─────────────
+
+// A match harvested for Omen scenarios: replay queries in flight, then the compressed timeline.
+model OmenMatch {
+  matchId     BigInt     @id
+  status      String // "queued" | "fetching" | "ready" | "failed" | "rejected"
+  source      String // "daily" | "practice" | "mine"
+  priority    Int        @default(0)
+  rank        Int?
+  startTime   DateTime?
+  jobs        Json? // { players: { id, status }, world: …, events: … }
+  submittedAt DateTime?
+  timelineGz  Bytes? // gzip(JSON MatchTimeline); pruned after OMEN_TIMELINE_DAYS
+  error       String?
+  requestedBy String? // sha1 of the requester's IP (practice "My matches" rate limit)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  scenarios   Scenario[]
+
+  @@index([status, priority])
+}
+
+// A frozen moment T in a match. payload = OmenPayload (snapshot, window, answer).
+model Scenario {
+  id        String    @id // `${matchId}-${omen}-${t}`
+  omen      String // "clash" | "beast" | "rift"
+  matchId   BigInt
+  match     OmenMatch @relation(fields: [matchId], references: [matchId], onDelete: Cascade)
+  t         Int
+  window    Int
+  positive  Boolean
+  quality   Float
+  source    String // "daily" | "practice" | "mine"
+  rank      Int
+  patch     String? // match day (YYYY-MM-DD), used as the patch label
+  status    String    @default("candidate") // "candidate" | "approved" | "rejected" | "used"
+  dailyDate String? // set when frozen into a DailyPuzzle
+  payload   Json
+  createdAt DateTime  @default(now())
+
+  @@index([omen, source, status])
+  @@index([dailyDate])
+}
+
+// Admin-editable detection tuning (overrides DEFAULT_TUNING in src/lib/omens/scenario.ts).
+model OmenConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────── Accounts (identity lives in Neon Auth's neon_auth schema) ─────────────
+
+model Profile {
+  userId       String     @id // neon_auth user id
+  displayName  String
+  nameKey      String     @unique // lowercased displayName, for case-insensitive uniqueness
+  showOnBoards Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  plays        Play[]
+  stats        UserStats?
+}
+
+// One player's attempt at one lock on one day, recorded by the server.
+model Play {
+  id           Int       @id @default(autoincrement())
+  userId       String
+  profile      Profile   @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  date         String // puzzle day (YYYY-MM-DD)
+  lock         String // lock slug
+  guesses      String[]
+  bonus        String?
+  status       String // "playing" | "won" | "lost"
+  hintsUsed    Int       @default(0)
+  noHints      Boolean   @default(false)
+  souls        Int       @default(0)
+  bonusCorrect Boolean   @default(false)
+  omen         Json? // The Omens: the locked-in answers (souls = the Omen score)
+  archive      Boolean   @default(false) // replay of a past day
+  // "live": played guess by guess while signed in (counts for leaderboards)
+  // "import": brought in from a device's local history (personal stats only)
+  source       String    @default("live")
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, date, lock])
+  @@index([date, source, archive])
+}
+
+// Denormalized per-user totals for leaderboards, recomputed when a ranked play finishes.
+model UserStats {
+  userId        String   @id
+  profile       Profile  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  totalSouls    Int      @default(0)
+  daysUnlocked  Int      @default(0)
+  currentStreak Int      @default(0)
+  bestStreak    Int      @default(0)
+  lastDay       String? // last day with a ranked win
+  updatedAt     DateTime @updatedAt
+}

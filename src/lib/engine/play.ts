@@ -16,6 +16,7 @@ export function evaluate(
   guessesIn: string[],
   bonusPick: string | undefined,
   lookup: (id: string) => CatalogEntry | undefined,
+  opts: { noHints?: boolean; giveUp?: boolean } = {},
 ): PlayView {
   const base = { slug: lock.slug, date: row.date, number, maxTries: lock.maxTries };
   if (row.sealed) {
@@ -56,11 +57,14 @@ export function evaluate(
     wrong++;
   }
 
-  const lost = !won && !!lock.maxTries && wrong >= lock.maxTries;
+  // Giving up needs at least one real guess; it ends the puzzle as a loss and reveals the answer.
+  const gaveUp = !won && !!opts.giveUp && rows.length > 0;
+  const lost = !won && (gaveUp || (!!lock.maxTries && wrong >= lock.maxTries));
   const done = won || lost;
 
+  // "No hints" mode: hint values are never sent, and no hint penalty applies.
   const hints: HintView[] = lock.hints.map((h) => {
-    const unlocked = wrong >= h.after;
+    const unlocked = !opts.noHints && wrong >= h.after;
     const v = payload.hints[h.id] ?? {};
     return {
       id: h.id, label: v.label ?? h.label, after: h.after, unlocked,
@@ -73,6 +77,7 @@ export function evaluate(
   const view: PlayView = {
     ...base,
     status: won ? "won" : lost ? "lost" : "playing",
+    ...(gaveUp ? { gaveUp: true } : {}),
     rows, wrong, hints, hintsUsed,
     clue: impl.clue(payload, wrong, done),
   };

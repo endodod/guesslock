@@ -28,6 +28,10 @@
   --slot-vitality: #6ab04c;
   --slot-spirit: #a66ad8;
 
+  /* Omen team colours (the game's own team1/team2 colours) */
+  --amber: #e0962a;
+  --sapphire: #5b82d6;
+
   color-scheme: dark;
 }
 
@@ -61,31 +65,40 @@
   --color-slot-weapon: var(--slot-weapon);
   --color-slot-vitality: var(--slot-vitality);
   --color-slot-spirit: var(--slot-spirit);
+  --color-amber: var(--amber);
+  --color-sapphire: var(--sapphire);
   --font-display: var(--font-limelight), "Georgia", serif;
   --font-body: var(--font-spectral), "Georgia", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
   --font-emoji: var(--font-noto-emoji), sans-serif;
 }
 
-html {
-  background: var(--ink);
+/* Base layer: the (plain, light) admin layout overrides these with utility classes. */
+@layer base {
+  html {
+    background: var(--ink);
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(201 164 92 / 0.07), transparent 70%),
+      var(--ink);
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.55;
+    min-height: 100dvh;
+  }
+  @media (min-width: 768px) {
+    body { font-size: 16px; }
+  }
 }
 
-body {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(201 164 92 / 0.07), transparent 70%),
-    var(--ink);
-  color: var(--paper);
-  font-family: var(--font-body);
-  font-size: 17px;
-  line-height: 1.55;
-  min-height: 100dvh;
-}
-@media (min-width: 768px) {
-  body { font-size: 16px; }
-}
-
-/* Grain: one tiny tiled PNG, fixed, very low opacity. Clue images sit above it (z-index). */
+/* Grain: one tiny tiled PNG, fixed, very low opacity, painted behind all content.
+   The body is its own stacking context, so the grain sits above the body background but below
+   everything else, without giving header/main/footer stacking contexts of their own (which would
+   let the footer cover the fixed mobile guess bar and the page scroll over the sticky header). */
+.grain { isolation: isolate; }
 .grain::before {
   content: "";
   position: fixed;
@@ -93,16 +106,28 @@ body {
   pointer-events: none;
   background-image: url("/grain.png");
   opacity: 0.06;
-  z-index: 0;
+  z-index: -1;
 }
-.grain > * { position: relative; z-index: 1; }
 .clue-layer { position: relative; z-index: 2; isolation: isolate; }
 
-:focus-visible {
-  outline: 2px solid var(--ecto);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* Base layer, so component utilities (e.g. outline-none on the search inputs) can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ecto);
+    outline-offset: 2px;
+  }
 }
+
+::selection { background: rgb(201 164 92 / 0.45); color: var(--paper); }
+.paper ::selection { color: #221a10; }
+
+/* Search fields: the field itself glows on focus; the input inside draws no ring of its own. */
+.search-field:focus-within {
+  border-color: var(--ecto);
+  box-shadow: 0 0 0 1px rgb(127 227 194 / 0.35), 0 0 14px rgb(127 227 194 / 0.2);
+}
+.search-field input:focus,
+.search-field input:focus-visible { outline: none; }
 
 .font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }

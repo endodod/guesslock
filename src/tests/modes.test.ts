@@ -152,3 +152,28 @@ describe("souls", () => {
     expect(soulsFor({ won: false, guesses: 5, hintsUsed: 0 })).toBe(0);
   });
 });
+
+describe("Giving up", () => {
+  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶"];
+  const data = makeData({ heroes: [hero(17, "Grey Talon", { emojis: set, emojisReviewed: true }), hero(1, "Infernus"), hero(2, "Seven")] });
+  const build = async () => {
+    const p = await cipher.build({ answerId: "17", ref: 17 }, ctx(data));
+    return { date: "2026-10-01", mode: "cipher", sealed: false, sealedReason: null, payload: p };
+  };
+
+  it("jams the lock and reveals the answer after at least one guess", async () => {
+    const v = evaluate(LOCK_BY_SLUG.cipher, await build(), 1, ["1"], undefined, lookup(data), { giveUp: true });
+    expect(v.status).toBe("lost");
+    expect(v.gaveUp).toBe(true);
+    expect(v.answer?.name).toBe("Grey Talon");
+    expect((v.clue as { slots: (string | null)[] }).slots).toEqual(set);
+  });
+
+  it("is ignored without a guess, and a correct guess still wins", async () => {
+    const row = await build();
+    expect(evaluate(LOCK_BY_SLUG.cipher, row, 1, [], undefined, lookup(data), { giveUp: true }).status).toBe("playing");
+    const won = evaluate(LOCK_BY_SLUG.cipher, row, 1, ["1", "17"], undefined, lookup(data), { giveUp: true });
+    expect(won.status).toBe("won");
+    expect(won.gaveUp).toBeUndefined();
+  });
+});

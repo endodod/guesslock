@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { lockStats, migrateStore, streaks } from "@/lib/client/store";
+import { adoptServerProgress, lockStats, migrateStore, streaks } from "@/lib/client/store";
+
+describe("adopting account progress", () => {
+  it("server wins per day+lock; local-only records stay", () => {
+    const local = {
+      "2026-09-29": { visage: { g: ["1"], s: "playing" as const, w: 1, h: 0, souls: 0 } },
+      "2026-09-30": { relic: { g: ["5"], s: "won" as const, w: 0, h: 0, souls: 100 } },
+    };
+    const server = {
+      "2026-09-29": { visage: { g: ["1", "2"], s: "won" as const, w: 1, h: 0, souls: 90, ranked: true } },
+      "2026-09-28": { sigil: { g: ["3"], s: "won" as const, w: 0, h: 0, souls: 100 } },
+    };
+    const out = adoptServerProgress(local, server);
+    expect(out["2026-09-29"].visage.g).toEqual(["1", "2"]);
+    expect(out["2026-09-29"].visage.ranked).toBe(true);
+    expect(out["2026-09-30"].relic.souls).toBe(100);
+    expect(out["2026-09-28"].sigil.s).toBe("won");
+    expect(local["2026-09-29"].visage.g).toEqual(["1"]); // input not mutated
+  });
+});
 
 describe("local data migration (11 -> 13 locks)", () => {
   it("stats saved under the old 11-lock numbering load under slugs", () => {

@@ -10,6 +10,19 @@ import { evaluate } from "@/lib/engine/play";
 import { dayMeta, getPuzzle } from "@/lib/server/puzzles";
 import { RULES } from "@/lib/i18n/rules";
 import { t } from "@/lib/i18n/en";
+import { OmenLock } from "@/components/omens/OmenLock";
+import { getMapMeta } from "@/lib/omens/map";
+import { omenView } from "@/lib/omens/serve";
+import type { OmenPayload } from "@/lib/omens/types";
+import type { Catalog } from "@/lib/engine/types";
+
+/** Hero and item lookups for the Omen panels (ids -> name/icon). */
+function omenCatalog(catalog: Catalog) {
+  return {
+    heroes: Object.fromEntries(catalog.hero.map((h) => [Number(h.id), { name: h.name, icon: h.icon }])),
+    items: Object.fromEntries(catalog.item.map((i) => [Number(i.id), { name: i.name, icon: i.icon, slot: i.slot }])),
+  };
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -29,8 +42,9 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   const available = meta.filter((m) => m.state === "available").map((m) => m.slug);
   const back = date < today ? `/archive/${date}` : "/";
 
+  const isOmen = lock.group === "omens";
   return (
-    <div className="mx-auto max-w-[760px] px-4 py-5 md:py-8">
+    <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : "max-w-[760px]"}`}>
       <div className="mb-5 flex items-center gap-3">
         <Link href={back} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-brass/30 text-brass hover:border-brass" aria-label={t.nav.back}>
           <Icon name="back" />
@@ -41,13 +55,25 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           <p className="text-sm text-ash">{lock.subtitle}</p>
         </div>
       </div>
-      {row ? (
+      {isOmen && row && !row.sealed ? (
+        <OmenLock
+          slug={slug}
+          date={date}
+          number={number}
+          initial={omenView(row.payload as unknown as OmenPayload)}
+          cat={omenCatalog(catalog)}
+          map={await getMapMeta()}
+          site={config.siteUrl}
+          available={available}
+          rules={RULES[slug]}
+        />
+      ) : row && !isOmen ? (
         <LockGame
           slug={slug}
           date={date}
           number={number}
           initialView={evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess))}
-          entries={lock.guess === "number" ? [] : catalog[lock.guess]}
+          entries={lock.guess === "number" || lock.guess === "omen" ? [] : catalog[lock.guess]}
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}

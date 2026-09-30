@@ -6,6 +6,7 @@ import { Footer, Header, Onboarding } from "@/components/Chrome";
 import { config } from "@/lib/config";
 import { nextResetAt } from "@/lib/time";
 import { todayDate } from "@/lib/day";
+import { currentUser } from "@/lib/auth/server";
 
 // "Today" depends on the request time: never prerender.
 export const dynamic = "force-dynamic";
@@ -17,20 +18,22 @@ const notoEmoji = Noto_Emoji({ weight: "400", variable: "--font-noto-emoji", dis
 
 export const metadata: Metadata = {
   title: { default: "GUESSLOCK — Pick today's lock", template: "%s · GUESSLOCK" },
-  description: "A daily Deadlock guessing game. 13 locks, one answer each, every day.",
+  description: "A daily Deadlock guessing game. 16 locks every day: 13 guessing games and 3 Omens that show a real match.",
   metadataBase: new URL(`https://${config.siteUrl}`),
 };
 
 export const viewport: Viewport = { themeColor: "#0e0d0b", width: "device-width", initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const now = new Date();
   const today = todayDate(now);
   const dateLabel = new Intl.DateTimeFormat("en-GB", { timeZone: config.timezone, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(now);
+  const sessionUser = await currentUser();
+  const user = sessionUser ? { id: sessionUser.id, name: sessionUser.name || "Keeper" } : null;
   return (
     <html lang="en" className={`${limelight.variable} ${spectral.variable} ${plexMono.variable} ${notoEmoji.variable}`}>
       <body className="grain flex min-h-dvh flex-col antialiased">
-        <GameProvider today={today}>
+        <GameProvider today={today} user={user}>
           <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-ink focus:p-2">Skip to content</a>
           <Header dateLabel={dateLabel} nextReset={nextResetAt(now, config.timezone).getTime()} />
           <main id="main" className="flex-1">{children}</main>

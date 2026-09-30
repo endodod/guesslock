@@ -5,12 +5,15 @@ import { LEGACY_11_NUMERALS, LOCKS } from "@/locks.config";
 export type LockRecord = {
   g: string[]; // guesses (ids or numbers as strings)
   b?: string; // bonus pick
+  gu?: boolean; // gave up
+  o?: unknown; // The Omens: the locked-in answers (the record's souls = the Omen score)
   s: "playing" | "won" | "lost";
   w: number; // wrong guesses
   h: number; // hints used
   souls: number;
   bonusCorrect?: boolean;
   archive?: boolean; // replay of a past day: excluded from stats and streaks
+  ranked?: boolean; // signed in: counts for leaderboards (set from the server)
   answer?: { name: string; image: string | null };
   at?: number; // finished at (ms)
 };
@@ -30,6 +33,8 @@ export type StoreData = {
   progress: Record<string, Record<string, LockRecord>>; // date -> slug -> record
   settings: Settings;
   onboarded: boolean;
+  /** Omen practice (never counts toward souls/streaks): per Omen, rounds played and souls scored. */
+  practice: Record<string, { n: number; souls: number }>;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,7 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const STORE_KEY = "guesslock";
 
 export function emptyStore(): StoreData {
-  return { version: 2, progress: {}, settings: { ...DEFAULT_SETTINGS }, onboarded: false };
+  return { version: 2, progress: {}, settings: { ...DEFAULT_SETTINGS }, onboarded: false, practice: {} };
 }
 
 /**
@@ -52,6 +57,7 @@ export function migrateStore(raw: unknown): StoreData {
   const out = emptyStore();
   out.onboarded = !!r.onboarded;
   out.settings = { ...DEFAULT_SETTINGS, ...((r.settings as Partial<Settings>) ?? {}) };
+  if (r.practice && typeof r.practice === "object") out.practice = r.practice as StoreData["practice"];
   const progress = (r.progress ?? {}) as Record<string, Record<string, LockRecord>>;
   const validSlugs = new Set(LOCKS.map((l) => l.slug));
   for (const [date, locks] of Object.entries(progress)) {
@@ -82,6 +88,23 @@ export function saveStore(data: StoreData) {
   } catch {
     /* storage full or blocked: play continues without persistence */
   }
+}
+
+/**
+ * Adopts the account's progress from the server: server records replace local ones for the same
+ * day and lock (the server is authoritative when signed in); local-only records are kept.
+ */
+export function adoptServerProgress(local: StoreData["progress"], server: Record<string, Record<string, LockRecord>>): StoreData["progress"] {
+  const out: StoreData["progress"] = {};
+  for (const [d, locks] of Object.entries(local)) out[d] = { ...locks };
+  for (const [d, locks] of Object.entries(server ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    for (const [slug, rec] of Object.entries(locks ?? {})) {
+      if (!rec || !Array.isArray(rec.g)) continue;
+      (out[d] ??= {})[slug] = { ...rec, s: rec.s === "won" || rec.s === "lost" ? rec.s : "playing" };
+    }
+  }
+  return out;
 }
 
 // ───────────── stats ─────────────

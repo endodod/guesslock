@@ -89,6 +89,8 @@ export type PlayView = {
   answer?: AnswerView;
   bonus?: BonusView;
   maxTries?: number;
+  /** The player gave up (unlimited-guess locks): the answer is revealed and the lock jams. */
+  gaveUp?: boolean;
 };
 
 export type CatalogEntry = {

@@ -1,19 +1,21 @@
 "use client";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
+import { LOCKS, OMEN_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
 import { daySouls, streaks, type LockRecord } from "@/lib/client/store";
 import { shareDay, type LockResult } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
+import { answerImageClass } from "@/lib/images";
 import { ShareButton } from "./WinPanel";
 
 export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed";
 
 export function boxState(meta: LockMeta | undefined, rec: LockRecord | undefined): BoxState {
   if (!meta || meta.state !== "available") return "sealed";
+  if (rec?.o !== undefined) return "opened"; // an Omen is opened once locked in
   if (!rec || rec.g.length === 0) return "locked";
   if (rec.s === "won") return "opened";
   if (rec.s === "lost") return "jammed";
@@ -24,13 +26,20 @@ export function VaultBox({
   lock, state, rec, href, large = false,
 }: { lock: LockDef; state: BoxState; rec?: LockRecord; href: string | null; large?: boolean }) {
   const open = state === "opened" || state === "jammed";
+  const omen = lock.group === "omens";
   const inner = (
-    <div className={`group relative flex h-full flex-col overflow-hidden rounded-[3px] border border-brass/50 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${large ? "min-h-52" : "min-h-44"}`}>
+    <div className={`group relative flex h-full flex-col overflow-hidden rounded-[3px] border bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${omen ? "border-cursed/60" : "border-brass/50"} ${large ? "min-h-52" : "min-h-44"}`}>
       {/* Box interior (visible when the door swings open) */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]">
+      <div className={`absolute inset-0 ${omen ? "bg-[radial-gradient(ellipse_at_center,#3b2a63,#140f22)]" : "bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]"}`}>
+        {open && omen && rec && (
+          <div className="flex h-full flex-col items-center justify-center pl-8 text-center">
+            <span className="font-mono text-4xl text-paper">{rec.souls}</span>
+            <span className="text-xs text-ash">of 100</span>
+          </div>
+        )}
         {open && rec?.answer?.image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`h-full w-full object-cover opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
+          <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`${answerImageClass(lock.guess)} opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
         )}
         {state === "opened" && <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(127,227,194,0.45)]" />}
         {state === "jammed" && (
@@ -43,7 +52,7 @@ export function VaultBox({
       {/* Door */}
       <div className="relative h-full [perspective:1000px]">
         <motion.div
-          className="relative flex h-full flex-col items-center justify-between border border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)] px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden]"
+          className={`relative flex h-full flex-col items-center justify-between border px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden] ${omen ? "border-cursed/40 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)] shadow-[inset_0_0_28px_rgba(140,107,216,0.28)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}
           initial={false}
           animate={open ? { rotateY: -78, opacity: 0.94 } : { rotateY: 0, opacity: 1 }}
           transition={{ duration: 0.45, ease: "easeInOut" }}
@@ -66,16 +75,17 @@ export function VaultBox({
           </div>
           <div className="text-center">
             <div className={`font-display leading-tight text-paper ${large ? "text-lg" : "text-base"}`}>{lock.name}</div>
-            <div className="mt-0.5 text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
+            <div className="mt-0.5 line-clamp-2 min-h-[2.75em] text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
           </div>
         </motion.div>
       </div>
 
       {/* status tag */}
       <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
+        {open && rec?.answer?.name && <span className="mb-0.5 block truncate font-body text-[0.8rem] text-paper">{rec.answer.name}</span>}
         {state === "locked" && <span className="text-ash">{t.vault.states.locked}</span>}
         {state === "progress" && <span className="text-ecto">{t.vault.states.progress(rec!.g.length)}</span>}
-        {state === "opened" && <span className="text-ecto">{rec!.g.length} · {rec!.souls} souls</span>}
+        {state === "opened" && <span className="text-ecto">{omen ? `Opened · ${rec!.souls} souls` : `${rec!.g.length} · ${rec!.souls} souls`}</span>}
         {state === "jammed" && <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>}
         {state === "sealed" && <span className="text-ash">{t.vault.sealed}</span>}
       </div>
@@ -179,6 +189,17 @@ export function Vault({
           </ul>
         </section>
       </div>
+
+      {/* The Omens: predictions from real matches (a different kind of puzzle, hence the cursed glow) */}
+      <section aria-labelledby="omens-h" className="mt-8">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="omens-h" className="smallcaps text-cursed">{t.groups.omens}</h2>
+          <Link href="/omens/practice" className="text-sm text-ash underline-offset-4 hover:text-paper hover:underline">Practice Omens</Link>
+        </div>
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
+          {OMEN_LOCKS.map((l) => box(l))}
+        </ul>
+      </section>
 
       {!isArchive && (
         <div className="mt-10 flex flex-col items-center gap-2 text-center">

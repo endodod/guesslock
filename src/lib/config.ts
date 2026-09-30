@@ -24,6 +24,16 @@ export const config = {
   sessionSecret: env("SESSION_SECRET", ""),
   cronSecret: process.env.CRON_SECRET ?? "",
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL ?? "",
+  /** Optional deadlock-api key (X-API-KEY): raises replay query limits from 20/h to 200/h. */
+  apiKey: process.env.DEADLOCK_API_KEY ?? "",
+  /** Replay (demo) query budget per hour; keep below the API limit for this IP/key. */
+  omenQueriesPerHour: Number(env("OMEN_QUERIES_PER_HOUR", process.env.DEADLOCK_API_KEY ? "150" : "18")),
+  /** Compressed match timelines are kept this long (admin inspector), then pruned. */
+  omenTimelineDays: Number(env("OMEN_TIMELINE_DAYS", "14")),
+  /** External replay viewer shown after an Omen reveal; {id} = match ID. */
+  omenMatchUrl: env("OMEN_MATCH_URL", "https://statlocker.gg/match/{id}"),
+  /** Stored API responses older than this aren't used as an outage fallback (see snapshots.ts). */
+  apiBackupMaxDays: Number(env("API_BACKUP_MAX_DAYS", "14")),
   /** Street Brawl legendaries are tier 5 in the API (cost 9999). */
   excludedItemTiers: env("EXCLUDED_ITEM_TIERS", "5").split(",").map(Number),
 };

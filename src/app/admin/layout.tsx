@@ -10,7 +10,7 @@ export const metadata = { title: "GUESSLOCK admin", robots: { index: false, foll
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const authed = await isAdmin();
   return (
-    <html lang="en">
+    <html lang="en" className="bg-neutral-100">
       <body className="min-h-dvh bg-neutral-100 font-sans text-[15px] text-neutral-900" style={{ fontFamily: "system-ui, sans-serif" }}>
         {authed && (
           <nav className="flex flex-wrap items-center gap-4 border-b border-neutral-300 bg-white px-4 py-2">
@@ -22,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ["/admin/texts", "Texts"],
               ["/admin/items", "Items"],
               ["/admin/calendar", "Calendar"],
+              ["/admin/omens", "Omens"],
             ].map(([href, label]) => (
               <Link key={href} href={href} className="text-blue-700 hover:underline">{label}</Link>
             ))}

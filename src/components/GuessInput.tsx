@@ -2,12 +2,13 @@
 // Autocomplete guess input: desktop dropdown, mobile bottom sheet.
 // Fuzzy + accent-insensitive; already-guessed entries are greyed and struck through.
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useAnimate } from "motion/react";
 import type { CatalogEntry } from "@/lib/engine/types";
 import { fuzzyScore } from "@/lib/text/normalize";
 import { Icon, SlotDot } from "./ui";
 import { useMediaQuery } from "@/lib/client/hooks";
 import { t } from "@/lib/i18n/en";
+import { useGame } from "./GameProvider";
 
 const useIsMobile = () => useMediaQuery("(max-width: 767px)");
 
@@ -15,11 +16,28 @@ type Props = {
   entries: CatalogEntry[];
   guessed: Set<string>;
   placeholder: string;
+  /** Input unusable (e.g. saved guesses still restoring). */
   disabled?: boolean;
+  /** A guess is being checked: submits are ignored, but the field keeps focus and text. */
+  busy?: boolean;
+  /** Changes on every wrong guess; each change shakes the field. */
+  shake?: number;
   grouped?: boolean; // group by entry.group (abilities by hero)
-  onGuess: (id: string) => void;
+  /** Resolves to true when the guess was right. */
+  onGuess: (id: string) => Promise<boolean> | void;
   autoFocus?: boolean;
 };
+
+/** Shakes the returned scope element whenever `trigger` changes (skipped with reduced motion). */
+function useShake(trigger: number | undefined) {
+  const { reducedMotion } = useGame();
+  const [scope, animate] = useAnimate<HTMLDivElement>();
+  useEffect(() => {
+    if (!trigger || reducedMotion || !scope.current) return;
+    void animate(scope.current, { x: [0, -8, 7, -5, 3, 0] }, { duration: 0.36, ease: "easeOut" });
+  }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  return scope;
+}
 
 function rank(entries: CatalogEntry[], q: string) {
   if (!q.trim()) return entries.map((e) => ({ e, s: 1 }));
@@ -32,13 +50,14 @@ function rank(entries: CatalogEntry[], q: string) {
     .sort((a, b) => b.s - a.s || a.e.name.localeCompare(b.e.name));
 }
 
-export function GuessInput({ entries, guessed, placeholder, disabled, grouped, onGuess, autoFocus }: Props) {
+export function GuessInput({ entries, guessed, placeholder, disabled, busy, shake, grouped, onGuess, autoFocus }: Props) {
   const isMobile = useIsMobile();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
+  const shakeRef = useShake(shake);
 
   const results = useMemo(() => {
     const r = rank(entries, q);
@@ -49,16 +68,24 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
   const selectable = results.filter((e) => !guessed.has(e.id));
   useEffect(() => {
     // Check the viewport directly: during hydration isMobile is still false on phones.
-    if (autoFocus && !window.matchMedia("(max-width: 767px)").matches) inputRef.current?.focus();
-  }, [autoFocus, isMobile]);
+    if (autoFocus && !disabled && !window.matchMedia("(max-width: 767px)").matches) inputRef.current?.focus();
+  }, [autoFocus, isMobile, disabled]);
 
-  const submit = (id?: string) => {
+  const submit = async (id?: string) => {
     const pick = id ?? selectable[active]?.id;
-    if (!pick || guessed.has(pick)) return;
-    onGuess(pick);
-    setQ("");
-    setOpen(false);
-    if (!isMobile) setTimeout(() => inputRef.current?.focus(), 0);
+    if (busy || disabled || !pick || guessed.has(pick)) return;
+    setActive(0);
+    if (isMobile) setOpen(false);
+    const right = await onGuess(pick);
+    if (right) { setQ(""); setOpen(false); return; }
+    // Wrong (or failed): keep what the player typed so they can refine it; select it so
+    // typing starts a fresh search.
+    if (!isMobile) {
+      const el = inputRef.current;
+      el?.focus();
+      el?.select();
+      setOpen(true);
+    }
   };
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -108,7 +135,7 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
   );
 
   const field = (big: boolean) => (
-    <div className={`flex items-center gap-2 rounded-[3px] border border-brass/50 bg-ink/80 px-3 focus-within:border-ecto focus-within:shadow-[0_0_14px_rgba(127,227,194,0.25)] ${big ? "min-h-14" : "min-h-12"}`}>
+    <div className={`search-field flex items-center gap-1 rounded-[3px] border border-brass/50 bg-ink/80 pl-3 pr-1 transition-[border-color,box-shadow] ${busy ? "opacity-80" : ""} ${big ? "min-h-14" : "min-h-12"}`}>
       <input
         ref={inputRef}
         type="text"
@@ -121,18 +148,29 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
         autoComplete="off"
         spellCheck={false}
         disabled={disabled}
+        aria-busy={busy}
         value={q}
         placeholder={placeholder}
         onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => !isMobile && setTimeout(() => setOpen(false), 120)}
         onKeyDown={onKey}
-        className="min-w-0 flex-1 bg-transparent py-2 text-[1.05rem] text-paper outline-none placeholder:text-ash focus-visible:outline-none"
+        className="min-w-0 flex-1 bg-transparent py-2 text-[1.05rem] text-paper outline-none placeholder:text-ash"
       />
+      {q && (
+        <button
+          type="button"
+          onClick={() => { setQ(""); setActive(0); inputRef.current?.focus(); }}
+          className="flex h-10 w-8 shrink-0 items-center justify-center text-ash hover:text-paper"
+          aria-label={t.lock.clear}
+        >
+          <Icon name="close" className="h-4 w-4" />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => submit()}
-        disabled={disabled || !selectable.length || (!q.trim() && !grouped)}
+        disabled={disabled || busy || !selectable.length || (!q.trim() && !grouped)}
         className="flex h-10 items-center rounded-[3px] px-3 text-brass disabled:opacity-30"
         aria-label={t.lock.submit}
       >
@@ -144,15 +182,15 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
   if (isMobile) {
     return (
       <>
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-brass/30 bg-ink/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div ref={shakeRef} className="fixed inset-x-0 bottom-0 z-30 border-t border-brass/30 bg-ink/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <button
             type="button"
             disabled={disabled}
             onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
             className="flex min-h-12 w-full items-center gap-3 rounded-[3px] border border-brass/50 bg-iron px-4 text-left text-ash disabled:opacity-40"
           >
-            <Icon name="question" className="h-5 w-5 text-brass" />
-            {placeholder}
+            <Icon name="question" className="h-5 w-5 shrink-0 text-brass" />
+            <span className={`truncate ${q ? "text-paper" : ""}`}>{q || placeholder}</span>
           </button>
         </div>
         <AnimatePresence>
@@ -186,10 +224,10 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={shakeRef}>
       {field(false)}
-      {open && results.length > 0 && (
-        <div className="deco absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-[3px] shadow-2xl" onMouseDown={(e) => e.preventDefault()}>
+      {open && (results.length > 0 || q.trim()) && (
+        <div className="absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-[3px] border border-brass/50 bg-iron-2 shadow-[0_18px_40px_rgba(0,0,0,0.6)]" onMouseDown={(e) => e.preventDefault()}>
           {list(false)}
         </div>
       )}
@@ -197,33 +235,44 @@ export function GuessInput({ entries, guessed, placeholder, disabled, grouped, o
   );
 }
 
-/** Numeric input for The Measure. */
-export function NumberInput({ placeholder, disabled, onGuess, postfix }: { placeholder: string; disabled?: boolean; onGuess: (v: string) => void; postfix?: string }) {
+/** Numeric input for The Measure. A wrong number stays in the field so it can be adjusted. */
+export function NumberInput({
+  placeholder, disabled, busy, shake, onGuess, postfix,
+}: {
+  placeholder: string; disabled?: boolean; busy?: boolean; shake?: number;
+  onGuess: (v: string) => Promise<boolean> | void; postfix?: string;
+}) {
   const [v, setV] = useState("");
-  const submit = () => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const shakeRef = useShake(shake);
+  const submit = async () => {
     const n = Number(v.replace(",", "."));
-    if (v.trim() === "" || !Number.isFinite(n)) return;
-    onGuess(String(n));
-    setV("");
+    if (busy || disabled || v.trim() === "" || !Number.isFinite(n)) return;
+    const right = await onGuess(String(n));
+    if (right) setV("");
+    else inputRef.current?.select();
   };
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-brass/30 bg-ink/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+    <div ref={shakeRef} className="fixed inset-x-0 bottom-0 z-30 border-t border-brass/30 bg-ink/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
       <form
-        className="flex min-h-12 items-center gap-2 rounded-[3px] border border-brass/50 bg-ink/80 px-3 focus-within:border-ecto"
-        onSubmit={(e) => { e.preventDefault(); submit(); }}
+        className="search-field flex min-h-12 items-center gap-2 rounded-[3px] border border-brass/50 bg-ink/80 pl-3 pr-1 transition-[border-color,box-shadow]"
+        onSubmit={(e) => { e.preventDefault(); void submit(); }}
       >
         <input
+          ref={inputRef}
           inputMode="decimal"
+          enterKeyHint="go"
           aria-label={placeholder}
+          aria-busy={busy}
           autoComplete="off"
           disabled={disabled}
           value={v}
           placeholder={placeholder}
           onChange={(e) => setV(e.target.value.replace(/[^0-9.,-]/g, ""))}
-          className="min-w-0 flex-1 bg-transparent py-2 font-mono text-lg text-paper outline-none placeholder:font-body placeholder:text-ash focus-visible:outline-none"
+          className="min-w-0 flex-1 bg-transparent py-2 font-mono text-lg text-paper outline-none placeholder:font-body placeholder:text-ash"
         />
         {postfix && <span className="font-mono text-ash">{postfix}</span>}
-        <button type="submit" disabled={disabled || !v.trim()} className="flex h-10 items-center px-3 text-brass disabled:opacity-30" aria-label={t.lock.submit}>
+        <button type="submit" disabled={disabled || busy || !v.trim()} className="flex h-10 items-center px-3 text-brass disabled:opacity-30" aria-label={t.lock.submit}>
           <Icon name="arrow-right" />
         </button>
       </form>

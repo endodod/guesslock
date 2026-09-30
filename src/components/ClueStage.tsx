@@ -1,11 +1,12 @@
 "use client";
-// Clue stage renderers for all 13 locks. Clue images get neutral alt text so answers don't leak.
+// Clue stage renderers for the 13 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Clue, GuessRow } from "@/lib/engine/types";
 import { CENSOR } from "@/lib/text/redact";
 import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
+import { t } from "@/lib/i18n/en";
 
 const CLUE_ALT = "Today's clue image";
 
@@ -96,7 +97,7 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
   );
 }
 
-function TextStage({ clue }: { clue: Extract<Clue, { kind: "text" }> }) {
+function TextStage({ clue, done }: { clue: Extract<Clue, { kind: "text" }>; done: boolean }) {
   return (
     <div className="paper clue-layer space-y-4 rounded-sm p-5 text-[1.05rem] leading-relaxed shadow-inner md:p-7">
       <AnimatePresence initial={false}>
@@ -117,7 +118,7 @@ function TextStage({ clue }: { clue: Extract<Clue, { kind: "text" }> }) {
       {clue.image && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center pt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={clue.image} alt={CLUE_ALT} className="h-20 w-20 rounded bg-[#1a1816] object-contain p-2 blur-[5px]" />
+          <img src={clue.image} alt={CLUE_ALT} className={`h-20 w-20 rounded bg-[#1a1816] object-contain p-2 transition-[filter] duration-700 ${done ? "" : "blur-[5px]"}`} />
         </motion.div>
       )}
     </div>
@@ -206,7 +207,7 @@ function Typewriter({ text, animate }: { text: string; animate: boolean }) {
   );
 }
 
-export function EchoStage({ clue, showAudio = false }: { clue: Extract<Clue, { kind: "echo" }>; showAudio?: boolean }) {
+export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue: Extract<Clue, { kind: "echo" }>; showAudio?: boolean; typewriter?: boolean }) {
   const { reducedMotion } = useGame();
   const [seen] = useState(() => clue.lines.length);
   return (
@@ -221,7 +222,7 @@ export function EchoStage({ clue, showAudio = false }: { clue: Extract<Clue, { k
               className="paper relative flex items-start gap-3 rounded-sm py-3 pl-8 pr-4 font-mono text-[0.95rem] shadow"
             >
               <span className="absolute left-2.5 top-3.5 h-3 w-3 rounded-full bg-[radial-gradient(circle_at_35%_35%,#f1d69a,#8f743f)] shadow" aria-hidden />
-              <span className="flex-1">“<Typewriter text={l.text} animate={!reducedMotion && i >= seen} />”</span>
+              <span className="flex-1">“<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”</span>
               {showAudio && l.audio && <AudioButton src={l.audio} small />}
             </motion.li>
           );
@@ -365,7 +366,7 @@ function MeasureStage({ clue, rows }: { clue: Extract<Clue, { kind: "measure" }>
   );
 }
 
-function GridLegend() {
+function GridLegend({ subject }: { subject: "hero" | "item" }) {
   const item = (cls: string, icon: "check" | "approx" | "cross" | "up" | "down", label: string) => (
     <span className="flex items-center gap-1.5">
       <span className={`flex h-6 w-6 items-center justify-center rounded-sm ${cls}`}><Icon name={icon} className="h-4 w-4" /></span>
@@ -374,7 +375,7 @@ function GridLegend() {
   );
   return (
     <DecoFrame className="clue-layer p-4" corners={false}>
-      <p className="mb-2 text-sm text-ash">Guess a hero or item. Each column compares it to the answer.</p>
+      <p className="mb-2 text-sm text-ash">{subject === "hero" ? t.lock.legendHero : t.lock.legendItem}</p>
       <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
         {item("tile-match", "check", "Match")}
         {item("tile-partial", "approx", "Partial")}
@@ -386,15 +387,15 @@ function GridLegend() {
   );
 }
 
-export function ClueStage({ clue, rows }: { clue: Clue; rows: GuessRow[] }) {
+export function ClueStage({ clue, rows, done = false, subject = "hero" }: { clue: Clue; rows: GuessRow[]; done?: boolean; subject?: "hero" | "item" }) {
   switch (clue.kind) {
-    case "grid": return <GridLegend />;
+    case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;
-    case "text": return <TextStage clue={clue} />;
+    case "text": return <TextStage clue={clue} done={done} />;
     case "build": return <BuildStage clue={clue} />;
     case "emoji": return <EmojiStage clue={clue} />;
-    case "echo": return <EchoStage clue={clue} />;
+    case "echo": return <EchoStage clue={clue} typewriter={!done} showAudio={done} />;
     case "relic": return <RelicStage clue={clue} />;
     case "lineage": return <LineageStage clue={clue} />;
     case "measure": return <MeasureStage clue={clue} rows={rows} />;

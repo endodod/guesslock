@@ -1,5 +1,6 @@
 "use client";
-import { LOCKS } from "@/locks.config";
+import { LOCKS, OMEN_LOCKS, type LockDef } from "@/locks.config";
+import type { StoreData } from "@/lib/client/store";
 import { daySouls, lockStats, streaks } from "@/lib/client/store";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
@@ -12,6 +13,26 @@ function Stat({ label, value, icon }: { label: string; value: React.ReactNode; i
       <div className="flex items-center justify-center gap-1.5 font-mono text-2xl text-paper">{icon}{value}</div>
       <div className="text-xs text-ash">{label}</div>
     </div>
+  );
+}
+
+/** Omen stats: locks played (live, not archive), average and best score. */
+function omenStats(progress: StoreData["progress"], slug: string) {
+  const scores = Object.values(progress).map((d) => d[slug]).filter((r) => r && !r.archive && r.o !== undefined).map((r) => r!.souls);
+  return { played: scores.length, avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0, best: scores.length ? Math.max(...scores) : 0 };
+}
+
+function OmenCard({ l, progress }: { l: LockDef; progress: StoreData["progress"] }) {
+  const s = omenStats(progress, l.slug);
+  return (
+    <DecoFrame className="p-4" corners={false}>
+      <h3 className="mb-3 font-display text-lg"><span className="mr-2 text-sm text-cursed">{l.numeral}</span>{l.name}</h3>
+      <div className="grid grid-cols-3 gap-2 text-center font-mono text-sm">
+        <div><div className="text-paper">{s.played}</div><div className="font-body text-xs text-ash">{t.ledger.played}</div></div>
+        <div><div className="text-paper">{s.played ? s.avg : "–"}</div><div className="font-body text-xs text-ash">Avg. souls</div></div>
+        <div><div className="text-paper">{s.played ? s.best : "–"}</div><div className="font-body text-xs text-ash">Best</div></div>
+      </div>
+    </DecoFrame>
   );
 }
 
@@ -59,6 +80,21 @@ export function Ledger() {
         </div>
       </section>
 
+      <section>
+        <h2 className="smallcaps mb-3 text-cursed">Practice accuracy</h2>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {OMEN_LOCKS.map((l) => {
+            const pr = store.practice[l.slug];
+            return (
+              <li key={l.slug} className="rounded-sm border border-cursed/30 bg-iron/70 p-3 text-center">
+                <div className="font-mono text-2xl text-paper">{pr?.n ? `${Math.round(pr.souls / pr.n)}%` : "–"}</div>
+                <div className="text-xs text-ash">{l.name} · {pr?.n ?? 0} practice {pr?.n === 1 ? "round" : "rounds"}</div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       {days.length === 0 ? (
         <p className="text-ash">{t.ledger.none}</p>
       ) : (
@@ -66,6 +102,7 @@ export function Ledger() {
           <h2 className="sr-only">Per lock</h2>
           <ul className="grid gap-4 md:grid-cols-2">
             {LOCKS.map((l) => {
+              if (l.group === "omens") return <li key={l.slug}><OmenCard l={l} progress={p} /></li>;
               const s = lockStats(p, l.slug, today);
               return (
                 <li key={l.slug}>
@@ -79,7 +116,7 @@ export function Ledger() {
                       <div><div className="text-paper">{s.winRate}%</div><div className="font-body text-xs text-ash">{t.ledger.winRate}</div></div>
                       <div><div className="text-paper">{s.avgGuesses || "–"}</div><div className="font-body text-xs text-ash">{t.ledger.avgGuesses}</div></div>
                     </div>
-                    {s.played > 0 && <Distribution dist={s.dist} />}
+                    {s.played > 0 && <Distribution dist={s.dist} maxRows={l.maxTries ?? 6} />}
                   </DecoFrame>
                 </li>
               );

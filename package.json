@@ -15,11 +15,14 @@
     "generate": "tsx --tsconfig tsconfig.json scripts/generate.ts",
     "validate:leaks": "tsx --tsconfig tsconfig.json scripts/validate-leaks.ts",
     "import:voicelines": "tsx --tsconfig tsconfig.json scripts/import-voicelines.ts",
-    "make:grain": "node scripts/make-grain.mjs"
+    "make:grain": "node scripts/make-grain.mjs",
+    "backup": "tsx --tsconfig tsconfig.json scripts/backup.ts",
+    "omens:harvest": "tsx --tsconfig tsconfig.json scripts/omens-harvest.ts"
   },
   "dependencies": {
     "@neon/config": "^1.8.3",
     "@neon/env": "^1.4.8",
+    "@neondatabase/auth": "^0.5.0-beta",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "dotenv": "^18.0.4",
@@ -42,6 +45,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vite": "^8.3.1",
     "vitest": "^5.0.3"
   },
   "engines": {
