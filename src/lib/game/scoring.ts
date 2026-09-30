@@ -42,17 +42,19 @@ export function symbolFor(r: LockResult | undefined, lock?: LockDef): string {
   return "▫️";
 }
 
+/** `skip` = slugs the player skips (sound locks): left out of the count, souls and symbols. */
 export function shareDay(opts: {
-  number: number; results: Record<string, LockResult>; streak: number; site: string;
+  number: number; results: Record<string, LockResult>; streak: number; site: string; skip?: ReadonlySet<string>;
 }): string {
   const { number, results, streak, site } = opts;
-  const open = LOCKS.filter((l) => results[l.slug]?.status === "won").length;
-  const souls = LOCKS.reduce((a, l) => a + (results[l.slug]?.souls ?? 0), 0);
+  const counted = (ls: LockDef[]) => ls.filter((l) => !opts.skip?.has(l.slug));
+  const open = counted(LOCKS).filter((l) => results[l.slug]?.status === "won").length;
+  const souls = counted(LOCKS).reduce((a, l) => a + (results[l.slug]?.souls ?? 0), 0);
   return [
-    `GUESSLOCK #${number} — ${open}/${LOCKS.length} locks · ${souls} souls`,
-    `Spirits  ${SPIRIT_LOCKS.map((l) => symbolFor(results[l.slug])).join("")}`,
-    `Shop     ${SHOP_LOCKS.map((l) => symbolFor(results[l.slug])).join("")}`,
-    `Omens    ${OMEN_LOCKS.map((l) => symbolFor(results[l.slug], l)).join("")}`,
+    `GUESSLOCK #${number} — ${open}/${counted(LOCKS).length} locks · ${souls} souls`,
+    `Spirits  ${counted(SPIRIT_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
+    `Shop     ${counted(SHOP_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
+    `Omens    ${counted(OMEN_LOCKS).map((l) => symbolFor(results[l.slug], l)).join("")}`,
     `🔥 ${streak} ${streak === 1 ? "day" : "days"}`,
     site,
   ].join("\n");

@@ -1,10 +1,11 @@
 # GUESSLOCK
 
-A fan-made daily guessing game for Valve's Deadlock: 16 "locks" per day (13 guessing games and 3 Omens), same for every player, reset at 00:00 Europe/Zurich.
+A fan-made daily guessing game for Valve's Deadlock: 17 "locks" per day (14 guessing games and 3 Omens), same for every player, reset at 00:00 Europe/Zurich.
 Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
-[`guesslock-addendum-omens.md`](prompts/guesslock-addendum-omens.md) (The Omens; data findings in [`docs/omens-data-spike.md`](docs/omens-data-spike.md)).
+[`guesslock-addendum-omens.md`](prompts/guesslock-addendum-omens.md) (The Omens; data findings in [`docs/omens-data-spike.md`](docs/omens-data-spike.md)),
+[`guesslock-addendum-resonance.md`](prompts/guesslock-addendum-resonance.md) (The Resonance; data findings and defaults in [`docs/resonance-data-spike.md`](docs/resonance-data-spike.md)).
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 7 + Postgres (Neon) · Motion · Zod · Vitest.
 No accounts: player progress lives in `localStorage`.
@@ -22,13 +23,15 @@ No accounts: player progress lives in `localStorage`.
 | VII | The Ascension | ability upgrade texts | API, automatic redaction |
 | VIII | The Cipher | 6 emojis | **only curated** (emoji set per hero in /admin) |
 | IX | The Echo | voice lines (text only, Deadlock Wiki) | wiki, imported automatically by the daily job |
-| X | The Relic | blurred item icon | API |
-| XI | The Appraisal | item attributes | API |
-| XII | The Lineage | build path (easy) | API |
-| XIII | The Measure | hidden stat value (5 tries) | API |
+| X | The Resonance | ability sound (+ bonus); needs audio, skippable in Settings | deadlock-api sound index, **only admin-approved clips** (/admin/sounds) |
+| XI | The Relic | blurred item icon | API |
+| XII | The Appraisal | item attributes | API |
+| XIII | The Lineage | build path (easy) | API |
+| XIV | The Measure | hidden stat value (5 tries) | API |
 
-Everything opens automatically; the admin is optional (corrections, rewrites, overrides). The one exception is
-The Cipher, which stays **Sealed** until at least one hero has a 6-emoji set. Numbering/names/hints live in `src/locks.config.ts`;
+Everything opens automatically; the admin is optional (corrections, rewrites, overrides). The exceptions are
+The Cipher, which stays **Sealed** until at least one hero has a 6-emoji set, and The Resonance, which stays Sealed
+until at least one ability has approved clips (1 cast + 2 total; see below). Numbering/names/hints live in `src/locks.config.ts`;
 attribute columns in `src/lib/engine/columns.ts`; strings in `src/lib/i18n/`.
 
 ## Setup
@@ -44,6 +47,26 @@ npm run dev
 
 Optionally run `npm run import:voicelines` once to fill The Echo right away (otherwise the daily job imports them
 over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji sets, species/release dates, rewrites and overrides.
+For The Resonance, run `npm run import:sounds` (or *Import sound index now* on `/admin/sounds`), then approve clips there.
+
+### The Resonance (sounds)
+
+- **Import** (`src/lib/sounds/`, daily in `/api/cron/sync`, `npm run import:sounds [-- --measure <s>]`): fetches
+  `/v1/assets/sounds` (stored pruned to `abilities` + `weapons` as the `assets-sounds` snapshot), maps each active hero
+  to its folders (`HeroSoundMap`: codename, squashed name or a name word — Abrams → `abrams`, Mo & Krill → `mokrill`,
+  Lady Geist → `ghost` + `geist`; unreleased folders are ignored), and suggests clip → ability matches by file name.
+  Whiz-bys, `_end` stingers, unmatched clips and clips under 250 ms are excluded (still visible, can be restored).
+- **Measure**: WASM mpg123 (`mpg123-decoder`) decodes suggested clips within a time budget; loudness is the loudest
+  400 ms RMS window, `gainDb` brings it to −20 dBFS with the peak kept ≤ −1 dBFS.
+- **Curate** in `/admin/sounds`: per hero the folder mapping, per ability the clips (play, role, ability, ★ = clip 1 /
+  preferred gun, approve/exclude). **Nothing unreviewed is used.** Approving downloads and mirrors the clip under a
+  *salted* id (`sha1("sound:" + PUZZLE_SALT + ":" + url#etag)`), so players only get opaque `/media/<sha1>` URLs that
+  can't be looked up from the public index. Re-imports keep admin decisions; a changed ETag sends an approved clip back
+  to review (review queue), and its old mirror keeps working for frozen puzzles.
+- **Puzzle**: an ability with ≥ 1 approved cast clip and ≥ 2 approved clips (no-repeat window on the hero). Clip 1
+  muffled (client-side 700 Hz low-pass) → clear after 1 wrong guess → clip 2 after 2 → slot (3), gun clip (4; the weapon
+  type as text if no gun clip is approved), archetype (6). Bonus: name the ability; its name is sent only after the
+  bonus pick. Settings: *Skip sound locks* (not counted anywhere), *Sound locks volume*, hard mode *Muffled only*.
 
 **Categories** (`/admin/categories`) holds the attribute columns of The Reckoning and The Appraisal: rename, reorder or
 switch off the built-in (API) columns, fix single values per hero or item in a spreadsheet-style grid, and add custom
@@ -121,7 +144,7 @@ The site keeps running for at least a week if deadlock-api or the wiki goes down
 Refresh the backup with `npm run backup`: it fetches everything live, stores it in the database, rewrites
 `data/api-backup/`, and generates puzzles 8 days ahead. Commit the updated files.
 
-### The Omens (XIV–XVI)
+### The Omens (XV–XVII)
 
 Omens freeze a moment from a real high-rank match and ask what happens next. They need exact per-second data
 (net worth, HP, level, ultimates, midboss and rift state), which only the match **replay** has. deadlock-api runs SQL
@@ -158,12 +181,12 @@ scheduler). Point `guesslock.paulkuehn.ch` at it.
 ## Scripts
 
 `npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `omens:harvest [-- --minutes N]` · `validate:leaks [-- --all]` ·
-`import:voicelines [-- --hero <id>]` · `make:grain`
+`import:voicelines [-- --hero <id>]` · `import:sounds [-- --measure <s>]` · `make:grain`
 
 `/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production).
 
 ## Credits & license notes
 
-Game data and analytics: [deadlock-api.com](https://deadlock-api.com). Voice line transcriptions: [Deadlock Wiki](https://deadlock.wiki),
+Game data, analytics and The Resonance's sound files (hosted by them): [deadlock-api.com](https://deadlock-api.com). Voice line transcriptions: [Deadlock Wiki](https://deadlock.wiki),
 CC BY-NC-SA 4.0 (attributed on `/about` and in The Echo's rules). Fan-made, not affiliated with or endorsed by Valve.
 Deadlock and all related assets © Valve Corporation.

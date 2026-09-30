@@ -1,5 +1,5 @@
 "use client";
-// Clue stage renderers for the 13 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
+// Clue stage renderers for the 14 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Clue, GuessRow } from "@/lib/engine/types";
@@ -7,6 +7,7 @@ import { CENSOR } from "@/lib/text/redact";
 import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
 import { t } from "@/lib/i18n/en";
+import { SoundStage } from "./SoundPlayer";
 
 const CLUE_ALT = "Today's clue image";
 
@@ -396,6 +397,7 @@ export function ClueStage({ clue, rows, done = false, subject = "hero" }: { clue
     case "build": return <BuildStage clue={clue} />;
     case "emoji": return <EmojiStage clue={clue} />;
     case "echo": return <EchoStage clue={clue} typewriter={!done} showAudio={done} />;
+    case "sound": return <SoundStage clue={clue} done={done} />;
     case "relic": return <RelicStage clue={clue} />;
     case "lineage": return <LineageStage clue={clue} />;
     case "measure": return <MeasureStage clue={clue} rows={rows} />;

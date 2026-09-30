@@ -1,10 +1,10 @@
-// Hero modes: Reckoning, Visage, Sigil, Testament, Incantation, Belongings, Ascension, Cipher, Echo.
+// Hero modes: Reckoning, Visage, Sigil, Testament, Incantation, Belongings, Ascension, Cipher, Echo, Resonance.
 import { config } from "../../config";
 import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
-import type { AbilityData, GameData, HeroData } from "../context";
+import type { AbilityData, GameData, HeroData, SoundData } from "../context";
 import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
-import type { ColumnMeta, Tile } from "../types";
+import type { ColumnMeta, SoundClipView, Tile } from "../types";
 
 // ---------- helpers ----------
 
@@ -393,4 +393,62 @@ export const echo: ModeImpl<{ lines: EchoLine[] }> = {
     total: p.clue.lines.length,
   }),
   displayed: (p) => p.clue.lines.map((l) => l.text),
+};
+
+// ---------- X. The Resonance (ability sound) ----------
+
+type SoundRef = { url: string; gainDb: number };
+
+/** An ability can be an answer with ≥ 1 approved cast clip and ≥ 2 approved clips in total. */
+export function soundEligible(clips: Pick<SoundData, "role">[]): boolean {
+  return clips.length >= 2 && clips.some((c) => c.role === "cast");
+}
+
+const CLIP2_ROLES = ["impact", "loop", "other", "cast"];
+
+/** Clip 1: the starred cast clip, else a seeded cast. Clip 2: another clip, preferring impact > loop > other > cast. */
+export function pickResonanceClips(clips: SoundData[], rng: { pick<T>(a: readonly T[]): T }): [SoundData, SoundData] {
+  const casts = clips.filter((c) => c.role === "cast");
+  const first = casts.find((c) => c.preferred) ?? rng.pick(casts);
+  const rest = clips.filter((c) => c.id !== first.id);
+  const role = CLIP2_ROLES.find((r) => rest.some((c) => c.role === r))!;
+  return [first, rng.pick(rest.filter((c) => c.role === role))];
+}
+
+const soundRef = (c: SoundData): SoundRef => ({ url: c.url, gainDb: c.gainDb });
+
+/** After this many wrong guesses the hero's gun sound joins the clue (if an approved gun clip exists). */
+const GUN_AFTER = 3;
+
+export const resonance: ModeImpl<{ clips: SoundRef[]; gun?: SoundRef | null }> = {
+  mode: "hero-sound",
+  candidates: (data) =>
+    heroPool(data, "hero-sound", (h) => usableAbilities(data, h.id, "hero-sound").some((a) => soundEligible(data.abilitySounds(a.id)))),
+  build(c, { data, rng }) {
+    const h = data.hero(c.ref as number)!;
+    const ability = rng.pick(usableAbilities(data, h.id, "hero-sound").filter((a) => soundEligible(data.abilitySounds(a.id))));
+    const [one, two] = pickResonanceClips(data.abilitySounds(ability.id), rng);
+    const guns = data.weaponSounds(h.id);
+    const gun = guns.find((g) => g.preferred) ?? (guns.length ? rng.pick(guns) : null);
+    return {
+      v: 1, mode: "hero-sound", answer: heroAnswer(h), correctIds: [String(h.id)],
+      // Codenames too: they are in every upstream URL, so none may ever reach the player.
+      leakTerms: [...heroLeakTerms(h), ...data.soundCodenames(h.id), ability.name, ...ability.aliases],
+      hints: {}, // letter hints come from the answer name (engine/play.ts), like every other lock
+      bonus: { ...bonusFor(data, h.id, ability, rng), reveal: { name: ability.name, image: ability.icon } },
+      clue: { clips: [soundRef(one), soundRef(two)], gun: gun ? soundRef(gun) : null },
+    };
+  },
+  // 0 wrong: clip 1 muffled · 1: clip 1 clear · 2: clip 2 as well · 3+: the hero's gun sound.
+  // Locked clips' URLs are never sent.
+  clue: (p, wrong, done) => {
+    const clips: SoundClipView[] = p.clue.clips.slice(0, done || wrong >= 2 ? p.clue.clips.length : 1).map((c, i) => ({
+      url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`, muffled: !done && i === 0 && wrong === 0,
+    }));
+    const gun = p.clue.gun;
+    if (gun && (done || wrong >= GUN_AFTER)) clips.push({ url: gun.url, gainDb: gun.gainDb, label: "Gun", muffled: false });
+    return { kind: "sound", total: p.clue.clips.length + (gun ? 1 : 0), clips };
+  },
+  displayed: () => [],
+  audio: (p) => [...p.clue.clips.map((c) => c.url), ...(p.clue.gun ? [p.clue.gun.url] : [])],
 };

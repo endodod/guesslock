@@ -24,7 +24,12 @@ export type HintView = {
   value?: string;
   image?: string;
   audio?: string;
+  /** Playback gain for `audio` (The Resonance's gun clip). */
+  gainDb?: number;
 };
+
+/** One playable clip of The Resonance. Labels are neutral ("Sound 1"); `muffled` = play through the low-pass. */
+export type SoundClipView = { url: string; gainDb: number; label: string; muffled: boolean };
 
 export type ColumnMeta = { key: string; label: string; info: string; numeric?: boolean };
 
@@ -36,6 +41,7 @@ export type Clue =
   | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number }
   | { kind: "emoji"; slots: (string | null)[] }
   | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number }
+  | { kind: "sound"; clips: SoundClipView[]; total: number }
   | { kind: "relic"; image: string; blur: number; rotation: number }
   | {
       kind: "lineage";
@@ -62,6 +68,8 @@ export type AnswerView = {
     exactValue?: string;
     lines?: { text: string; audio?: string | null }[];
     hero?: { name: string; image: string | null };
+    /** The Resonance, when the lock jammed (there's no bonus round to protect then). */
+    ability?: { name: string; image: string | null };
   };
 };
 
@@ -71,6 +79,8 @@ export type BonusView = {
   picked?: string;
   correct?: boolean;
   answerId?: string;
+  /** Shown once the bonus is answered (The Resonance: the ability's name and icon). */
+  reveal?: { name: string; image: string | null };
 };
 
 export type PlayStatus = "playing" | "won" | "lost" | "sealed";

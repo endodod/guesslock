@@ -40,6 +40,8 @@ export type LockDef = {
   bonusRound?: boolean;
   /** No-repeat window override (days). Default: min(60, poolSize * 0.6). */
   noRepeatDays?: number;
+  /** Needs audio to play: hidden by the "Skip sound locks" setting (never counts then). */
+  needsAudio?: boolean;
 };
 
 export const LOCKS: LockDef[] = [
@@ -93,24 +95,31 @@ export const LOCKS: LockDef[] = [
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "relic", mode: "item-picture", numeral: "X", name: "The Relic",
+    slug: "resonance", mode: "hero-sound", numeral: "X", name: "The Resonance",
+    subtitle: "Guess the hero from an ability sound", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true, needsAudio: true,
+    // Wrong guesses unlock more sound (clear clip, second clip, gun sound; see the mode). Hints are the shared letter hints.
+    hints: LETTER_HINTS(4, 6),
+  },
+  {
+    slug: "relic", mode: "item-picture", numeral: "XI", name: "The Relic",
     subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "appraisal", mode: "item-classic", numeral: "XI", name: "The Appraisal",
+    slug: "appraisal", mode: "item-classic", numeral: "XII", name: "The Appraisal",
     subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "lineage", mode: "build-path", numeral: "XII", name: "The Lineage",
+    slug: "lineage", mode: "build-path", numeral: "XIII", name: "The Lineage",
     subtitle: "Guess what builds into what", group: "shop", guess: "item", picks: 6,
     noRepeatDays: 10,
     hints: LETTER_HINTS(3, 5),
   },
   {
-    slug: "measure", mode: "stat-bonus", numeral: "XIII", name: "The Measure",
+    slug: "measure", mode: "stat-bonus", numeral: "XIV", name: "The Measure",
     subtitle: "Guess the item's hidden stat value", group: "shop", guess: "number", picks: 5,
     maxTries: 5,
     hints: [],
@@ -118,15 +127,15 @@ export const LOCKS: LockDef[] = [
   // The Omens: predict what happens next from a frozen moment of a real high-rank match.
   // No guesses or win/loss: one lock-in, scored out of 100 souls (src/lib/omens/scoring.ts).
   {
-    slug: "clash", mode: "omen-clash", numeral: "XIV", name: "The Clash",
+    slug: "clash", mode: "omen-clash", numeral: "XV", name: "The Clash",
     subtitle: "Predict the teamfight", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   {
-    slug: "beast", mode: "omen-beast", numeral: "XV", name: "The Beast",
+    slug: "beast", mode: "omen-beast", numeral: "XVI", name: "The Beast",
     subtitle: "Predict the midboss", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   {
-    slug: "rift", mode: "omen-rift", numeral: "XVI", name: "The Rift",
+    slug: "rift", mode: "omen-rift", numeral: "XVII", name: "The Rift",
     subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
   },
 ];
@@ -135,6 +144,14 @@ export const LOCK_BY_SLUG: Record<string, LockDef> = Object.fromEntries(LOCKS.ma
 
 export function getLock(slug: string): LockDef | undefined {
   return LOCK_BY_SLUG[slug];
+}
+
+/** Slugs of locks that need audio (skipped entirely with the "Skip sound locks" setting). */
+export const SOUND_LOCK_SLUGS: readonly string[] = LOCKS.filter((l) => l.needsAudio).map((l) => l.slug);
+
+/** Locks that count for a player: every lock, minus the sound locks when they're skipped. */
+export function countedLocks(skipSound: boolean): LockDef[] {
+  return skipSound ? LOCKS.filter((l) => !l.needsAudio) : LOCKS;
 }
 
 export const SPIRIT_LOCKS = LOCKS.filter((l) => l.group === "spirits");

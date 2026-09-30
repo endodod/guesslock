@@ -15,8 +15,8 @@ export function ActionButton({ action, label, confirm }: { action: () => Promise
           setMsg(null);
           start(async () => {
             try {
-              await action();
-              setMsg("Done");
+              const r = await action();
+              setMsg(typeof r === "string" ? r : "Done");
             } catch (e) {
               setMsg((e as Error).message);
             }

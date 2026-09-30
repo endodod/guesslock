@@ -1,11 +1,34 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { overrideDay, regenerateDay } from "../actions";
 
 type Current = { answerId: string; name: string | null; sealed: boolean; sealedReason: string | null; overridden: boolean } | null;
 
-export function CalendarCell({ date, slug, isFuture, current, options }: {
+/** Plain play/stop button for a mirrored clip (admin preview). */
+function PreviewButton({ label, url }: { label: string; url: string }) {
+  const a = useRef<HTMLAudioElement | null>(null);
+  const [on, setOn] = useState(false);
+  return (
+    <button
+      type="button"
+      className="rounded border border-neutral-300 px-1 text-xs"
+      onClick={() => {
+        if (!a.current) {
+          a.current = new Audio(url);
+          a.current.onended = () => setOn(false);
+        }
+        const el = a.current;
+        if (on) { el.pause(); el.currentTime = 0; setOn(false); } else { void el.play(); setOn(true); }
+      }}
+    >
+      {on ? "■" : "▶"} {label}
+    </button>
+  );
+}
+
+export function CalendarCell({ date, slug, isFuture, current, options, preview }: {
   date: string; slug: string; isFuture: boolean; current: Current; options: { id: string; name: string }[];
+  preview?: { clips: { label: string; url: string }[]; ability?: string };
 }) {
   const [editing, setEditing] = useState(false);
   const [pick, setPick] = useState("");
@@ -26,6 +49,12 @@ export function CalendarCell({ date, slug, isFuture, current, options }: {
         )
       ) : (
         <span className="text-neutral-400">not generated</span>
+      )}
+      {preview && (
+        <div className="space-y-0.5">
+          {preview.ability && <div className="text-xs text-neutral-600">{preview.ability}</div>}
+          <div className="flex flex-wrap gap-1">{preview.clips.map((c) => <PreviewButton key={c.url + c.label} {...c} />)}</div>
+        </div>
       )}
       <div className="text-xs text-neutral-500">{options.length} eligible</div>
       <div className="flex flex-wrap gap-1 text-xs">

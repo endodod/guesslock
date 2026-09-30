@@ -1,20 +1,33 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { ECHO_MIN_LINES } from "@/lib/engine/modes/hero";
+import { ECHO_MIN_LINES, soundEligible } from "@/lib/engine/modes/hero";
 import { markAllReviewed, markReviewed } from "../actions";
 import { ActionButton } from "../ui";
 
 export default async function ReviewQueue() {
   await requireAdminPage();
-  const [heroes, items, abilities, texts, voiceCounts, changedLines] = await Promise.all([
-    db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+  const [heroes, items, abilities, texts, voiceCounts, changedLines, soundMaps, soundCounts, changedClips] = await Promise.all([
+    db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" }, include: { abilities: { where: { active: true }, select: { id: true } } } }),
     db.item.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.textEntry.groupBy({ by: ["entityType", "status", "stale"], _count: true }),
     db.voiceLine.groupBy({ by: ["heroId"], where: { status: { not: "excluded" } }, _count: true }),
     db.voiceLine.count({ where: { sourceChanged: true } }),
+    db.heroSoundMap.findMany(),
+    db.soundClip.groupBy({ by: ["abilityId", "status", "role"], where: { kind: "ability", abilityId: { not: null }, status: { not: "excluded" } }, _count: true }),
+    db.soundClip.findMany({ where: { OR: [{ changed: true }, { missing: true, status: "approved" }] }, select: { heroId: true, changed: true, missing: true } }),
   ]);
+  // The Resonance: heroes without a folder, and abilities that have usable suggestions but aren't eligible yet.
+  const mapped = new Set(soundMaps.filter((m) => m.abilityFolders.length).map((m) => m.heroId));
+  const noSoundFolder = heroes.filter((h) => !mapped.has(h.id));
+  const clipsOf = (id: bigint, status: string) => soundCounts.filter((c) => c.abilityId === id && c.status === status).flatMap((c) => Array<{ role: string }>(c._count).fill({ role: c.role }));
+  const soundBacklog = heroes
+    .map((h) => ({
+      h,
+      n: h.abilities.filter((a) => !soundEligible(clipsOf(a.id, "approved")) && soundEligible([...clipsOf(a.id, "approved"), ...clipsOf(a.id, "suggested")])).length,
+    }))
+    .filter((x) => x.n > 0);
   const flagged = heroes.filter((h) => h.needsReview);
   const approvedLines = new Map(voiceCounts.map((v) => [v.heroId, v._count]));
   const missingClassic = heroes.filter((h) => !h.species || !h.releaseDate);
@@ -66,6 +79,30 @@ export default async function ReviewQueue() {
               {h.name} ({approvedLines.get(h.id) ?? 0})
             </Link>
           ))}
+        </li>
+      </Box>
+
+      <Box title={`No ability sound folder — The Resonance (${noSoundFolder.length})`}>
+        <li className="flex flex-wrap gap-x-3">
+          {noSoundFolder.map((h) => <Link key={h.id} className="text-blue-700 hover:underline" href={`/admin/sounds?hero=${h.id}`}>{h.name}</Link>)}
+        </li>
+      </Box>
+
+      <Box title={`Abilities with suggested sounds but below the clip minimum (1 cast + 2 approved) — The Resonance (${soundBacklog.reduce((a, x) => a + x.n, 0)})`}>
+        <li className="flex flex-wrap gap-x-3">
+          {soundBacklog.map(({ h, n }) => (
+            <Link key={h.id} className="text-blue-700 hover:underline" href={`/admin/sounds?hero=${h.id}`}>{h.name} ({n})</Link>
+          ))}
+        </li>
+      </Box>
+
+      <Box title={`Sound clips whose source changed or disappeared — The Resonance (${changedClips.length})`}>
+        <li className="flex flex-wrap gap-x-3">
+          {[...new Set(changedClips.map((c) => c.heroId))].map((id) => {
+            const h = heroes.find((x) => x.id === id);
+            const n = changedClips.filter((c) => c.heroId === id).length;
+            return <Link key={String(id)} className="text-blue-700 hover:underline" href={`/admin/sounds?hero=${id}&show=all`}>{h?.name ?? `#${id}`} ({n})</Link>;
+          })}
         </li>
       </Box>
 

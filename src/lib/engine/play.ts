@@ -76,7 +76,7 @@ export function evaluate(
     const v = letterHint(h.id, payload.answer.name) ?? payload.hints[h.id] ?? {};
     return {
       id: h.id, label: v.label ?? h.label, after: h.after, unlocked,
-      ...(unlocked ? { value: v.value, image: v.image, audio: v.audio } : {}),
+      ...(unlocked ? { value: v.value, image: v.image, audio: v.audio, gainDb: v.gainDb } : {}),
     };
   });
   // Hints unlocked before the winning guess count against souls.
@@ -90,13 +90,15 @@ export function evaluate(
     clue: impl.clue(payload, wrong, done),
   };
   if (done) view.answer = payload.answer;
+  // A jammed lock has no bonus round, so a bonus-protected reveal (The Resonance's ability) joins the answer.
+  if (lost && payload.bonus?.reveal) view.answer = { ...payload.answer, extra: { ...payload.answer.extra, ability: payload.bonus.reveal } };
   if (won && payload.bonus) {
     const picked = bonusPick && payload.bonus.options.some((o) => o.id === bonusPick) ? bonusPick : undefined;
     view.bonus = {
       prompt: payload.bonus.prompt,
       options: payload.bonus.options,
       picked,
-      ...(picked ? { correct: picked === payload.bonus.answerId, answerId: payload.bonus.answerId } : {}),
+      ...(picked ? { correct: picked === payload.bonus.answerId, answerId: payload.bonus.answerId, reveal: payload.bonus.reveal } : {}),
     };
   }
   return view;

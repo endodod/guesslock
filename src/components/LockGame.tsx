@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
-import { lockStats, type LockRecord } from "@/lib/client/store";
+import { ignoredSlugs, lockStats, type LockRecord } from "@/lib/client/store";
 import { shareLock, soulsFor } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
@@ -51,6 +51,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const [wrongPulse, setWrongPulse] = useState(0);
   const isArchive = date < today;
   const noHints = store.settings.noHints;
+  // "Skip sound locks": those locks never count and are never suggested as the next lock.
+  const skipSound = store.settings.skipSound;
+  const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
 
   const persist = useCallback(
     (v: PlayResponse, guessesIn: string[], bonusIn?: string, giveUp?: boolean) => {
@@ -112,7 +115,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       if (v.status === "won") {
         play("click");
         const dayRecs = { ...(store.progress[date] ?? {}), [slug]: { s: "won" } };
-        if (available.every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
+        if (available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
         }
         return true;
@@ -163,10 +166,10 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     const day = store.progress[date] ?? {};
     const idx = LOCKS.findIndex((l) => l.slug === slug);
     const order = [...LOCKS.slice(idx + 1), ...LOCKS.slice(0, idx)];
-    const next = order.find((l) => available.includes(l.slug) && !["won", "lost"].includes(day[l.slug]?.s ?? ""));
+    const next = order.find((l) => available.includes(l.slug) && !ignored.has(l.slug) && !["won", "lost"].includes(day[l.slug]?.s ?? ""));
     const q = isArchive ? `?d=${date}` : "";
     return next ? `/lock/${next.slug}${q}` : isArchive ? `/archive/${date}` : "/";
-  }, [store.progress, date, slug, available, isArchive]);
+  }, [store.progress, date, slug, available, isArchive, ignored]);
 
   const stats = useMemo(() => lockStats(store.progress, slug, today), [store.progress, slug, today]);
   const souls = rec?.souls ?? soulsFor({ won: view.status === "won", guesses: view.rows.length, hintsUsed: view.hintsUsed });
@@ -235,6 +238,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {isArchive && (
         <div className="rounded-sm border border-brass/50 bg-brass/10 px-4 py-2 text-center text-sm text-brass">{t.vault.archiveBanner}</div>
       )}
+      {lock.needsAudio && skipSound && (
+        <div className="rounded-sm border border-brass/30 px-4 py-2 text-center text-sm text-ash">{t.lock.skippedBanner}</div>
+      )}
       {user && !isArchive && ranked === false && (
         <p className="text-center text-xs text-ash">
           Unranked: this lock was started before you signed in, so it counts for your stats but not the <Link href="/hall" className="text-brass underline-offset-4 hover:underline">leaderboards</Link>.
@@ -256,7 +262,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       {/* Once the lock is done, only the hints that were actually used stay on the shelf. */}
-      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} hidden={hideHints} />
+      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} hidden={hideHints} muffled={store.settings.muffledOnly && !done} />
 
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />

@@ -18,7 +18,7 @@ const notoEmoji = Noto_Emoji({ weight: "400", variable: "--font-noto-emoji", dis
 
 export const metadata: Metadata = {
   title: { default: "GUESSLOCK — Pick today's lock", template: "%s · GUESSLOCK" },
-  description: "A daily Deadlock guessing game. 16 locks every day: 13 guessing games and 3 Omens that show a real match.",
+  description: "A daily Deadlock guessing game. 17 locks every day: 14 guessing games and 3 Omens that show a real match.",
   metadataBase: new URL(`https://${config.siteUrl}`),
 };
 

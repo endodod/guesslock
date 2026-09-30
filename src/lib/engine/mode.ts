@@ -7,7 +7,7 @@ import type { HeroItemStats } from "../deadlock/api";
 
 export type Candidate = { answerId: string; ref: number | string };
 
-export type HintValue = { value?: string; image?: string; audio?: string; label?: string };
+export type HintValue = { value?: string; image?: string; audio?: string; gainDb?: number; label?: string };
 
 /** Everything stored in DailyPuzzle.payload. Mode-specific data goes in `clue`. */
 export type BasePayload<C = unknown> = {
@@ -19,7 +19,11 @@ export type BasePayload<C = unknown> = {
   /** Names/aliases that must never appear in displayed text (leak validation). */
   leakTerms: string[];
   hints: Record<string, HintValue>;
-  bonus?: { prompt: string; options: { id: string; name: string }[]; answerId: string };
+  bonus?: {
+    prompt: string; options: { id: string; name: string }[]; answerId: string;
+    /** Revealed only after the bonus pick (or on a loss), never before. */
+    reveal?: { name: string; image: string | null };
+  };
   clue: C;
 };
 
@@ -46,6 +50,8 @@ export interface ModeImpl<C = unknown> {
   tiles?(payload: BasePayload<C>, guessId: string): Tile[] | null;
   /** Text shown to the player at maximum reveal, for leak validation. */
   displayed(payload: BasePayload<C>): string[];
+  /** Audio URLs the player can receive (leak validation: all must be opaque /media/<sha1> URLs). */
+  audio?(payload: BasePayload<C>): string[];
 }
 
 export function slotLabel(slot: number): string {

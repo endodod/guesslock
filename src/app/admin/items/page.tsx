@@ -4,7 +4,7 @@ import type { NormItem } from "@/lib/deadlock/types";
 import { saveItem } from "../actions";
 import { ExcludeBoxes, MODE_OPTIONS } from "../shared";
 
-const ITEM_MODES = MODE_OPTIONS.slice(9);
+const ITEM_MODES = MODE_OPTIONS.slice(10);
 
 export default async function ItemsAdmin() {
   await requireAdminPage();

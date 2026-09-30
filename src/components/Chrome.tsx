@@ -145,11 +145,23 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
           </div>
         </div>
         <Toggle label={t.settings.sound} checked={s.sound} onChange={(v) => setSettings({ sound: v })} />
+        <label className="flex min-h-11 items-center justify-between gap-4 py-1">
+          <span>{t.settings.soundVolume}</span>
+          <input
+            type="range" min={0} max={100} step={5}
+            value={Math.round(s.soundVolume * 100)}
+            onChange={(e) => setSettings({ soundVolume: Number(e.target.value) / 100 })}
+            aria-valuetext={`${Math.round(s.soundVolume * 100)}%`}
+            className="w-36 accent-brass"
+          />
+        </label>
+        <Toggle label={t.settings.skipSound} desc={t.settings.skipSoundDesc} checked={s.skipSound} onChange={(v) => setSettings({ skipSound: v })} />
         <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
         <div className="pt-3">
           <p className="smallcaps text-sm text-brass">{t.settings.hard}</p>
           <Toggle label={t.settings.grayscale} checked={s.grayscale} onChange={(v) => setSettings({ grayscale: v })} />
           <Toggle label={t.settings.rotation} checked={s.rotation} onChange={(v) => setSettings({ rotation: v })} />
+          <Toggle label={t.settings.muffledOnly} checked={s.muffledOnly} onChange={(v) => setSettings({ muffledOnly: v })} />
           <Toggle label={t.settings.noHints} checked={s.noHints} onChange={(v) => setSettings({ noHints: v })} />
         </div>
         <div className="pt-4">

@@ -56,6 +56,7 @@ model Hero {
 
   abilities  Ability[]
   voiceLines VoiceLine[]
+  soundMap   HeroSoundMap?
 }
 
 model Ability {
@@ -148,6 +149,49 @@ model VoiceLine {
   updatedAt      DateTime @updatedAt
 
   @@unique([heroId, fileName])
+}
+
+// ───────────── The Resonance (ability sounds from deadlock-api's sound index) ─────────────
+
+// Which sound-index folders belong to a hero. Lists, because some heroes have two
+// (Lady Geist: ghost + geist, Pocket: synth + pocket). See docs/resonance-data-spike.md.
+model HeroSoundMap {
+  heroId         Int      @id
+  hero           Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  abilityFolders String[] // under abilities/
+  weaponFolders  String[] // under weapons/
+  source         String   @default("auto") // "auto" | "manual" (manual mappings are never overwritten)
+  updatedAt      DateTime @updatedAt
+}
+
+// One clip from the sound index. The automatic pass suggests; only "approved" clips are ever used.
+model SoundClip {
+  id         Int       @id @default(autoincrement())
+  sourceUrl  String    @unique // CDN URL (never sent to players: it contains the codename)
+  sourcePath String // index path without extension, e.g. abilities/haze/haze_sleep_dagger_cast
+  heroId     Int?
+  abilityId  BigInt?
+  kind       String // "ability" | "weapon"
+  role       String // "cast" | "impact" | "loop" | "other"
+  score      Float     @default(0) // automatic match score
+  status     String    @default("suggested") // "suggested" | "approved" | "excluded"
+  autoReason String? // why the automatic pass excluded it
+  preferred  Boolean   @default(false) // "prefer as clip 1" (or as the gun clip)
+  manual     Boolean   @default(false) // an admin changed status/role/ability: re-imports keep them
+  changed    Boolean   @default(false) // source changed after approval (review queue)
+  missing    Boolean   @default(false) // gone from the index; the mirrored copy keeps working
+  durationMs Int?
+  peakDb     Float?
+  loudnessDb Float?
+  gainDb     Float?
+  assetId    String? // MirroredAsset id (served as /media/<assetId>)
+  sourceHash String? // CDN ETag
+  importedAt DateTime  @default(now())
+  measuredAt DateTime?
+  updatedAt  DateTime  @updatedAt
+
+  @@index([heroId, status])
+  @@index([abilityId, status])
 }
 
 // Mirrored images/audio so puzzles survive upstream URL changes. Served from /media/[id].

@@ -12,6 +12,7 @@ const BASE: Record<string, string> = {
   ascension: "The upgrade texts of one ability are shown, starting with Tier III. Wrong guesses reveal Tier II, then Tier I, then a blurred icon. Guess the ability; the list is grouped by hero.",
   cipher: "Five emojis describe a hero, picked from a set of ten, so the same hero looks different each time. You start with one; each wrong guess reveals the next, from the hardest to the most obvious.",
   echo: "Voice lines spoken by one hero are shown with names blacked out. You start with one line; each wrong guess adds another, up to five.",
+  resonance: "This lock needs sound. Play the sound of one hero's ability and guess the hero. It starts muffled, as if heard through the vault door; after 1 wrong guess you hear it clearly, after 2 a second sound of the same ability, and after 3 the hero's gun sound. Sounds never play on their own and replays are free. After you win, a bonus round asks you to name the ability. Can't use sound? Turn on Skip sound locks in Settings.",
   relic: "An item's icon is shown blurred. Each wrong guess makes it sharper.",
   appraisal: "Guess any item. Each guess shows how its slot, tier, type, components, cooldown and number of stat bonuses compare to the answer. Arrows show whether the answer's value is higher or lower.",
   lineage: "One item is shown along with its build path direction. Guess the item on the other side: either what it builds into, or its component. If several items fit, any of them counts. The slot color of the answer is shown from the start.",

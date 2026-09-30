@@ -53,6 +53,8 @@ const clues: [string, Clue, GuessRow[]?][] = [
   ["The Belongings", { kind: "build", items: [{ name: "Headhunter", image: ICON, slot: "weapon" }, { name: "Extra Stamina", image: ICON, slot: "vitality" }, { name: "Rapid Recharge", image: ICON, slot: "spirit" }], total: 8 }],
   ["The Cipher", { kind: "emoji", slots: ["🎩", "🐦", null, null, null, null] }],
   ["The Echo", { kind: "echo", lines: [{ text: "You know it's bad when they send a Sandman." }, { text: `Sleep well, ${CENSOR}.` }], total: 5 }],
+  // Placeholder id: the players render, playback fails gracefully (toast).
+  ["The Resonance (muffled, 1 of 2)", { kind: "sound", clips: [{ url: `/media/${"0".repeat(40)}`, gainDb: 0, label: "Sound 1", muffled: true }], total: 2 }],
   ["The Relic", { kind: "relic", image: ICON, blur: 7, rotation: 120 }],
   ["The Lineage", { kind: "lineage", direction: "into", shown: { name: "Extra Stamina", image: ICON, slot: "vitality", tier: 1 }, answerSlot: "vitality" }],
   ["The Measure", { kind: "measure", item: { name: "Kinetic Dash", image: ICON, slot: "weapon", tier: 2 }, stats: [{ label: "Stamina", display: "+1", postfix: "" }, { label: "Fire Rate", display: null, hidden: true, postfix: "%" }], hiddenLabel: "Fire Rate", postfix: "%" },

@@ -10,8 +10,8 @@ import { ExcludeBoxes, MODE_OPTIONS } from "../../shared";
 import { EmojiEditor } from "./EmojiEditor";
 import { VoiceLineManager } from "./VoiceLineManager";
 
-const HERO_MODES = MODE_OPTIONS.slice(0, 9);
-const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades"].includes(m));
+const HERO_MODES = MODE_OPTIONS.slice(0, 10);
+const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound"].includes(m));
 
 export default async function HeroAdmin({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
@@ -86,6 +86,11 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
       <section id="emoji" className="rounded border border-neutral-300 bg-white p-4">
         <h2 className="mb-3 font-semibold">The Cipher — emoji set</h2>
         <EmojiEditor heroId={hero.id} initial={hero.emojis} reviewed={hero.emojisReviewed} others={others} />
+      </section>
+
+      <section className="rounded border border-neutral-300 bg-white p-4 text-sm">
+        <h2 className="mb-1 font-semibold">The Resonance — sounds</h2>
+        <Link className="text-blue-700 hover:underline" href={`/admin/sounds?hero=${hero.id}`}>Curate {hero.name}&apos;s ability and gun sounds</Link>
       </section>
 
       <section id="voice" className="rounded border border-neutral-300 bg-white p-4">

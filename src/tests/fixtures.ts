@@ -1,5 +1,5 @@
 // In-memory GameData for mode tests (no DB).
-import type { AbilityData, GameData, HeroData, ItemData, VoiceLineData } from "@/lib/engine/context";
+import type { AbilityData, GameData, HeroData, ItemData, SoundData, VoiceLineData } from "@/lib/engine/context";
 import type { NormHero } from "@/lib/deadlock/types";
 import { HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
 
@@ -23,6 +23,11 @@ export function makeData(opts: {
   items?: ItemData[];
   lines?: Record<number, VoiceLineData[]>;
   texts?: Record<string, string>;
+  /** abilityId -> approved clips */
+  sounds?: Record<number, SoundData[]>;
+  /** heroId -> approved gun clips */
+  guns?: Record<number, SoundData[]>;
+  codenames?: Record<number, string[]>;
 }): GameData {
   const abilities = opts.abilities ?? [];
   const items = opts.items ?? [];
@@ -34,6 +39,9 @@ export function makeData(opts: {
     abilitiesOf: (heroId) => abilities.filter((a) => a.heroId === heroId),
     text: (type, id) => opts.texts?.[`${type}:${id}`] ?? null,
     voiceLines: (heroId) => opts.lines?.[heroId] ?? [],
+    abilitySounds: (id) => opts.sounds?.[id] ?? [],
+    weaponSounds: (heroId) => opts.guns?.[heroId] ?? [],
+    soundCodenames: (heroId) => opts.codenames?.[heroId] ?? [],
     buildsInto: (cls) => items.filter((i) => i.src.componentClassNames.includes(cls)).map((i) => i.src),
     itemByClass: (cls) => items.find((i) => i.src.className === cls),
     heroColumns: HERO_COLUMNS,
