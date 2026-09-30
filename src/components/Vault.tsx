@@ -74,6 +74,7 @@ export function VaultBox({
 
       {/* status tag */}
       <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
+        {open && rec?.answer?.name && <span className="mb-0.5 block truncate font-body text-[0.8rem] text-paper">{rec.answer.name}</span>}
         {state === "locked" && <span className="text-ash">{t.vault.states.locked}</span>}
         {state === "progress" && <span className="text-ecto">{t.vault.states.progress(rec!.g.length)}</span>}
         {state === "opened" && <span className="text-ecto">{rec!.g.length} · {rec!.souls} souls</span>}

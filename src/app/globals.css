@@ -85,7 +85,11 @@ body {
   body { font-size: 16px; }
 }
 
-/* Grain: one tiny tiled PNG, fixed, very low opacity. Clue images sit above it (z-index). */
+/* Grain: one tiny tiled PNG, fixed, very low opacity, painted behind all content.
+   The body is its own stacking context, so the grain sits above the body background but below
+   everything else, without giving header/main/footer stacking contexts of their own (which would
+   let the footer cover the fixed mobile guess bar and the page scroll over the sticky header). */
+.grain { isolation: isolate; }
 .grain::before {
   content: "";
   position: fixed;
@@ -93,9 +97,8 @@ body {
   pointer-events: none;
   background-image: url("/grain.png");
   opacity: 0.06;
-  z-index: 0;
+  z-index: -1;
 }
-.grain > * { position: relative; z-index: 1; }
 .clue-layer { position: relative; z-index: 2; isolation: isolate; }
 
 /* Base layer, so component utilities (e.g. outline-none on the search inputs) can override it. */

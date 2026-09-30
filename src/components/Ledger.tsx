@@ -79,7 +79,7 @@ export function Ledger() {
                       <div><div className="text-paper">{s.winRate}%</div><div className="font-body text-xs text-ash">{t.ledger.winRate}</div></div>
                       <div><div className="text-paper">{s.avgGuesses || "–"}</div><div className="font-body text-xs text-ash">{t.ledger.avgGuesses}</div></div>
                     </div>
-                    {s.played > 0 && <Distribution dist={s.dist} />}
+                    {s.played > 0 && <Distribution dist={s.dist} maxRows={l.maxTries ?? 6} />}
                   </DecoFrame>
                 </li>
               );
