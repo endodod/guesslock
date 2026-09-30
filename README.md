@@ -1,8 +1,10 @@
 # GUESSLOCK
 
 A fan-made daily guessing game for Valve's Deadlock: 13 "locks" per day, same for every player, reset at 00:00 Europe/Zurich.
-Live at `guesslock.paulkuehn.ch`. Specs: [`guesslock-build-prompt.md`](guesslock-build-prompt.md) (data & engine),
-[`guesslock-design-prompt.md`](guesslock-design-prompt.md) (design & gameflow), [`new-modes.md`](new-modes.md) (The Cipher & The Echo).
+Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
+[`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
+[`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
+[`guesslock-addendum-omens.md`](prompts/guesslock-addendum-omens.md) (The Omens; data findings in [`docs/omens-data-spike.md`](docs/omens-data-spike.md)).
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 7 + Postgres (Neon) · Motion · Zod · Vitest.
 No accounts: player progress lives in `localStorage`.
