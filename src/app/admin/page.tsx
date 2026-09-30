@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/admin/auth";
 import { LOCKS } from "@/locks.config";
@@ -54,7 +55,7 @@ export default async function AdminStatus() {
             const m = meta.find((x) => x.slug === l.slug)!;
             return (
               <li key={l.slug} className={m.state === "available" ? "text-green-800" : "text-red-700"}>
-                {l.numeral} {l.name}: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
+                <Link href={`/admin/puzzles/${l.slug}`} className="hover:underline">{l.numeral} {l.name}</Link>: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
               </li>
             );
           })}

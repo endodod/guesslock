@@ -17,7 +17,7 @@ export default async function ItemsAdmin() {
         {items.map((i) => {
           const src = i.source as unknown as NormItem;
           return (
-            <li key={String(i.id)} className="py-2">
+            <li key={String(i.id)} id={`item-${i.id}`} className="py-2">
               <form action={saveItem.bind(null, Number(i.id))} className="flex flex-wrap items-end gap-3 text-sm">
                 <div className="w-56">
                   <strong>{i.name}</strong>
