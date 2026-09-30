@@ -1,7 +1,7 @@
 // MatchTimeline -> scenarios: candidate moments (detection), the snapshot at T, the reveal window,
 // and the true answers. Pure and deterministic (seeded), so tests and the pipeline agree.
 import { makeRng } from "../rng";
-import { MIDBOSS_POS, dist, objectiveKey, teamCluster, toMap } from "./ingest";
+import { MIDBOSS_POS, dist, objectiveKey, toMap } from "./ingest";
 import {
   TEAMS, type BeastAnswer, type ClashAnswer, type MatchTimeline, type OmenAnswer, type OmenKind,
   type OmenSnapshot, type OmenWindow, type RiftAnswer, type RiftEpisode, type Team, type WindowEvent,
