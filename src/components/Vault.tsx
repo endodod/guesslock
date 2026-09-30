@@ -8,6 +8,7 @@ import { shareDay, type LockResult } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
+import { answerImageClass } from "@/lib/images";
 import { ShareButton } from "./WinPanel";
 
 export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed";
@@ -30,7 +31,7 @@ export function VaultBox({
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]">
         {open && rec?.answer?.image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`h-full w-full object-cover opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
+          <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`${answerImageClass(lock.guess)} opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
         )}
         {state === "opened" && <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(127,227,194,0.45)]" />}
         {state === "jammed" && (
@@ -66,7 +67,7 @@ export function VaultBox({
           </div>
           <div className="text-center">
             <div className={`font-display leading-tight text-paper ${large ? "text-lg" : "text-base"}`}>{lock.name}</div>
-            <div className="mt-0.5 text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
+            <div className="mt-0.5 line-clamp-2 min-h-[2.75em] text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
           </div>
         </motion.div>
       </div>

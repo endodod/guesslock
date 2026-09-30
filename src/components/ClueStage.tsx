@@ -6,6 +6,7 @@ import type { Clue, GuessRow } from "@/lib/engine/types";
 import { CENSOR } from "@/lib/text/redact";
 import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
+import { t } from "@/lib/i18n/en";
 
 const CLUE_ALT = "Today's clue image";
 
@@ -365,7 +366,7 @@ function MeasureStage({ clue, rows }: { clue: Extract<Clue, { kind: "measure" }>
   );
 }
 
-function GridLegend() {
+function GridLegend({ subject }: { subject: "hero" | "item" }) {
   const item = (cls: string, icon: "check" | "approx" | "cross" | "up" | "down", label: string) => (
     <span className="flex items-center gap-1.5">
       <span className={`flex h-6 w-6 items-center justify-center rounded-sm ${cls}`}><Icon name={icon} className="h-4 w-4" /></span>
@@ -374,7 +375,7 @@ function GridLegend() {
   );
   return (
     <DecoFrame className="clue-layer p-4" corners={false}>
-      <p className="mb-2 text-sm text-ash">Guess a hero or item. Each column compares it to the answer.</p>
+      <p className="mb-2 text-sm text-ash">{subject === "hero" ? t.lock.legendHero : t.lock.legendItem}</p>
       <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
         {item("tile-match", "check", "Match")}
         {item("tile-partial", "approx", "Partial")}
@@ -386,9 +387,9 @@ function GridLegend() {
   );
 }
 
-export function ClueStage({ clue, rows }: { clue: Clue; rows: GuessRow[] }) {
+export function ClueStage({ clue, rows, subject = "hero" }: { clue: Clue; rows: GuessRow[]; subject?: "hero" | "item" }) {
   switch (clue.kind) {
-    case "grid": return <GridLegend />;
+    case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;
     case "text": return <TextStage clue={clue} />;

@@ -25,7 +25,7 @@ type Props = {
   rules: string;
 };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string }): Promise<PlayView> {
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean }): Promise<PlayView> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -41,6 +41,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const restored = useRef(false);
   const restoring = hydrated && !restoreDone && !!rec && (rec.g.length > 0 || !!rec.b);
   const [showRules, setShowRules] = useState(false);
+  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
+  // Bumped on every wrong guess so the input can shake.
+  const [wrongPulse, setWrongPulse] = useState(0);
   const isArchive = date < today;
 
   // Restore saved guesses once localStorage is available.
@@ -48,7 +51,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (!hydrated || restored.current) return;
     restored.current = true;
     if (rec && (rec.g.length || rec.b)) {
-      evaluateRemote({ date, slug, guesses: rec.g, bonus: rec.b })
+      evaluateRemote({ date, slug, guesses: rec.g, bonus: rec.b, giveUp: rec.gu })
         .then(setView)
         .catch(() => toast(t.lock.error))
         .finally(() => setRestoreDone(true));
@@ -58,13 +61,14 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const persist = useCallback(
-    (v: PlayView, guesses: string[], bonus?: string) => {
+    (v: PlayView, guesses: string[], bonus?: string, giveUp?: boolean) => {
       const done = v.status === "won" || v.status === "lost";
       const hintsUsed = store.settings.noHints ? 0 : v.hintsUsed;
       const bonusCorrect = v.bonus?.correct ?? false;
       const next: LockRecord = {
         g: guesses,
         b: bonus,
+        gu: giveUp || undefined,
         s: v.status === "won" ? "won" : v.status === "lost" ? "lost" : "playing",
         w: v.wrong,
         h: hintsUsed,
@@ -83,8 +87,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const guessed = useMemo(() => new Set(view.rows.map((r) => r.id)), [view.rows]);
   const done = view.status === "won" || view.status === "lost";
 
-  const onGuess = async (id: string) => {
-    if (busy || done || guessed.has(id)) return;
+  /** Resolves to true when the guess opened the lock. */
+  const onGuess = async (id: string): Promise<boolean> => {
+    if (busy || done || guessed.has(id)) return false;
     setBusy(true);
     setRestoreDone(true);
     const guesses = [...view.rows.map((r) => r.id), id];
@@ -98,8 +103,29 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         if (available.every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
         }
-      } else if (v.status === "lost") play("tick");
-      else play("tick");
+        return true;
+      }
+      play("tick");
+      setWrongPulse((n) => n + 1);
+      return false;
+    } catch {
+      toast(t.lock.error);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onGiveUp = async () => {
+    setConfirmGiveUp(false);
+    if (busy || done || !view.rows.length) return;
+    setBusy(true);
+    const guesses = view.rows.map((r) => r.id);
+    try {
+      const v = await evaluateRemote({ date, slug, guesses, giveUp: true });
+      setView(v);
+      persist(v, guesses, undefined, true);
+      play("tick");
     } catch {
       toast(t.lock.error);
     } finally {
@@ -111,9 +137,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (view.bonus?.picked) return;
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, bonus: id });
+      const v = await evaluateRemote({ date, slug, guesses, bonus: id, giveUp: rec?.gu });
       setView(v);
-      persist(v, guesses, id);
+      persist(v, guesses, id, rec?.gu);
       play(v.bonus?.correct ? "click" : "tick");
     } catch {
       toast(t.lock.error);
@@ -140,6 +166,8 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const placeholder = t.lock.placeholder[lock.guess];
   const hideHints = store.settings.noHints;
   const hintAt = hideHints ? [] : lock.hints.map((h) => h.after);
+  // Unlimited-guess locks can be given up once at least one guess is in.
+  const canGiveUp = !done && !lock.maxTries && view.rows.length > 0 && !restoring;
   const triesLeft = lock.maxTries ? Math.max(0, lock.maxTries - view.wrong) : undefined;
 
   if (view.status === "sealed") {
@@ -157,10 +185,28 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {/* Rules popover trigger lives in the header; the popover renders here */}
       <div className="flex items-center justify-between gap-2">
         <LockpickRow total={lock.picks} broken={view.wrong} hintAt={hintAt} glowing={view.status === "won"} triesLeft={triesLeft} />
-        <button type="button" onClick={() => setShowRules((s) => !s)} aria-expanded={showRules} className="flex h-11 w-11 items-center justify-center text-brass" aria-label={t.lock.rules}>
-          <Icon name="question" className="h-6 w-6" />
-        </button>
+        <div className="flex items-center">
+          {canGiveUp && !confirmGiveUp && (
+            <button type="button" onClick={() => setConfirmGiveUp(true)} className="min-h-11 px-2 text-sm text-ash underline-offset-4 hover:text-paper hover:underline">
+              {t.lock.giveUp}
+            </button>
+          )}
+          <button type="button" onClick={() => setShowRules((s) => !s)} aria-expanded={showRules} className="flex h-11 w-11 items-center justify-center text-brass" aria-label={t.lock.rules}>
+            <Icon name="question" className="h-6 w-6" />
+          </button>
+        </div>
       </div>
+      {canGiveUp && confirmGiveUp && (
+        <div role="alertdialog" aria-label={t.lock.giveUp} className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 rounded-sm border border-[#b0433f]/40 bg-[#b0433f]/10 px-3 py-1.5 text-sm">
+          <span className="mr-auto text-paper/90">{t.lock.giveUpConfirm}</span>
+          <button type="button" onClick={onGiveUp} disabled={busy} className="min-h-11 rounded-[3px] border border-[#b0433f]/60 px-3 text-[#e6a3a0] hover:bg-[#b0433f]/15 disabled:opacity-40">
+            {t.lock.giveUpYes}
+          </button>
+          <button type="button" onClick={() => setConfirmGiveUp(false)} className="min-h-11 px-2 text-ash hover:text-paper">
+            {t.lock.giveUpNo}
+          </button>
+        </div>
+      )}
       {showRules && (
         <DecoFrame className="p-4 text-sm leading-relaxed text-paper/90" corners={false}>
           <p>{rules}</p>
@@ -179,7 +225,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        {view.clue && <ClueStage clue={view.clue} rows={view.rows} />}
+        {view.clue && <ClueStage clue={view.clue} rows={view.rows} subject={lock.guess === "item" ? "item" : "hero"} />}
       </motion.div>
 
       {restoring && <KeyholeLoader />}
@@ -187,9 +233,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {done ? (
         <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={shareGridText} dist={stats.dist} nextHref={nextHref} onBonus={onBonus} />
       ) : lock.guess === "number" ? (
-        <NumberInput placeholder={placeholder} disabled={busy} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
+        <NumberInput placeholder={placeholder} busy={busy} disabled={restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (
-        <GuessInput entries={entries} guessed={guessed} placeholder={placeholder} disabled={busy} grouped={lock.guess === "ability"} onGuess={onGuess} autoFocus />
+        <GuessInput entries={entries} guessed={guessed} placeholder={placeholder} busy={busy} disabled={restoring} shake={wrongPulse} grouped={lock.guess === "ability"} onGuess={onGuess} autoFocus />
       )}
 
       <HintShelf hints={view.hints} hidden={hideHints} />

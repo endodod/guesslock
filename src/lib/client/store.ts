@@ -5,6 +5,7 @@ import { LEGACY_11_NUMERALS, LOCKS } from "@/locks.config";
 export type LockRecord = {
   g: string[]; // guesses (ids or numbers as strings)
   b?: string; // bonus pick
+  gu?: boolean; // gave up
   s: "playing" | "won" | "lost";
   w: number; // wrong guesses
   h: number; // hints used

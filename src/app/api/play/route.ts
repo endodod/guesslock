@@ -11,12 +11,13 @@ const Body = z.object({
   slug: z.string(),
   guesses: z.array(z.string().max(40)).max(200),
   bonus: z.string().max(40).optional(),
+  giveUp: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  const { date, slug, guesses, bonus } = parsed.data;
+  const { date, slug, guesses, bonus, giveUp } = parsed.data;
   const lock = getLock(slug);
   if (!lock) return NextResponse.json({ error: "unknown lock" }, { status: 404 });
   // No peeking at future puzzles.
@@ -24,6 +25,6 @@ export async function POST(req: Request) {
   const row = await getPuzzle(date, slug);
   if (!row) return NextResponse.json({ error: "empty" }, { status: 404 });
   const catalog = await getCatalog();
-  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess));
+  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), giveUp);
   return NextResponse.json(view, { headers: { "cache-control": "no-store" } });
 }

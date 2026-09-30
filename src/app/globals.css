@@ -98,11 +98,21 @@ body {
 .grain > * { position: relative; z-index: 1; }
 .clue-layer { position: relative; z-index: 2; isolation: isolate; }
 
-:focus-visible {
-  outline: 2px solid var(--ecto);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* Base layer, so component utilities (e.g. outline-none on the search inputs) can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ecto);
+    outline-offset: 2px;
+  }
 }
+
+/* Search fields: the field itself glows on focus; the input inside draws no ring of its own. */
+.search-field:focus-within {
+  border-color: var(--ecto);
+  box-shadow: 0 0 0 1px rgb(127 227 194 / 0.35), 0 0 14px rgb(127 227 194 / 0.2);
+}
+.search-field input:focus,
+.search-field input:focus-visible { outline: none; }
 
 .font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }

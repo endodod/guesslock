@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DecoFrame } from "@/components/ui";
+import { answerImageClass } from "@/lib/images";
 import { todayDate } from "@/lib/day";
 import { answersFor } from "@/lib/server/puzzles";
 import { addDays } from "@/lib/time";
@@ -21,7 +22,7 @@ export default async function YesterdayPage() {
             <DecoFrame className="flex items-center gap-3 p-3" corners={false}>
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-sm bg-velvet">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {answer?.image && <img src={answer.image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                {answer?.image && <img src={answer.image} alt="" loading="lazy" className={answerImageClass(lock.guess)} />}
               </div>
               <div className="min-w-0">
                 <p className="smallcaps text-xs text-brass">{lock.numeral} · {lock.name}</p>

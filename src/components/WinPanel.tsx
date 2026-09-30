@@ -5,6 +5,7 @@ import { animate, motion } from "motion/react";
 import type { BonusView, PlayView } from "@/lib/engine/types";
 import type { LockDef } from "@/locks.config";
 import { DecoFrame, Icon, Button } from "./ui";
+import { answerImageClass } from "@/lib/images";
 import { EchoStage } from "./ClueStage";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
@@ -102,7 +103,7 @@ export function WinPanel({
           <div className="relative h-32 w-28 overflow-hidden rounded-sm bg-velvet shadow-[inset_0_0_25px_rgba(0,0,0,0.8)]">
             {a.image && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={a.image} alt={a.name} className={`h-full w-full object-cover ${won ? "" : "grayscale"}`} />
+              <img src={a.image} alt={a.name} className={`${answerImageClass(lock.guess)} ${won ? "" : "grayscale"}`} />
             )}
             <div className={`pointer-events-none absolute inset-0 ${won ? "shadow-[inset_0_0_30px_rgba(127,227,194,0.45)]" : ""}`} />
             <motion.div
@@ -118,7 +119,7 @@ export function WinPanel({
           <h2 className="font-display text-3xl text-paper">{a.name}</h2>
           {a.sub && <p className="text-ash">{a.sub}</p>}
           <p className="mt-1 text-paper/90">
-            {won ? t.lock.openedIn(n) : ""}{" "}
+            {won ? t.lock.openedIn(n) : view.gaveUp ? t.lock.gaveUp : ""}{" "}
             <span className="text-brass"><CountUp to={souls} /> {t.lock.souls}</span>
           </p>
         </div>
@@ -127,7 +128,7 @@ export function WinPanel({
       {a.extra?.hero && (
         <p className="mt-4 flex items-center gap-2 text-sm text-ash">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {a.extra.hero.image && <img src={a.extra.hero.image} alt="" className="h-10 w-8 rounded-sm object-cover" />}
+          {a.extra.hero.image && <img src={a.extra.hero.image} alt="" className="h-10 w-8 rounded-sm object-cover object-top" />}
           Ability of <span className="text-paper">{a.extra.hero.name}</span>
         </p>
       )}
