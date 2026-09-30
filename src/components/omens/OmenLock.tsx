@@ -72,7 +72,6 @@ export function OmenLock({ slug, date, number, initial, cat, map, site, availabl
             <Link href={nextHref} className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-ecto/60 bg-ecto/10 px-4 py-2 text-ecto hover:bg-ecto/20">
               {t.lock.nextLock} <Icon name="arrow-right" className="h-4 w-4" />
             </Link>
-            <Link href="/omens/practice" className="inline-flex min-h-11 items-center px-3 text-ash hover:text-paper">Practice more Omens</Link>
           </>
         )}
       />

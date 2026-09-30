@@ -17,7 +17,6 @@ type Ctx = {
   user: AccountUser;
   setRecord(date: string, slug: string, rec: LockRecord): void;
   setSettings(patch: Partial<Settings>): void;
-  addPractice(omen: string, souls: number): void;
   setOnboarded(): void;
   resetAll(): void;
   play(sound: keyof typeof sfx): void;
@@ -97,11 +96,6 @@ export function GameProvider({ children, today, user = null }: { children: React
     setSettings(patch) {
       const cur = getSnapshot();
       write({ ...cur, settings: { ...cur.settings, ...patch } });
-    },
-    addPractice(omen, souls) {
-      const cur = getSnapshot();
-      const p = cur.practice[omen] ?? { n: 0, souls: 0 };
-      write({ ...cur, practice: { ...cur.practice, [omen]: { n: p.n + 1, souls: p.souls + souls } } });
     },
     setOnboarded() {
       write({ ...getSnapshot(), onboarded: true });

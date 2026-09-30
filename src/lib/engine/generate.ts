@@ -11,7 +11,7 @@ import { MODES } from "./registry";
 import { SealedError, SkipCandidate, type BasePayload, type Candidate } from "./mode";
 import { noRepeatWindow, orderCandidates } from "./select";
 import { alert } from "../monitoring";
-import { assignOmen } from "../omens/harvest";
+import { assignOmen, harvest } from "../omens/harvest";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type GenResult = { date: string; slug: string; status: "created" | "exists" | "sealed" | "skipped" | "error"; answerId?: string; note?: string };
@@ -138,11 +138,21 @@ export async function generateDay(
 }
 
 /** Generate today plus N days ahead, in date order (keeps the no-repeat window consistent). */
-export async function generateAhead(days = config.generateDaysAhead): Promise<GenResult[]> {
+export async function generateAhead(
+  days = config.generateDaysAhead,
+  /** The Omen harvest runs first and stops at this time (ms); 0 skips it. Default: 150 s. */
+  opts: { harvestUntil?: number } = {},
+): Promise<GenResult[]> {
   const run = await db.syncRun.create({ data: { kind: "generate", status: "running" } });
+  const start = todayDate();
+  // Built-in Omen harvest: fetch just enough real matches for the days that still lack an Omen
+  // (one scenario per Omen per day). A failure only means those days wait for the next run.
+  if (opts.harvestUntil !== 0) {
+    const dates = Array.from({ length: days + 1 }, (_, i) => addDays(start, i));
+    await harvest(opts.harvestUntil ?? Date.now() + 150_000, undefined, dates).catch((e) => console.error("[omens] harvest", e));
+  }
   const data = await loadGameData();
   const analytics = memoAnalytics();
-  const start = todayDate();
   const all: GenResult[] = [];
   try {
     for (let i = 0; i <= days; i++) all.push(...(await generateDay(addDays(start, i), { data, analytics })));

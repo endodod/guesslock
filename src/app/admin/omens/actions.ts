@@ -4,13 +4,15 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { regenerateOmen } from "@/lib/engine/generate";
 import { harvest } from "@/lib/omens/harvest";
+import { todayDate } from "@/lib/day";
+import { addDays } from "@/lib/time";
 import { DEFAULT_TUNING, type OmenTuning } from "@/lib/omens/scenario";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function harvestNow() {
   await requireAdmin();
   // Server actions share the function timeout: harvest for ~50 s; the rest resumes on the next run.
-  const r = await harvest(Date.now() + 50_000);
+  const r = await harvest(Date.now() + 50_000, undefined, Array.from({ length: 8 }, (_, i) => addDays(todayDate(), i)));
   revalidatePath("/admin/omens");
   return r;
 }

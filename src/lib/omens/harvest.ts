@@ -48,7 +48,7 @@ export function matchRejection(meta: RawMetadata): string | null {
 type Summary = { match_id: number; start_time: number | string };
 
 /** Queue recent matches that have a replay. `badge` = [min, max] average badge. */
-export async function discover(opts: { source: "daily" | "practice"; badge: [number, number]; hours: number; limit: number }): Promise<number> {
+export async function discover(opts: { source: "daily"; badge: [number, number]; hours: number; limit: number; max?: number }): Promise<number> {
   const now = Math.floor(Date.now() / 1000);
   const q = new URLSearchParams({
     include_info: "true", game_mode: "normal", is_low_pri_pool: "false", is_new_player_pool: "false",
@@ -60,6 +60,7 @@ export async function discover(opts: { source: "daily" | "practice"; badge: [num
   const known = new Set((await db.omenMatch.findMany({ where: { matchId: { in: list.map((m) => BigInt(m.match_id)) } }, select: { matchId: true } })).map((m) => Number(m.matchId)));
   let added = 0;
   for (const m of list) {
+    if (opts.max !== undefined && added >= opts.max) break;
     if (known.has(m.match_id)) continue;
     const salts = (await fetchJson(`/v1/matches/${m.match_id}/salts?disable_steam=true`).catch(() => null)) as { replay_salt?: number | null } | null;
     if (!salts?.replay_salt) continue; // no replay: exact values impossible
@@ -127,7 +128,7 @@ export async function processQueue(deadline: number, log: (s: string) => void = 
           where: { matchId: m.matchId },
           data: { status: "ready", rank: tl.rank, startTime: new Date(tl.startTime * 1000), timelineGz: new Uint8Array(packTimeline(tl)), jobs: jobs as unknown as Prisma.InputJsonValue, error: null },
         });
-        const made = await createScenarios(tl, m.source as "daily" | "practice" | "mine", tuning);
+        const made = await createScenarios(tl, tuning);
         log(`match ${m.matchId}: ${made} scenarios`);
         stats.ready++;
         progressed = true;
@@ -148,20 +149,24 @@ export async function processQueue(deadline: number, log: (s: string) => void = 
   return stats;
 }
 
-/** Detect moments in a timeline and store them. Daily matches feed both pools; others only practice. */
-export async function createScenarios(tl: MatchTimeline, source: "daily" | "practice" | "mine", tuning: OmenTuning = DEFAULT_TUNING): Promise<number> {
+/**
+ * Detect moments in a timeline and store one scenario per Omen: the best of a seeded
+ * positive/negative pick (an endless mode may use more of each match later).
+ */
+export async function createScenarios(tl: MatchTimeline, tuning: OmenTuning = DEFAULT_TUNING): Promise<number> {
   let made = 0;
   for (const omen of OMENS) {
     const cands = detect(omen, tl, String(tl.matchId), tuning).filter((c) => c.quality > 0);
     // Rift outcomes need no artificial mix ("nobody" is a real answer).
-    const picked = omen === "rift" ? cands : mixPool(cands, source === "mine" ? 8 : 6, `${tl.matchId}|${omen}`, tuning.positiveShare);
-    for (const [i, c] of picked.entries()) {
+    const count = 1;
+    const picked = omen === "rift" ? [...cands].sort((a, b) => b.quality - a.quality).slice(0, count) : mixPool(cands, count, `${tl.matchId}|${omen}`, tuning.positiveShare);
+    for (const c of picked) {
       const id = `${tl.matchId}-${omen}-${c.t}`;
       const payload: OmenPayload = {
         v: 1, mode: "omen", omen, scenarioId: id, matchId: tl.matchId,
         snapshot: buildSnapshot(tl, c), window: buildWindow(tl, c), answer: buildAnswer(tl, c),
       };
-      const scenarioSource = source === "daily" && i < 3 ? "daily" : source === "mine" ? "mine" : "practice";
+      const scenarioSource = "daily";
       await db.scenario.upsert({
         where: { id },
         create: {
@@ -186,15 +191,33 @@ export async function pruneTimelines(): Promise<number> {
   return r.count;
 }
 
-/** One harvest pass: top up the daily and practice pools, process the queue until `deadline`. */
-export async function harvest(deadline: number, log: (s: string) => void = () => {}) {
+/**
+ * Matches still needed so every Omen has a scenario for each of `days` (the days being generated
+ * that don't have their Omen yet). Each harvested match yields at most one scenario per Omen.
+ */
+export async function omenShortfall(days: string[]): Promise<number> {
+  let need = 0;
+  for (const omen of OMENS) {
+    const have = await db.dailyPuzzle.count({ where: { mode: omen, date: { in: days }, sealed: false } });
+    const stock = await db.scenario.count({ where: { omen, source: "daily", status: { in: ["candidate", "approved"] }, dailyDate: null } });
+    need = Math.max(need, days.length - have - stock);
+  }
+  return Math.max(0, need);
+}
+
+/**
+ * One harvest pass: queue just enough recent high-rank matches (with a replay) for the days that
+ * still lack an Omen, then process the queue until `deadline`. Nothing is queued when stocked.
+ */
+export async function harvest(deadline: number, log: (s: string) => void = () => {}, days?: string[]) {
   const out: Record<string, number | string> = {};
   try {
-    const unused = await db.scenario.count({ where: { source: "daily", status: { in: ["candidate", "approved"] }, dailyDate: null } });
-    // Enough fresh daily candidates for about a week of all three Omens: skip discovery.
-    if (unused < 3 * 10) out.dailyQueued = await discover({ source: "daily", badge: [100, 200], hours: 36, limit: 30 });
-    if ((await db.omenMatch.count({ where: { source: "practice", status: "queued" } })) < 3)
-      out.practiceQueued = await discover({ source: "practice", badge: [40, 99], hours: 36, limit: 10 });
+    const need = days ? await omenShortfall(days) : 1;
+    const inFlight = await db.omenMatch.count({ where: { source: "daily", status: { in: ["queued", "fetching"] } } });
+    // Rifts don't happen in every scenario window: queue one spare match.
+    const toQueue = need > 0 ? need + 1 - inFlight : 0;
+    out.needed = need;
+    if (toQueue > 0) out.queued = await discover({ source: "daily", badge: [100, 200], hours: 36, limit: 30, max: toQueue });
   } catch (e) {
     out.discoverError = (e as Error).message;
   }

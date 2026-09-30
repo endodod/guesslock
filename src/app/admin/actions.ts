@@ -38,7 +38,8 @@ export async function runSync() {
 
 export async function runGenerate() {
   await requireAdmin();
-  await generateAhead();
+  // Server actions share the function timeout: harvest Omens for at most ~50 s.
+  await generateAhead(undefined, { harvestUntil: Date.now() + 50_000 });
   revalidatePath("/admin");
 }
 

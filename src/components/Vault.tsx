@@ -199,10 +199,7 @@ export function Vault({
 
       {/* The Omens: predictions from real matches (a different kind of puzzle, hence the cursed glow) */}
       <section aria-labelledby="omens-h" className="mt-8">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="omens-h" className="smallcaps text-cursed">{t.groups.omens}</h2>
-          <Link href="/omens/practice" className="text-sm text-ash underline-offset-4 hover:text-paper hover:underline">Practice Omens</Link>
-        </div>
+        <h2 id="omens-h" className="smallcaps mb-3 text-cursed">{t.groups.omens}</h2>
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
           {OMEN_LOCKS.map((l) => box(l))}
         </ul>

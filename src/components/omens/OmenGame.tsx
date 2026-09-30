@@ -1,6 +1,6 @@
 "use client";
 // The Omen screen: map + team panels + predictions; after lock-in, the window replays on the map
-// (2x by default) and the results panel scores each question. Used by the daily lock and practice.
+// (2x by default) and the results panel scores each question.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import type { OmenAnswer, OmenKind, OmenSnapshot, Team, WindowEvent } from "@/lib/omens/types";
@@ -26,7 +26,7 @@ type Props = {
   onLocked?: (view: OmenView, answers: OmenAnswer) => void;
   /** Share/next links etc. under the results. */
   footer?: (reveal: OmenReveal) => React.ReactNode;
-  /** Practice "My matches": the player's own hero. */
+  /** A hero to highlight (e.g. the player's own, for a future endless mode). */
   myKey?: number | null;
 };
 

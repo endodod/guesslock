@@ -8,6 +8,11 @@ import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mirrorAll } from "../media";
 import { heroTerms, upsertTextEntry } from "../text/entries";
 import { alert } from "../monitoring";
+import { DEFAULT_EMOJIS } from "../data/emojis";
+
+/** The Cipher: a default 6-emoji set for heroes that have none yet (admin-curated sets win). */
+const emojiDefaults = (name: string, current: string[] = []) =>
+  current.length === 0 && DEFAULT_EMOJIS[name] ? { emojis: DEFAULT_EMOJIS[name], emojisReviewed: true } : {};
 import type { Prisma } from "@/generated/prisma/client";
 
 type Diff = { added: string[]; removed: string[]; changed: { name: string; fields: string[] }[] };
@@ -81,7 +86,7 @@ async function syncHeroes(heroes: NormHero[], diff: Diff) {
       const isNew = existing.size > 0;
       diff.added.push(`hero:${h.name}`);
       await db.hero.create({
-        data: { id: h.id, className: h.className, name: h.name, source, sourceHash, needsReview: isNew, reviewReasons: isNew ? ["new"] : [] },
+        data: { id: h.id, className: h.className, name: h.name, source, sourceHash, needsReview: isNew, reviewReasons: isNew ? ["new"] : [], ...emojiDefaults(h.name) },
       });
       continue;
     }
@@ -100,7 +105,7 @@ async function syncHeroes(heroes: NormHero[], diff: Diff) {
     }
     await db.hero.update({
       where: { id: h.id },
-      data: { className: h.className, name: h.name, source, sourceHash, active: true, removedAt: null, needsReview, reviewReasons: [...reasons] },
+      data: { className: h.className, name: h.name, source, sourceHash, active: true, removedAt: null, needsReview, reviewReasons: [...reasons], ...emojiDefaults(h.name, prev.emojis) },
     });
   }
   for (const prev of existing.values())

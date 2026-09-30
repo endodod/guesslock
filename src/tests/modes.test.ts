@@ -177,3 +177,17 @@ describe("Giving up", () => {
     expect(won.gaveUp).toBeUndefined();
   });
 });
+
+describe("The Cipher default emoji sets", () => {
+  it("has 6 emojis per hero and no two heroes share their first 3", async () => {
+    const { DEFAULT_EMOJIS } = await import("@/lib/data/emojis");
+    const firsts = new Map<string, string>();
+    for (const [hero, set] of Object.entries(DEFAULT_EMOJIS)) {
+      expect(set, hero).toHaveLength(6);
+      expect(new Set(set).size, hero).toBe(6);
+      const key = set.slice(0, 3).join("");
+      expect(firsts.get(key), `${hero} vs ${firsts.get(key)}`).toBeUndefined();
+      firsts.set(key, hero);
+    }
+  });
+});

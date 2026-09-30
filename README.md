@@ -120,10 +120,13 @@ against replays (`/v1/matches/demo/query`), so the pipeline is:
 4. **Assign**: daily generation freezes one scenario per Omen per day (admin-approved first, else best quality, with a
    60/40 positive/negative mix for Clash and Beast).
 
-The harvest runs inside both daily cron jobs (and `npm run omens:harvest`, or *Harvest now* on `/admin/omens`) and
-resumes pending work. Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h and bigger practice
-pools (`OMEN_QUERIES_PER_HOUR` tunes the budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md).
-Practice lives at `/omens/practice`; `/admin/omens` has the 7-day calendar, candidate pool, tuning and inspector.
+The harvest is built into puzzle generation (`generateAhead`): before generating, it counts the days that still
+lack an Omen, queues just enough matches (each gives one scenario per Omen), and processes them within a time
+budget. So one Omen per mode per day is produced wherever generation runs: both daily cron jobs, *Generate* in the
+admin and `npm run generate`. `npm run omens:harvest` and *Harvest now* on `/admin/omens` run it on their own.
+Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h (`OMEN_QUERIES_PER_HOUR` tunes the
+budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md). `/admin/omens` has the
+7-day calendar, candidate pool, tuning and inspector. (A practice / endless mode is planned for later.)
 
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
