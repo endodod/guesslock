@@ -91,14 +91,6 @@ describe("The Echo", () => {
     expect(picked.slice(0, 4).some((l) => l.text === lines(1)[0].text)).toBe(false);
   });
 
-  it("audio hint falls back to gender when no audio exists", async () => {
-    const p = await echo.build({ answerId: "13", ref: 13 }, ctx(data));
-    expect(p.hints.audio).toEqual({ value: "Male" }); // fixture: odd ids are male
-    const withAudio = makeData({ heroes: [haze], lines: { 13: lines(6).map((l) => ({ ...l, audio: "/media/abc" })) } });
-    const p2 = await echo.build({ answerId: "13", ref: 13 }, ctx(withAudio));
-    expect(p2.hints.audio).toEqual({ label: "Voice clip", audio: "/media/abc" });
-  });
-
   it("leak validation catches an unredacted name in a displayed line", async () => {
     const leaky = makeData({ heroes: [haze], lines: { 13: lines(6, 0, (i) => `Haze says line ${i} out loud right now.`) } });
     const p = await echo.build({ answerId: "13", ref: 13 }, ctx(leaky));
@@ -132,7 +124,7 @@ describe("The Reckoning", () => {
 
 describe("The Measure", () => {
   const item = (id: number, stats: { label: string; value: number; conditional?: boolean; scales?: boolean }[]): ItemData => ({
-    id, name: `Item ${id}`, aliases: [], exclude: [], image: null, glyph: null,
+    id, name: `Item ${id}`, aliases: [], exclude: [], attrs: {}, image: null, glyph: null,
     src: {
       id, className: `i${id}`, name: `Item ${id}`, slot: "weapon", tier: 1, cost: 800, activation: "passive", isActive: false,
       componentClassNames: [], image: null, glyph: null, cooldown: null, description: "",
@@ -163,6 +155,30 @@ describe("souls", () => {
     expect(soulsFor({ won: true, guesses: 20, hintsUsed: 2 })).toBe(10);
     expect(soulsFor({ won: true, guesses: 2, hintsUsed: 0, bonusCorrect: true })).toBe(115);
     expect(soulsFor({ won: false, guesses: 5, hintsUsed: 0 })).toBe(0);
+  });
+});
+
+describe("Letter hints", () => {
+  const set = ["🎩", "🐦", "🌙", "🏹", "🦉", "🪶", "🌲", "🪃", "🦌", "🪤"];
+  const data = makeData({ heroes: [hero(17, "Grey Talon", { emojis: set, emojisReviewed: true }), hero(1, "Infernus"), hero(2, "Seven"), hero(3, "Mo & Krill", { emojis: set }),
+    ...Array.from({ length: 8 }, (_, i) => hero(101 + i, `Decoy ${i}`))] });
+  const row = async (id: number) => ({ date: "2026-10-01", mode: "cipher", sealed: false, sealedReason: null, payload: await cipher.build({ answerId: String(id), ref: id }, ctx(data)) });
+  const wrong = (n: number) => ["1", "2", "3", "4", "5", "6", "7", "8"].slice(0, n).map((x) => String(Number(x) + 100));
+
+  it("unlock first letter, then first two letters, from the answer name", async () => {
+    const lock = LOCK_BY_SLUG.cipher; // hints after 6 and 8 wrong guesses
+    const at = (n: number) => evaluate(lock, row17, 1, wrong(n), undefined, lookup(data)).hints;
+    const row17 = await row(17);
+    expect(at(5).map((h) => h.value)).toEqual([undefined, undefined]);
+    expect(at(6).map((h) => h.value)).toEqual(["G", undefined]);
+    expect(at(8).map((h) => h.value)).toEqual(["G", "GR"]);
+    const mo = evaluate(lock, await row(3), 1, wrong(8), undefined, lookup(data)).hints;
+    expect(mo.map((h) => h.value)).toEqual(["M", "MO"]);
+  });
+
+  it("every guessing lock uses the two letter hints", () => {
+    for (const l of Object.values(LOCK_BY_SLUG).filter((x) => x.picks > 0 && !x.maxTries))
+      expect(l.hints.map((h) => h.id)).toEqual(["initial", "initial2"]);
   });
 });
 

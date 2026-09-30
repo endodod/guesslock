@@ -5,6 +5,8 @@ import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mediaUrl } from "../media";
 import { usableText } from "../text/entries";
 import { parseSetup, type HeroSetup } from "../admin/setup";
+import { DEFAULT_EMOJIS } from "../data/emojis";
+import { HERO_COLUMNS, ITEM_COLUMNS, resolveColumns, type Attrs, type ColumnDef } from "./columns";
 
 export type HeroData = {
   id: number;
@@ -24,6 +26,8 @@ export type HeroData = {
   genericVoice: boolean;
   /** Admin overrides per mode (see src/lib/admin/setup.ts). */
   setup: HeroSetup;
+  /** Category values (admin overrides of API columns, custom categories). */
+  attrs: Attrs;
   card: string | null;
   /** The Visage portrait: the admin override, else the card. */
   splash: string | null;
@@ -47,6 +51,7 @@ export type ItemData = {
   aliases: string[];
   exclude: string[];
   src: NormItem;
+  attrs: Attrs;
   image: string | null;
   glyph: string | null;
 };
@@ -65,16 +70,28 @@ export type GameData = {
   voiceLines(heroId: number): VoiceLineData[];
   buildsInto(className: string): NormItem[];
   itemByClass(className: string): ItemData | undefined;
+  /** Attribute columns with admin category settings applied (see columns.ts). */
+  heroColumns: ColumnDef<HeroData>[];
+  itemColumns: ColumnDef<ItemData>[];
 };
 
+/** Category values: plain strings/numbers only. */
+export function parseAttrs(raw: unknown): Attrs {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>).filter(([, v]) => typeof v === "string" || (typeof v === "number" && Number.isFinite(v))),
+  ) as Attrs;
+}
+
 export async function loadGameData(): Promise<GameData> {
-  const [heroRows, abilityRows, itemRows, texts, lines] = await Promise.all([
+  const [heroRows, abilityRows, itemRows, texts, lines, categories] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.textEntry.findMany(),
     // Every line that passed the automatic filters; "needs_redaction" lines use their redacted text.
     db.voiceLine.findMany({ where: { status: { not: "excluded" } }, orderBy: { id: "asc" } }),
+    db.category.findMany(),
   ]);
 
   const heroes: HeroData[] = heroRows.map((h) => {
@@ -92,10 +109,12 @@ export async function loadGameData(): Promise<GameData> {
       species: h.species,
       weaponType: h.weaponTypeOverride || src.gunTag,
       releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null,
-      emojis: h.emojis,
+      // The Cipher needs 10: a hero without a complete set uses the default one (the sync also stores it).
+      emojis: h.emojis.length >= 10 ? h.emojis : DEFAULT_EMOJIS[h.name] ?? h.emojis,
       emojisReviewed: h.emojisReviewed,
       genericVoice: h.genericVoice,
       setup,
+      attrs: parseAttrs(h.attrs),
       card: mediaUrl(src.images.card),
       splash: mediaUrl(setup.splash ?? src.images.card),
       icon: mediaUrl(src.images.small),
@@ -114,7 +133,7 @@ export async function loadGameData(): Promise<GameData> {
   const items: ItemData[] = itemRows.map((i) => {
     const src = i.source as unknown as NormItem;
     return {
-      id: Number(i.id), name: i.name, aliases: i.aliases, exclude: i.excludeFromModes, src,
+      id: Number(i.id), name: i.name, aliases: i.aliases, exclude: i.excludeFromModes, src, attrs: parseAttrs(i.attrs),
       image: mediaUrl(src.image), glyph: mediaUrl(src.glyph),
     };
   });
@@ -143,5 +162,7 @@ export async function loadGameData(): Promise<GameData> {
     voiceLines: (heroId) => linesByHero.get(heroId) ?? [],
     buildsInto: (cls) => items.filter((i) => i.src.componentClassNames.includes(cls)).map((i) => i.src),
     itemByClass: (cls) => itemByClass.get(cls),
+    heroColumns: resolveColumns("hero", HERO_COLUMNS, categories),
+    itemColumns: resolveColumns("item", ITEM_COLUMNS, categories),
   };
 }

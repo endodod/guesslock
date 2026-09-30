@@ -11,6 +11,17 @@ export type HintDef = {
   after: number;
 };
 
+/**
+ * Every guessing lock uses the same two hints: the answer's first letter, then its first two letters.
+ * Anything else a player might want to know belongs in the attribute categories or is its own lock.
+ */
+export function LETTER_HINTS(first: number, second: number): HintDef[] {
+  return [
+    { id: "initial", label: "First letter", after: first },
+    { id: "initial2", label: "First two letters", after: second },
+  ];
+}
+
 export type LockDef = {
   slug: string;
   mode: string; // internal mode id used by the engine
@@ -36,98 +47,67 @@ export const LOCKS: LockDef[] = [
     slug: "reckoning", mode: "classic", numeral: "I", name: "The Reckoning",
     subtitle: "Guess the hero by attributes", group: "spirits", guess: "hero", picks: 6,
     attributeGrid: true,
-    hints: [
-      { id: "archetype", label: "Archetype", after: 4 },
-      { id: "initial", label: "First letter", after: 6 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "visage", mode: "splash", numeral: "II", name: "The Visage",
     subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6,
-    hints: [
-      { id: "gender", label: "Gender", after: 4 },
-      { id: "archetype", label: "Archetype", after: 6 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "sigil", mode: "ability-icon", numeral: "III", name: "The Sigil",
     subtitle: "Guess the hero from an ability icon", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true,
-    hints: [
-      { id: "slot", label: "Ability slot", after: 4 },
-      { id: "archetype", label: "Archetype", after: 6 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "testament", mode: "lore", numeral: "IV", name: "The Testament",
     subtitle: "Guess the hero from their lore", group: "spirits", guess: "hero", picks: 7,
-    hints: [
-      { id: "gender", label: "Gender", after: 4 },
-      { id: "species", label: "Species", after: 7 },
-    ],
+    hints: LETTER_HINTS(4, 7),
   },
   {
     slug: "incantation", mode: "ability-desc", numeral: "V", name: "The Incantation",
     subtitle: "Guess the hero from an ability description", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true,
-    hints: [
-      { id: "slot", label: "Ability slot", after: 3 },
-      { id: "icon", label: "Blurred ability icon", after: 6 },
-    ],
+    hints: LETTER_HINTS(3, 6),
   },
   {
     slug: "belongings", mode: "whose-build", numeral: "VI", name: "The Belongings",
     subtitle: "Guess the hero from their build", group: "spirits", guess: "hero", picks: 7,
-    hints: [
-      { id: "archetype", label: "Archetype", after: 5 },
-      { id: "weapon", label: "Weapon type", after: 7 },
-    ],
+    hints: LETTER_HINTS(5, 7),
   },
   {
     slug: "ascension", mode: "upgrades", numeral: "VII", name: "The Ascension",
     subtitle: "Guess the ability from its upgrades", group: "spirits", guess: "ability", picks: 6,
-    hints: [
-      { id: "archetype", label: "Hero archetype", after: 4 },
-      { id: "initial", label: "Hero's first letter", after: 6 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "cipher", mode: "emoji", numeral: "VIII", name: "The Cipher",
     subtitle: "Guess the hero from emojis", group: "spirits", guess: "hero", picks: 8,
-    // 5 emojis per puzzle: all shown after 4 wrong guesses, then 2 more for each hint.
-    hints: [
-      { id: "gender", label: "Gender", after: 6 },
-      { id: "initial", label: "First letter", after: 8 },
-    ],
+    // 5 emojis per puzzle: all shown after 4 wrong guesses.
+    hints: LETTER_HINTS(6, 8),
   },
   {
     slug: "echo", mode: "quote", numeral: "IX", name: "The Echo",
     subtitle: "Guess the hero from a voice line", group: "spirits", guess: "hero", picks: 6,
-    // Voice lines are text-only for now, so the hint is the gender.
-    // Once audio exists, the payload relabels this hint "Voice clip".
-    hints: [{ id: "audio", label: "Gender", after: 6 }],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "relic", mode: "item-picture", numeral: "X", name: "The Relic",
     subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6,
-    hints: [
-      { id: "slot", label: "Slot", after: 4 },
-      { id: "tier", label: "Tier", after: 6 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "appraisal", mode: "item-classic", numeral: "XI", name: "The Appraisal",
     subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6,
     attributeGrid: true,
-    hints: [
-      { id: "initial", label: "First letter", after: 5 },
-    ],
+    hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "lineage", mode: "build-path", numeral: "XII", name: "The Lineage",
     subtitle: "Guess what builds into what", group: "shop", guess: "item", picks: 6,
     noRepeatDays: 10,
-    hints: [{ id: "tier", label: "Tier", after: 3 }],
+    hints: LETTER_HINTS(3, 5),
   },
   {
     slug: "measure", mode: "stat-bonus", numeral: "XIII", name: "The Measure",

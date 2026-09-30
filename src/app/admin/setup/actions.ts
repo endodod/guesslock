@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSetup } from "@/lib/admin/auth";
 import { CUSTOM_LINE_PREFIX, parseSetup, type HeroSetup } from "@/lib/admin/setup";
 import { mirror } from "@/lib/media";
+import { saveCategoryValues } from "@/lib/admin/categories";
 import { syncTexts } from "@/lib/sync/assets";
 import { redact } from "@/lib/text/redact";
 import { heroTerms } from "@/lib/text/entries";
@@ -52,22 +53,21 @@ export async function setAbilityMode(heroId: number, abilityId: number, mode: st
 
 // ───────────── The Reckoning ─────────────
 
-export async function saveAttributes(heroId: number, form: FormData) {
+/** Category values (inputs "v|<hero id>|<column key>") and aliases. Returns a status line. */
+export async function saveAttributes(heroId: number, form: FormData): Promise<string> {
   await requireSetup();
-  const str = (k: string) => String(form.get(k) ?? "").trim() || null;
-  const release = String(form.get("releaseDate") ?? "").trim();
-  await db.hero.update({
-    where: { id: heroId },
-    data: {
-      species: str("species"),
-      releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(release) ? new Date(release + "T00:00:00Z") : null,
-      genderOverride: str("genderOverride"),
-      weaponTypeOverride: str("weaponTypeOverride"),
-      aliases: String(form.get("aliases") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
-    },
-  });
-  await syncTexts(); // aliases feed the redaction pass
+  const edits = [...form.entries()]
+    .filter(([k]) => k.startsWith(`v|${heroId}|`))
+    .map(([k, v]) => ({ id: heroId, key: k.split("|")[2], raw: String(v) }));
+  const r = await saveCategoryValues("hero", edits);
+  const aliases = String(form.get("aliases") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const before = await db.hero.findUniqueOrThrow({ where: { id: heroId }, select: { aliases: true } });
+  if (before.aliases.join("|") !== aliases.join("|")) {
+    await db.hero.update({ where: { id: heroId }, data: { aliases } });
+    await syncTexts(); // aliases feed the redaction pass
+  }
   done(heroId);
+  return r.invalid.length ? `Not saved (invalid): ${r.invalid.join("; ")}` : "Saved";
 }
 
 // ───────────── The Visage ─────────────

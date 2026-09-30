@@ -32,7 +32,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const user = sessionUser ? { id: sessionUser.id, name: sessionUser.name || "Keeper" } : null;
   return (
     <html lang="en" className={`${limelight.variable} ${spectral.variable} ${plexMono.variable} ${notoEmoji.variable}`}>
-      <body className="grain flex min-h-dvh flex-col antialiased">
+      {/* Browser extensions add classes to <body> before hydration (e.g. "vc-init"). */}
+      <body className="grain flex min-h-dvh flex-col antialiased" suppressHydrationWarning>
         <GameProvider today={today} user={user}>
           <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-ink focus:p-2">Skip to content</a>
           <Header dateLabel={dateLabel} nextReset={nextResetAt(now, config.timezone).getTime()} />

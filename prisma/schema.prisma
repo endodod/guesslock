@@ -13,7 +13,7 @@ datasource db {
 
 model SyncRun {
   id            Int       @id @default(autoincrement())
-  kind          String // "assets" | "voicelines" | "generate"
+  kind          String // "assets" | "voicelines" | "generate" | "heal"
   status        String // "running" | "ok" | "failed"
   startedAt     DateTime  @default(now())
   finishedAt    DateTime?
@@ -46,6 +46,7 @@ model Hero {
   voiceRevisionId    Int?
   excludeFromModes   String[]
   setup              Json? // per-mode puzzle setup overrides (see src/lib/admin/setup.ts)
+  attrs              Json? // category values: overrides of API columns and custom categories (see engine/columns.ts)
   needsReview        Boolean   @default(true)
   reviewReasons      String[]
 
@@ -83,6 +84,7 @@ model Item {
   sourceHash       String
   aliases          String[]
   excludeFromModes String[]
+  attrs            Json? // category values: overrides of API columns and custom categories
   needsReview      Boolean  @default(false)
   reviewReasons    String[]
   firstSeenAt      DateTime @default(now())
@@ -91,6 +93,22 @@ model Item {
 
 // Redacted / rewritten texts for Lore, Ability Description and Upgrade Guesser.
 // sourceText is the rendered API text; finalText is what players see once approved.
+// Attribute categories (columns) of The Reckoning (entity "hero") and The Appraisal ("item").
+// Built-in columns are defined in src/lib/engine/columns.ts; a row here only overrides their label,
+// info, order and on/off state. Custom categories exist only here; their values live in Hero/Item.attrs.
+model Category {
+  key       String   @id // "<entity>.<column key>", e.g. "hero.role"
+  entity    String // "hero" | "item"
+  label     String
+  info      String   @default("")
+  type      String // "exact" | "multi" | "numeric" | "date"
+  unit      String   @default("") // numeric suffix, e.g. "cm"
+  builtin   Boolean  @default(false)
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
 model TextEntry {
   id         Int      @id @default(autoincrement())
   entityType String // "hero_lore" | "ability_desc" | "ability_t1" | "ability_t2" | "ability_t3"

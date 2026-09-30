@@ -120,7 +120,7 @@ export async function saveAbility(abilityId: number, form: FormData) {
   });
   await syncTexts();
   updateTag("catalog");
-  revalidatePath("/admin/heroes");
+  revalidatePath("/admin", "layout");
 }
 
 // ───────────── voice lines ─────────────

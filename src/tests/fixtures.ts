@@ -1,6 +1,7 @@
 // In-memory GameData for mode tests (no DB).
 import type { AbilityData, GameData, HeroData, ItemData, VoiceLineData } from "@/lib/engine/context";
 import type { NormHero } from "@/lib/deadlock/types";
+import { HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
 
 export function hero(id: number, name: string, over: Partial<HeroData> = {}): HeroData {
   const src: NormHero = {
@@ -12,7 +13,7 @@ export function hero(id: number, name: string, over: Partial<HeroData> = {}): He
   return {
     id, name, className: src.className, aliases: [], exclude: [], eligible: true, src,
     gender: src.gender, species: "Human", weaponType: "Pistol", releaseDate: "2024-08-01",
-    emojis: [], emojisReviewed: false, genericVoice: false, setup: {}, card: `/media/${id}`, splash: `/media/${id}`, icon: null, ...over,
+    emojis: [], emojisReviewed: false, genericVoice: false, setup: {}, attrs: {}, card: `/media/${id}`, splash: `/media/${id}`, icon: null, ...over,
   };
 }
 
@@ -35,6 +36,8 @@ export function makeData(opts: {
     voiceLines: (heroId) => opts.lines?.[heroId] ?? [],
     buildsInto: (cls) => items.filter((i) => i.src.componentClassNames.includes(cls)).map((i) => i.src),
     itemByClass: (cls) => items.find((i) => i.src.className === cls),
+    heroColumns: HERO_COLUMNS,
+    itemColumns: ITEM_COLUMNS,
   };
 }
 

@@ -45,6 +45,14 @@ npm run dev
 Optionally run `npm run import:voicelines` once to fill The Echo right away (otherwise the daily job imports them
 over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji sets, species/release dates, rewrites and overrides.
 
+**Categories** (`/admin/categories`) holds the attribute columns of The Reckoning and The Appraisal: rename, reorder or
+switch off the built-in (API) columns, fix single values per hero or item in a spreadsheet-style grid, and add custom
+categories (Role and Height ship empty). A category that isn't from the API joins the puzzle once every hero or item in
+the pool has a value.
+
+Hints are the same in every guessing lock: the answer's first letter, then its first two letters, at the unlock points
+set in `src/locks.config.ts` (`LETTER_HINTS`).
+
 Set `ADMIN_SETUP_MODE=1` to turn on **Puzzle setup** (`/admin/setup`): a hero × mode overview of who is in each
 answer pool (and why not), and a per-hero editor to switch each mode (or single abilities) on or off and to edit, add
 or remove its clues: Reckoning attributes, a custom Visage portrait, lore/ability/upgrade texts, Belongings items to
@@ -138,6 +146,11 @@ budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data
 **Seed:** `data/omens-seed.json.gz` holds real scenarios from harvested matches. When an Omen has no harvested stock
 for a day (fresh install, a short harvest, an API outage), the unused seed scenarios are imported and used, so every
 Omen still gets its daily puzzle. Refresh it with `npm run omens:seed` after a harvest and commit the file.
+
+**Migrations and self-healing:** on Vercel the build runs `prisma migrate deploy` (`scripts/migrate-on-build.mjs`;
+set `MIGRATE_ON_BUILD=1` to do the same elsewhere, or run `npm run db:migrate` before starting a Docker image). If a
+visitor opens today's vault while a lock has no puzzle yet (a fresh deploy, a missed cron), generation for those locks
+runs right after the response, at most once per 10 minutes.
 
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.

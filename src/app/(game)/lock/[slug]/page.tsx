@@ -9,6 +9,7 @@ import { getCatalog, lookupFor } from "@/lib/engine/catalog";
 import { evaluate } from "@/lib/engine/play";
 import { dayMeta, getPuzzle } from "@/lib/server/puzzles";
 import { RULES } from "@/lib/i18n/rules";
+import { healToday } from "@/lib/server/heal";
 import { t } from "@/lib/i18n/en";
 import { OmenLock } from "@/components/omens/OmenLock";
 import { getMapMeta } from "@/lib/omens/map";
@@ -38,6 +39,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   const today = todayDate();
   const date = isDay(d) && d < today ? d : today;
   const [row, meta, catalog] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog()]);
+  if (date === today) healToday(date, meta);
   const number = numberFor(date);
   const available = meta.filter((m) => m.state === "available").map((m) => m.slug);
   const back = date < today ? `/archive/${date}` : "/";
