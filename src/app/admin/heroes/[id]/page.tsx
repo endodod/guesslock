@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/admin/auth";
+import { config } from "@/lib/config";
 import type { NormHero } from "@/lib/deadlock/types";
 import { mediaUrl } from "@/lib/media";
 import { saveAbility, saveHero } from "../../actions";
@@ -36,7 +37,10 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
           </p>
           {hero.needsReview && <p className="text-sm text-amber-700">Needs review: {hero.reviewReasons.join(" · ")}</p>}
         </div>
-        <Link href="/admin/heroes" className="ml-auto text-sm text-blue-700 hover:underline">All heroes</Link>
+        <div className="ml-auto flex gap-3 text-sm">
+          {config.adminSetup && <Link href={`/admin/setup/${hero.id}`} className="text-blue-700 hover:underline">Puzzle setup</Link>}
+          <Link href="/admin/heroes" className="text-blue-700 hover:underline">All heroes</Link>
+        </div>
       </div>
 
       <section className="rounded border border-neutral-300 bg-white p-4">

@@ -7,6 +7,7 @@ import { config } from "../config";
 import { normalize, wordCount } from "../text/normalize";
 import { redact } from "../text/redact";
 import { heroTerms, sha } from "../text/entries";
+import { CUSTOM_LINE_PREFIX } from "../admin/setup";
 
 const MIN_WORDS = 6;
 const GENERIC_PAGES = ["Generic Male/Voice lines", "Generic Female/Voice lines"];
@@ -174,7 +175,7 @@ export async function importHeroVoiceLines(heroId: number): Promise<ImportResult
     // One round-trip for all new lines instead of one per line.
     if (toCreate.length) await db.voiceLine.createMany({ data: toCreate, skipDuplicates: true });
     for (const prev of existing.values())
-      if (!seen.has(prev.fileName) && prev.status !== "excluded")
+      if (!seen.has(prev.fileName) && !prev.fileName.startsWith(CUSTOM_LINE_PREFIX) && prev.status !== "excluded")
         await db.voiceLine.update({ where: { id: prev.id }, data: { status: "excluded", autoReason: "removed from wiki", sourceChanged: true } });
 
     await db.hero.update({

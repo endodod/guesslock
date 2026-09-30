@@ -1,7 +1,7 @@
 // Password-protected admin: HMAC-signed session cookie (no accounts in v1).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { config } from "../config";
 
 const COOKIE = "gl_admin";
@@ -59,6 +59,18 @@ export async function requireAdminPage() {
 /** For server actions: throw. */
 export async function requireAdmin() {
   if (!(await isAdmin())) throw new Error("Unauthorized");
+}
+
+/** Puzzle setup pages (/admin/setup): admin session and ADMIN_SETUP_MODE on, else 404. */
+export async function requireSetupPage() {
+  if (!config.adminSetup) notFound();
+  await requireAdminPage();
+}
+
+/** Puzzle setup server actions. */
+export async function requireSetup() {
+  if (!config.adminSetup) throw new Error("Puzzle setup mode is off (ADMIN_SETUP_MODE)");
+  await requireAdmin();
 }
 
 /** For cron route handlers: Bearer CRON_SECRET. */

@@ -21,6 +21,8 @@ export const config = {
   analyticsMinHeroMatches: Number(env("ANALYTICS_MIN_HERO_MATCHES", "500")),
   analyticsMinPickRate: Number(env("ANALYTICS_MIN_PICK_RATE", "0.04")),
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  /** Enables /admin/setup: per-hero, per-puzzle setup editing (ADMIN_SETUP_MODE=1). */
+  adminSetup: ["1", "true", "on", "yes"].includes((process.env.ADMIN_SETUP_MODE ?? "").toLowerCase()),
   sessionSecret: env("SESSION_SECRET", ""),
   cronSecret: process.env.CRON_SECRET ?? "",
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL ?? "",

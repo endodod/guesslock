@@ -1,6 +1,7 @@
 import Link from "next/link";
 import "../globals.css";
 import { isAdmin } from "@/lib/admin/auth";
+import { config } from "@/lib/config";
 import { logout } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ["/admin/items", "Items"],
               ["/admin/calendar", "Calendar"],
               ["/admin/omens", "Omens"],
+              ...(config.adminSetup ? [["/admin/setup", "Puzzle setup"]] : []),
             ].map(([href, label]) => (
               <Link key={href} href={href} className="text-blue-700 hover:underline">{label}</Link>
             ))}

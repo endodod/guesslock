@@ -23,7 +23,7 @@ export function EmojiEditor({
   const key3 = (e: string[]) => [...e.slice(0, 3)].sort().join("|");
   const overlaps = slots.filter(Boolean).length >= 3 ? others.filter((o) => o.emojis.length >= 3 && key3(o.emojis) === key3(slots)) : [];
   const move = (from: number, to: number) => {
-    if (to < 0 || to > 5 || from === to) return;
+    if (to < 0 || to >= slots.length || from === to) return;
     const next = [...slots];
     const [x] = next.splice(from, 1);
     next.splice(to, 0, x);

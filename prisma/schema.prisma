@@ -45,6 +45,7 @@ model Hero {
   voiceImportedAt    DateTime?
   voiceRevisionId    Int?
   excludeFromModes   String[]
+  setup              Json? // per-mode puzzle setup overrides (see src/lib/admin/setup.ts)
   needsReview        Boolean   @default(true)
   reviewReasons      String[]
 

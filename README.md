@@ -45,6 +45,13 @@ npm run dev
 Optionally run `npm run import:voicelines` once to fill The Echo right away (otherwise the daily job imports them
 over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji sets, species/release dates, rewrites and overrides.
 
+Set `ADMIN_SETUP_MODE=1` to turn on **Puzzle setup** (`/admin/setup`): a hero × mode overview of who is in each
+answer pool (and why not), and a per-hero editor to switch each mode (or single abilities) on or off and to edit, add
+or remove its clues: Reckoning attributes, a custom Visage portrait, lore/ability/upgrade texts, Belongings items to
+always or never show, the Cipher emoji set and Echo voice lines (custom lines survive wiki re-imports). Edits apply to
+newly generated puzzles; upcoming days with that hero can be rebuilt from the same page. With the flag off the pages
+404 and the actions refuse.
+
 ## How it works
 
 - **Sync** (`src/lib/sync/assets.ts`): fetch → validate each entity with Zod (bad entities are logged and excluded) →

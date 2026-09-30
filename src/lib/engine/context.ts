@@ -4,6 +4,7 @@ import { db } from "../db";
 import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mediaUrl } from "../media";
 import { usableText } from "../text/entries";
+import { parseSetup, type HeroSetup } from "../admin/setup";
 
 export type HeroData = {
   id: number;
@@ -21,7 +22,11 @@ export type HeroData = {
   emojis: string[];
   emojisReviewed: boolean;
   genericVoice: boolean;
+  /** Admin overrides per mode (see src/lib/admin/setup.ts). */
+  setup: HeroSetup;
   card: string | null;
+  /** The Visage portrait: the admin override, else the card. */
+  splash: string | null;
   icon: string | null;
 };
 
@@ -74,6 +79,7 @@ export async function loadGameData(): Promise<GameData> {
 
   const heroes: HeroData[] = heroRows.map((h) => {
     const src = h.source as unknown as NormHero;
+    const setup = parseSetup(h.setup);
     return {
       id: h.id,
       name: h.name,
@@ -89,7 +95,9 @@ export async function loadGameData(): Promise<GameData> {
       emojis: h.emojis,
       emojisReviewed: h.emojisReviewed,
       genericVoice: h.genericVoice,
+      setup,
       card: mediaUrl(src.images.card),
+      splash: mediaUrl(setup.splash ?? src.images.card),
       icon: mediaUrl(src.images.small),
     };
   });

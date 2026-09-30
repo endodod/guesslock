@@ -123,14 +123,14 @@ const ZOOM_STEPS = [5.2, 4.2, 3.4, 2.7, 2.2, 1.8, 1.45, 1.2, 1];
 
 export const visage: ModeImpl<{ image: string; originX: number; originY: number }> = {
   mode: "splash",
-  candidates: (data) => heroPool(data, "splash", (h) => !!h.card),
+  candidates: (data) => heroPool(data, "splash", (h) => !!h.splash),
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
     return {
       v: 1, mode: "splash", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
       hints: { gender: { value: cap(h.gender) }, archetype: { value: cap(h.src.heroType) } },
       // Portrait cards have the face in the upper half: bias the crop there.
-      clue: { image: h.card!, originX: Math.round(25 + rng.next() * 50), originY: Math.round(18 + rng.next() * 42) },
+      clue: { image: h.splash!, originX: Math.round(25 + rng.next() * 50), originY: Math.round(18 + rng.next() * 42) },
     };
   },
   clue: (p, wrong, done) => ({
@@ -231,7 +231,7 @@ export const belongings: ModeImpl<{ items: BuildItem[] }> = {
     } catch (e) {
       throw new SealedError(`analytics unavailable: ${(e as Error).message}`);
     }
-    const items = distinctiveItems(h.id, data, stats);
+    const items = distinctiveItems(h.id, data, stats, h.setup);
     if (items.length < 5) throw new SkipCandidate(`not enough item data for ${h.name}`);
     return {
       v: 1, mode: "whose-build", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
@@ -250,17 +250,26 @@ export const belongings: ModeImpl<{ items: BuildItem[] }> = {
 /**
  * Most distinctive items for a hero: lift = hero pick rate / average pick rate across heroes.
  * Returns the top 8, ordered least distinctive first (the reveal order).
+ * Admin setup: banned items never show; pinned items always do, as the most telling (last) ones.
  */
 export function distinctiveItems(
   heroId: number,
   data: Pick<GameData, "items">,
   stats: { heroMatches: Map<number, number>; itemMatches: Map<number, Map<number, number>> },
+  setup: Pick<HeroData["setup"], "buildPin" | "buildBan"> = {},
 ): BuildItem[] {
+  const ban = new Set([...(setup.buildBan ?? []), ...(setup.buildPin ?? [])]);
+  const pinned = (setup.buildPin ?? [])
+    .map((cls) => data.items.find((i) => i.src.className === cls))
+    .filter((i): i is NonNullable<typeof i> => !!i)
+    .slice(0, BUILD_ITEMS)
+    .map((i): BuildItem => ({ name: i.name, image: i.image, slot: i.src.slot, lift: 999 }));
   const heroTotal = stats.heroMatches.get(heroId) ?? 0;
-  if (heroTotal < config.analyticsMinHeroMatches) return [];
+  if (heroTotal < config.analyticsMinHeroMatches) return pinned.length >= 5 ? pinned.reverse() : [];
   const heroesWithData = [...stats.heroMatches.entries()].filter(([, m]) => m >= config.analyticsMinHeroMatches);
   const scored: BuildItem[] = [];
   for (const item of data.items) {
+    if (ban.has(item.src.className)) continue;
     const pr = (stats.itemMatches.get(heroId)?.get(item.id) ?? 0) / heroTotal;
     if (pr < config.analyticsMinPickRate) continue;
     const avg =
@@ -268,8 +277,7 @@ export function distinctiveItems(
     if (avg <= 0) continue;
     scored.push({ name: item.name, image: item.image, slot: item.src.slot, lift: Math.round((pr / avg) * 1000) / 1000 });
   }
-  return scored
-    .sort((a, b) => b.lift - a.lift || a.name.localeCompare(b.name))
+  return [...pinned, ...scored.sort((a, b) => b.lift - a.lift || a.name.localeCompare(b.name))]
     .slice(0, BUILD_ITEMS)
     .reverse();
 }

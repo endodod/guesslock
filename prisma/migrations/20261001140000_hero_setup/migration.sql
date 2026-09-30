@@ -1,0 +1,1 @@
+ALTER TABLE "Hero" ADD COLUMN "setup" JSONB;
