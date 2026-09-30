@@ -1,0 +1,205 @@
+@import "tailwindcss";
+
+/* ───────────── GUESSLOCK design tokens (dark only in v1) ───────────── */
+:root {
+  --ink: #0e0d0b;
+  --iron: #1a1816;
+  --iron-2: #23201c;
+  --velvet: #3e1a1d;
+  --brass: #c9a45c;
+  --brass-dim: #8f743f;
+  --paper: #e8dcc4;
+  --ash: #8a8175;
+  --ecto: #7fe3c2;
+  --cursed: #8c6bd8;
+
+  /* feedback */
+  --fb-match: var(--ecto);
+  --fb-match-ink: #0b2a21;
+  --fb-partial: var(--brass);
+  --fb-partial-ink: #2a1f08;
+  --fb-miss: var(--velvet);
+  --fb-miss-ink: var(--paper);
+  --fb-miss-border: var(--ash);
+  --fb-pattern-partial: none;
+  --fb-pattern-miss: none;
+
+  --slot-weapon: #d08a3c;
+  --slot-vitality: #6ab04c;
+  --slot-spirit: #a66ad8;
+
+  color-scheme: dark;
+}
+
+/* Colorblind mode: high-contrast blue / orange / grey + pattern fills */
+:root[data-cb="1"] {
+  --fb-match: #3d8bfd;
+  --fb-match-ink: #06142b;
+  --fb-partial: #f28c28;
+  --fb-partial-ink: #2b1400;
+  --fb-miss: #4a4a4a;
+  --fb-miss-ink: #ffffff;
+  --fb-miss-border: #9a9a9a;
+  --fb-pattern-partial: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.18) 0 4px, transparent 4px 9px);
+  --fb-pattern-miss: radial-gradient(rgb(255 255 255 / 0.14) 1px, transparent 1.5px) 0 0 / 7px 7px;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-iron: var(--iron);
+  --color-iron-2: var(--iron-2);
+  --color-velvet: var(--velvet);
+  --color-brass: var(--brass);
+  --color-brass-dim: var(--brass-dim);
+  --color-paper: var(--paper);
+  --color-ash: var(--ash);
+  --color-ecto: var(--ecto);
+  --color-cursed: var(--cursed);
+  --color-fb-match: var(--fb-match);
+  --color-fb-partial: var(--fb-partial);
+  --color-fb-miss: var(--fb-miss);
+  --color-slot-weapon: var(--slot-weapon);
+  --color-slot-vitality: var(--slot-vitality);
+  --color-slot-spirit: var(--slot-spirit);
+  --font-display: var(--font-limelight), "Georgia", serif;
+  --font-body: var(--font-spectral), "Georgia", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-emoji: var(--font-noto-emoji), sans-serif;
+}
+
+html {
+  background: var(--ink);
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(201 164 92 / 0.07), transparent 70%),
+    var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.55;
+  min-height: 100dvh;
+}
+@media (min-width: 768px) {
+  body { font-size: 16px; }
+}
+
+/* Grain: one tiny tiled PNG, fixed, very low opacity. Clue images sit above it (z-index). */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/grain.png");
+  opacity: 0.06;
+  z-index: 0;
+}
+.grain > * { position: relative; z-index: 1; }
+.clue-layer { position: relative; z-index: 2; isolation: isolate; }
+
+:focus-visible {
+  outline: 2px solid var(--ecto);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+.smallcaps {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+}
+
+/* ───────────── Deco frame: brass double rule + stepped corners ───────────── */
+.deco {
+  position: relative;
+  border: 1px solid var(--brass-dim);
+  outline: 1px solid rgb(201 164 92 / 0.35);
+  outline-offset: 3px;
+  background: linear-gradient(180deg, var(--iron-2), var(--iron));
+}
+.deco-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  color: var(--brass);
+  pointer-events: none;
+}
+
+/* ───────────── Feedback tiles ───────────── */
+.tile-match { background: var(--fb-match); color: var(--fb-match-ink); }
+.tile-partial { background: var(--fb-pattern-partial), var(--fb-partial); color: var(--fb-partial-ink); }
+.tile-miss {
+  background: var(--fb-pattern-miss), var(--fb-miss);
+  color: var(--fb-miss-ink);
+  box-shadow: inset 0 0 0 1px var(--fb-miss-border);
+}
+
+/* ───────────── Censor bars for redacted text ───────────── */
+.censor {
+  display: inline-block;
+  background: #050505;
+  color: transparent;
+  border-radius: 2px;
+  min-width: 3.2em;
+  height: 1.05em;
+  vertical-align: -0.15em;
+  box-shadow: 0 0 0 1px rgb(201 164 92 / 0.15);
+  user-select: none;
+}
+
+.paper {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.35), transparent 60%),
+    linear-gradient(180deg, #e9dcc0, #d8c7a4);
+  color: #221a10;
+}
+
+.slot-edge-weapon { box-shadow: inset 0 -3px 0 var(--slot-weapon); }
+.slot-edge-vitality { box-shadow: inset 0 -3px 0 var(--slot-vitality); }
+.slot-edge-spirit { box-shadow: inset 0 -3px 0 var(--slot-spirit); }
+
+/* Cipher emoji: monochrome Noto Emoji tinted paper with a brass inner shadow */
+.cipher-glyph {
+  font-family: var(--font-emoji);
+  color: var(--paper);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.6), 0 0 6px rgb(201 164 92 / 0.35);
+}
+
+@keyframes keyhole-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgb(127 227 194 / 0.3)); }
+  50% { filter: drop-shadow(0 0 9px rgb(127 227 194 / 0.8)); }
+}
+.keyhole-glow { animation: keyhole-pulse 2.4s ease-in-out infinite; }
+
+@keyframes key-turn {
+  0% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(90deg); }
+}
+.key-turn { animation: key-turn 1.6s ease-in-out infinite alternate; transform-origin: 50% 50%; }
+
+@keyframes soft-pulse-once {
+  0% { box-shadow: 0 0 0 0 rgb(127 227 194 / 0.55); }
+  100% { box-shadow: 0 0 0 16px rgb(127 227 194 / 0); }
+}
+.pulse-once { animation: soft-pulse-once 1.4s ease-out 2; }
+
+/* Reduced motion (OS or settings): no swings, snaps or pulses */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) *,
+  :root:not([data-motion="full"]) *::before,
+  :root:not([data-motion="full"]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

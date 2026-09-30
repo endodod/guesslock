@@ -1,0 +1,178 @@
+"use client";
+// Global header/footer, settings modal and onboarding overlay.
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
+import { t } from "@/lib/i18n/en";
+import { useGame } from "./GameProvider";
+import { Button, Countdown, DecoFrame, Icon, Logo } from "./ui";
+
+export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset: number }) {
+  const { toast } = useGame();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-20 border-b border-brass/20 bg-ink/90 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:px-6">
+        <Link href="/" aria-label="GUESSLOCK — The Vault" className="shrink-0">
+          <Logo size="sm" />
+        </Link>
+        <div className="hidden flex-col items-center text-center leading-tight sm:flex">
+          <span className="text-xs text-ash">{dateLabel}</span>
+          <span className="text-sm text-paper">
+            <span className="text-ash">{t.vault.nextIn} </span>
+            <Countdown target={nextReset} onZero={() => toast(t.lock.newDay)} />
+          </span>
+        </div>
+        <nav className="flex items-center" aria-label="Main">
+          <Link href="/ledger" className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.ledger} title={t.nav.ledger}>
+            <Icon name="ledger" />
+          </Link>
+          <Link href="/archive" className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.archive} title={t.nav.archive}>
+            <Icon name="archive" />
+          </Link>
+          <button type="button" onClick={() => setSettingsOpen(true)} className="flex h-11 w-11 items-center justify-center text-brass hover:text-paper" aria-label={t.nav.settings} title={t.nav.settings}>
+            <Icon name="settings" />
+          </button>
+        </nav>
+      </div>
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </header>
+  );
+}
+
+export function Footer() {
+  return (
+    <footer className="mt-16 border-t border-brass/15 px-4 pt-8 pb-28 text-center text-sm text-ash md:pb-8">
+      <p className="mx-auto max-w-2xl">{t.footer.disclaimer}</p>
+      <p className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link href="/yesterday" className="hover:text-paper">{t.vault.yesterday}</Link>
+        <Link href="/how-to-play" className="hover:text-paper">{t.nav.rules}</Link>
+        <Link href="/about" className="hover:text-paper">{t.footer.credits}</Link>
+      </p>
+    </footer>
+  );
+}
+
+function Toggle({ label, checked, onChange, desc }: { label: string; checked: boolean; onChange: (v: boolean) => void; desc?: string }) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 py-1">
+      <span>
+        {label}
+        {desc && <span className="block text-xs text-ash">{desc}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${checked ? "border-ecto bg-ecto/30" : "border-ash/50 bg-ink"}`}
+      >
+        <span className={`absolute top-0.5 h-5.5 w-5.5 rounded-full transition-all ${checked ? "left-[1.4rem] bg-ecto" : "left-0.5 bg-ash"}`} style={{ height: 22, width: 22 }} />
+      </button>
+    </label>
+  );
+}
+
+export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    ref.current?.querySelector<HTMLElement>("button, [href], input")?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); prev?.focus(); };
+  }, [open, onClose]);
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/75 p-0 sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+          <motion.div ref={ref} role="dialog" aria-modal="true" aria-label={title} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+            <DecoFrame className="max-h-[90dvh] overflow-y-auto p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-display text-xl text-brass">{title}</h2>
+                <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center text-ash hover:text-paper" aria-label={t.settings.close}>
+                  <Icon name="close" />
+                </button>
+              </div>
+              {children}
+            </DecoFrame>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { store, setSettings, resetAll, toast } = useGame();
+  const s = store.settings;
+  return (
+    <Modal open={open} onClose={onClose} title={t.settings.title}>
+      <div className="divide-y divide-brass/10">
+        <Toggle label={t.settings.colorblind} checked={s.colorblind} onChange={(v) => setSettings({ colorblind: v })} />
+        <div className="flex min-h-11 items-center justify-between gap-4 py-1">
+          <span>{t.settings.reducedMotion}</span>
+          <div role="radiogroup" aria-label={t.settings.reducedMotion} className="flex overflow-hidden rounded-sm border border-brass/40 text-sm">
+            {(["auto", "reduced", "full"] as const).map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={s.motion === m} onClick={() => setSettings({ motion: m })} className={`min-h-9 px-3 ${s.motion === m ? "bg-brass/25 text-paper" : "text-ash"}`}>
+                {m === "auto" ? t.settings.motionAuto : m === "reduced" ? t.settings.motionOn : t.settings.motionOff}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Toggle label={t.settings.sound} checked={s.sound} onChange={(v) => setSettings({ sound: v })} />
+        <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
+        <div className="pt-3">
+          <p className="smallcaps text-sm text-brass">{t.settings.hard}</p>
+          <Toggle label={t.settings.grayscale} checked={s.grayscale} onChange={(v) => setSettings({ grayscale: v })} />
+          <Toggle label={t.settings.rotation} checked={s.rotation} onChange={(v) => setSettings({ rotation: v })} />
+          <Toggle label={t.settings.noHints} checked={s.noHints} onChange={(v) => setSettings({ noHints: v })} />
+        </div>
+        <div className="pt-4">
+          <Button
+            variant="ghost"
+            className="w-full border-[#b0433f]/60 text-[#e6a3a0]"
+            onClick={() => {
+              if (window.confirm(t.settings.resetConfirm)) { resetAll(); toast(t.settings.resetDone); onClose(); }
+            }}
+          >
+            {t.settings.reset}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export function Onboarding() {
+  const { store, hydrated, setOnboarded } = useGame();
+  const [i, setI] = useState(0);
+  const [forced, setForced] = useState(false);
+  useEffect(() => {
+    const on = () => { setI(0); setForced(true); };
+    window.addEventListener("guesslock:onboarding", on);
+    return () => window.removeEventListener("guesslock:onboarding", on);
+  }, []);
+  const open = forced || (hydrated && !store.onboarded);
+  const close = () => { setOnboarded(); setForced(false); };
+  const card = t.onboarding[i];
+  return (
+    <Modal open={open} onClose={close} title={card?.title ?? ""}>
+      <p className="min-h-24 text-paper/90">{card?.body}</p>
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex gap-1.5" aria-hidden>
+          {t.onboarding.map((_, j) => <span key={j} className={`h-1.5 w-6 rounded ${j === i ? "bg-brass" : "bg-brass/25"}`} />)}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={close}>{t.onboardingSkip}</Button>
+          {i < t.onboarding.length - 1 ? (
+            <Button onClick={() => setI(i + 1)}>{t.onboardingNext}</Button>
+          ) : (
+            <Button onClick={close}>{t.onboardingDone}</Button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}

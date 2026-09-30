@@ -1,0 +1,103 @@
+// View types shared by server (play evaluation) and client (rendering). No server imports here.
+
+export type TileResult = "match" | "partial" | "miss";
+export type Arrow = "up" | "down";
+
+export type Tile = { key: string; display: string; result: TileResult; arrow?: Arrow };
+
+export type GuessRow = {
+  id: string;
+  name: string;
+  icon: string | null;
+  sub?: string; // e.g. hero name for abilities
+  correct: boolean;
+  tiles?: Tile[];
+  arrow?: Arrow; // The Measure
+  close?: boolean; // The Measure: within tolerance
+};
+
+export type HintView = {
+  id: string;
+  label: string;
+  after: number;
+  unlocked: boolean;
+  value?: string;
+  image?: string;
+  audio?: string;
+};
+
+export type ColumnMeta = { key: string; label: string; info: string; numeric?: boolean };
+
+export type Clue =
+  | { kind: "grid"; columns: ColumnMeta[] }
+  | { kind: "splash"; image: string; zoom: number; originX: number; originY: number }
+  | { kind: "sigil"; image: string; grid: number; covered: number[] }
+  | { kind: "text"; sections: { label?: string; text: string }[]; total: number; image?: string | null }
+  | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number }
+  | { kind: "emoji"; slots: (string | null)[] }
+  | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number }
+  | { kind: "relic"; image: string; blur: number; rotation: number }
+  | {
+      kind: "lineage";
+      direction: "into" | "from";
+      shown: { name: string; image: string | null; slot: string; tier: number };
+      answerSlot: string;
+    }
+  | {
+      kind: "measure";
+      item: { name: string; image: string | null; slot: string; tier: number };
+      stats: { label: string; display: string | null; hidden?: boolean; postfix: string }[];
+      hiddenLabel: string;
+      postfix: string;
+    };
+
+export type AnswerView = {
+  id: string;
+  name: string;
+  image: string | null;
+  sub?: string;
+  /** Extra reveal content, e.g. all valid Lineage answers, The Measure exact value, Echo lines. */
+  extra?: {
+    alsoValid?: { name: string; image: string | null }[];
+    exactValue?: string;
+    lines?: { text: string; audio?: string | null }[];
+    hero?: { name: string; image: string | null };
+  };
+};
+
+export type BonusView = {
+  prompt: string;
+  options: { id: string; name: string }[];
+  picked?: string;
+  correct?: boolean;
+  answerId?: string;
+};
+
+export type PlayStatus = "playing" | "won" | "lost" | "sealed";
+
+export type PlayView = {
+  slug: string;
+  date: string;
+  number: number;
+  status: PlayStatus;
+  sealedReason?: string;
+  rows: GuessRow[]; // in guess order (oldest first)
+  wrong: number;
+  hints: HintView[];
+  hintsUsed: number;
+  clue: Clue | null;
+  answer?: AnswerView;
+  bonus?: BonusView;
+  maxTries?: number;
+};
+
+export type CatalogEntry = {
+  id: string;
+  name: string;
+  icon: string | null;
+  group?: string; // hero name for abilities, slot for items
+  slot?: string;
+  aliases?: string[];
+};
+
+export type Catalog = { hero: CatalogEntry[]; ability: CatalogEntry[]; item: CatalogEntry[] };

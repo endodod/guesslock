@@ -1,0 +1,159 @@
+// GUESSLOCK data model.
+// Game data comes from the Deadlock community API (synced), curation fields are edited in /admin,
+// and DailyPuzzle rows freeze everything a puzzle needs so mid-day patches never change it.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SyncRun {
+  id            Int       @id @default(autoincrement())
+  kind          String // "assets" | "voicelines" | "generate"
+  status        String // "running" | "ok" | "failed"
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  clientVersion Int?
+  counts        Json?
+  diff          Json? // { added: [], removed: [], changed: [] }
+  issues        Json? // entities excluded because of validation errors, warnings
+  error         String?
+}
+
+model Hero {
+  id         Int     @id // API hero id
+  className  String  @unique
+  name       String
+  active     Boolean @default(true) // present and eligible in the latest sync
+  source     Json // normalized API snapshot (see src/lib/deadlock/normalize.ts)
+  sourceHash String
+
+  // curation (not in the API)
+  species            String? // comma-separated for multi-value, e.g. "Human, Undead"
+  releaseDate        DateTime? @db.Date
+  genderOverride     String?
+  weaponTypeOverride String?
+  aliases            String[]
+  emojis             String[] // exactly 6, hardest first
+  emojisReviewed     Boolean   @default(false)
+  genericVoice       Boolean   @default(false)
+  genericVoiceManual Boolean   @default(false) // true when an admin set genericVoice by hand
+  voiceImportedAt    DateTime?
+  voiceRevisionId    Int?
+  excludeFromModes   String[]
+  needsReview        Boolean   @default(true)
+  reviewReasons      String[]
+
+  firstSeenAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  removedAt   DateTime?
+
+  abilities  Ability[]
+  voiceLines VoiceLine[]
+}
+
+model Ability {
+  id               BigInt   @id
+  className        String   @unique
+  name             String
+  heroId           Int
+  hero             Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  slot             Int // 1-3 regular, 4 = ultimate
+  active           Boolean  @default(true)
+  source           Json
+  sourceHash       String
+  aliases          String[]
+  excludeFromModes String[]
+  needsReview      Boolean  @default(false)
+  reviewReasons    String[]
+  updatedAt        DateTime @updatedAt
+}
+
+model Item {
+  id               BigInt   @id
+  className        String   @unique
+  name             String
+  active           Boolean  @default(true)
+  source           Json
+  sourceHash       String
+  aliases          String[]
+  excludeFromModes String[]
+  needsReview      Boolean  @default(false)
+  reviewReasons    String[]
+  firstSeenAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Redacted / rewritten texts for Lore, Ability Description and Upgrade Guesser.
+// sourceText is the rendered API text; finalText is what players see once approved.
+model TextEntry {
+  id         Int      @id @default(autoincrement())
+  entityType String // "hero_lore" | "ability_desc" | "ability_t1" | "ability_t2" | "ability_t3"
+  entityId   BigInt
+  sourceText String
+  sourceHash String
+  autoText   String // automatic redaction of sourceText
+  finalText  String?
+  status     String   @default("auto") // "auto" (needs review) | "approved" | "rewritten"
+  stale      Boolean  @default(false) // source changed after approval
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+}
+
+model VoiceLine {
+  id             Int      @id @default(autoincrement())
+  heroId         Int
+  hero           Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  wikiPage       String
+  revisionId     Int
+  section        String
+  fileName       String
+  sourceText     String
+  sourceHash     String
+  text           String? // manual edit / redaction; null = use autoText
+  autoText       String // automatic redaction of sourceText
+  wordCount      Int
+  audioUrl       String? // resolved wiki file URL; mirrored when a puzzle uses the line
+  audioAssetId   String?
+  status         String // "approved" | "excluded" | "needs_redaction" | "needs_review"
+  autoReason     String?
+  starred        Boolean  @default(false)
+  manuallyEdited Boolean  @default(false)
+  sourceChanged  Boolean  @default(false)
+  importedAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([heroId, fileName])
+}
+
+// Mirrored images/audio so puzzles survive upstream URL changes. Served from /media/[id].
+model MirroredAsset {
+  id          String   @id // sha1 of the source url
+  sourceUrl   String   @unique
+  contentType String
+  bytes       Bytes
+  byteSize    Int
+  fetchedAt   DateTime @default(now())
+}
+
+model DailyPuzzle {
+  id           Int      @id @default(autoincrement())
+  date         String // YYYY-MM-DD in the puzzle timezone
+  mode         String // lock slug
+  answerId     String // what the no-repeat window keys on
+  payload      Json // frozen snapshot of everything the puzzle displays and checks
+  dataVersion  Int?
+  sealed       Boolean  @default(false)
+  sealedReason String?
+  overridden   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([date, mode])
+  @@index([mode, date])
+}
