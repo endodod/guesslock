@@ -42,7 +42,6 @@ export const en = {
     exactValue: "Exact value",
     distribution: "Your guesses on this lock",
     within: "Close enough.",
-    allLines: "All lines",
     newDay: "New locks are in the vault.",
     rules: "Rules",
     clear: "Clear",

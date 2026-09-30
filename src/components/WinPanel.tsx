@@ -6,7 +6,6 @@ import type { BonusView, PlayView } from "@/lib/engine/types";
 import type { LockDef } from "@/locks.config";
 import { DecoFrame, Icon, Button } from "./ui";
 import { answerImageClass } from "@/lib/images";
-import { EchoStage } from "./ClueStage";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 
@@ -41,8 +40,11 @@ function CountUp({ to }: { to: number }) {
   return <span className="font-mono tabular-nums">{reducedMotion ? to : v}</span>;
 }
 
-export function Distribution({ dist, highlight }: { dist: Record<string, number>; highlight?: string }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10+", "X"].filter((k) => k !== "X" || dist.X);
+export function Distribution({ dist, highlight, maxRows = 6 }: { dist: Record<string, number>; highlight?: string; maxRows?: number }) {
+  // Show rows 1..maxRows, extended to the highest guess count actually recorded; X only when used.
+  const all = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"];
+  const used = Math.max(maxRows, ...all.map((k, i) => (dist[k] || k === highlight ? i + 1 : 0)));
+  const keys = [...all.slice(0, used), ...(dist.X || highlight === "X" ? ["X"] : [])];
   const max = Math.max(1, ...Object.values(dist));
   return (
     <ul className="space-y-1 font-mono text-xs">
@@ -149,13 +151,6 @@ export function WinPanel({
           </ul>
         </div>
       )}
-      {a.extra?.lines && (
-        <div className="mt-4">
-          <p className="mb-2 text-sm text-ash">{t.lock.allLines}</p>
-          <EchoStage clue={{ kind: "echo", lines: a.extra.lines, total: a.extra.lines.length }} showAudio />
-        </div>
-      )}
-
       {view.bonus && (
         <div className="mt-5">
           <BonusCard bonus={view.bonus} onPick={onBonus} />
@@ -164,7 +159,7 @@ export function WinPanel({
 
       <div className="mt-5">
         <p className="mb-2 text-sm text-ash">{t.lock.distribution}</p>
-        <Distribution dist={dist} highlight={won ? (n >= 10 ? "10+" : String(n)) : "X"} />
+        <Distribution dist={dist} highlight={won ? (n >= 10 ? "10+" : String(n)) : "X"} maxRows={lock.maxTries ?? 6} />
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">

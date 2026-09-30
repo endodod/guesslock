@@ -225,7 +225,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        {view.clue && <ClueStage clue={view.clue} rows={view.rows} subject={lock.guess === "item" ? "item" : "hero"} />}
+        {view.clue && <ClueStage clue={view.clue} rows={view.rows} done={done} subject={lock.guess === "item" ? "item" : "hero"} />}
       </motion.div>
 
       {restoring && <KeyholeLoader />}
@@ -233,12 +233,13 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {done ? (
         <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={shareGridText} dist={stats.dist} nextHref={nextHref} onBonus={onBonus} />
       ) : lock.guess === "number" ? (
-        <NumberInput placeholder={placeholder} busy={busy} disabled={restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
+        <NumberInput placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (
-        <GuessInput entries={entries} guessed={guessed} placeholder={placeholder} busy={busy} disabled={restoring} shake={wrongPulse} grouped={lock.guess === "ability"} onGuess={onGuess} autoFocus />
+        <GuessInput entries={entries} guessed={guessed} placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} grouped={lock.guess === "ability"} onGuess={onGuess} autoFocus />
       )}
 
-      <HintShelf hints={view.hints} hidden={hideHints} />
+      {/* Once the lock is done, only the hints that were actually used stay on the shelf. */}
+      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} hidden={hideHints} />
 
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />

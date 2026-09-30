@@ -68,8 +68,8 @@ export function GuessInput({ entries, guessed, placeholder, disabled, busy, shak
   const selectable = results.filter((e) => !guessed.has(e.id));
   useEffect(() => {
     // Check the viewport directly: during hydration isMobile is still false on phones.
-    if (autoFocus && !window.matchMedia("(max-width: 767px)").matches) inputRef.current?.focus();
-  }, [autoFocus, isMobile]);
+    if (autoFocus && !disabled && !window.matchMedia("(max-width: 767px)").matches) inputRef.current?.focus();
+  }, [autoFocus, isMobile, disabled]);
 
   const submit = async (id?: string) => {
     const pick = id ?? selectable[active]?.id;

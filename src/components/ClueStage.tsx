@@ -97,7 +97,7 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
   );
 }
 
-function TextStage({ clue }: { clue: Extract<Clue, { kind: "text" }> }) {
+function TextStage({ clue, done }: { clue: Extract<Clue, { kind: "text" }>; done: boolean }) {
   return (
     <div className="paper clue-layer space-y-4 rounded-sm p-5 text-[1.05rem] leading-relaxed shadow-inner md:p-7">
       <AnimatePresence initial={false}>
@@ -118,7 +118,7 @@ function TextStage({ clue }: { clue: Extract<Clue, { kind: "text" }> }) {
       {clue.image && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center pt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={clue.image} alt={CLUE_ALT} className="h-20 w-20 rounded bg-[#1a1816] object-contain p-2 blur-[5px]" />
+          <img src={clue.image} alt={CLUE_ALT} className={`h-20 w-20 rounded bg-[#1a1816] object-contain p-2 transition-[filter] duration-700 ${done ? "" : "blur-[5px]"}`} />
         </motion.div>
       )}
     </div>
@@ -207,7 +207,7 @@ function Typewriter({ text, animate }: { text: string; animate: boolean }) {
   );
 }
 
-export function EchoStage({ clue, showAudio = false }: { clue: Extract<Clue, { kind: "echo" }>; showAudio?: boolean }) {
+export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue: Extract<Clue, { kind: "echo" }>; showAudio?: boolean; typewriter?: boolean }) {
   const { reducedMotion } = useGame();
   const [seen] = useState(() => clue.lines.length);
   return (
@@ -222,7 +222,7 @@ export function EchoStage({ clue, showAudio = false }: { clue: Extract<Clue, { k
               className="paper relative flex items-start gap-3 rounded-sm py-3 pl-8 pr-4 font-mono text-[0.95rem] shadow"
             >
               <span className="absolute left-2.5 top-3.5 h-3 w-3 rounded-full bg-[radial-gradient(circle_at_35%_35%,#f1d69a,#8f743f)] shadow" aria-hidden />
-              <span className="flex-1">“<Typewriter text={l.text} animate={!reducedMotion && i >= seen} />”</span>
+              <span className="flex-1">“<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”</span>
               {showAudio && l.audio && <AudioButton src={l.audio} small />}
             </motion.li>
           );
@@ -387,15 +387,15 @@ function GridLegend({ subject }: { subject: "hero" | "item" }) {
   );
 }
 
-export function ClueStage({ clue, rows, subject = "hero" }: { clue: Clue; rows: GuessRow[]; subject?: "hero" | "item" }) {
+export function ClueStage({ clue, rows, done = false, subject = "hero" }: { clue: Clue; rows: GuessRow[]; done?: boolean; subject?: "hero" | "item" }) {
   switch (clue.kind) {
     case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;
-    case "text": return <TextStage clue={clue} />;
+    case "text": return <TextStage clue={clue} done={done} />;
     case "build": return <BuildStage clue={clue} />;
     case "emoji": return <EmojiStage clue={clue} />;
-    case "echo": return <EchoStage clue={clue} />;
+    case "echo": return <EchoStage clue={clue} typewriter={!done} showAudio={done} />;
     case "relic": return <RelicStage clue={clue} />;
     case "lineage": return <LineageStage clue={clue} />;
     case "measure": return <MeasureStage clue={clue} rows={rows} />;

@@ -106,6 +106,9 @@ body {
   }
 }
 
+::selection { background: rgb(201 164 92 / 0.45); color: var(--paper); }
+.paper ::selection { color: #221a10; }
+
 /* Search fields: the field itself glows on focus; the input inside draws no ring of its own. */
 .search-field:focus-within {
   border-color: var(--ecto);
