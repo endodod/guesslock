@@ -66,7 +66,7 @@ export function EmojiEditor({
         <p className="text-sm text-red-700">Overlap: the first 3 emojis match {overlaps.map((o) => o.name).join(", ")}. Each set must be unique.</p>
       )}
       <label className="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} /> Reviewed (required for the set to be used)
+        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} /> Reviewed (optional; any complete 6-emoji set is used)
       </label>
       <div className="flex items-center gap-3">
         <button

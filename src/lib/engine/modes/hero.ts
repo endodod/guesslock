@@ -1,6 +1,6 @@
 // Hero modes: Reckoning, Visage, Sigil, Testament, Incantation, Belongings, Ascension, Cipher, Echo.
 import { config } from "../../config";
-import { HERO_COLUMNS, formatCell, type CellValue } from "../columns";
+import { HERO_COLUMNS, activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData } from "../context";
 import { cap, SkipCandidate, SealedError, slotLabel, type BasePayload, type Candidate, type ModeImpl } from "../mode";
@@ -82,14 +82,24 @@ function gridTiles(p: BasePayload<GridClue>, guessId: string): Tile[] | null {
   });
 }
 
+/** Columns in play for The Reckoning (curated columns join once fully filled in). */
+function reckoningColumns(data: GameData) {
+  const pool = data.heroes.filter((h) => h.eligible && !h.exclude.includes("classic"));
+  return activeColumns(HERO_COLUMNS, pool, data);
+}
+
 export const reckoning: ModeImpl<GridClue> = {
   mode: "classic",
-  candidates: (data) => heroPool(data, "classic", (h) => HERO_COLUMNS.every((c) => c.get(h, data) !== null)),
+  candidates: (data) => {
+    const cols = reckoningColumns(data);
+    return heroPool(data, "classic", (h) => cols.every((c) => c.get(h, data) !== null));
+  },
   build(c, { data }) {
     const h = data.hero(c.ref as number)!;
+    const cols = reckoningColumns(data);
     const table: GridClue["table"] = {};
     for (const x of data.heroes)
-      table[String(x.id)] = HERO_COLUMNS.map((col) => {
+      table[String(x.id)] = cols.map((col) => {
         const v = col.get(x, data);
         return { v, d: formatCell(col, v) };
       });
@@ -97,7 +107,7 @@ export const reckoning: ModeImpl<GridClue> = {
       v: 1, mode: "classic", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
       hints: { archetype: { value: cap(h.src.heroType) }, initial: { value: h.name[0].toUpperCase() } },
       clue: {
-        columns: HERO_COLUMNS.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
+        columns: cols.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
         table,
       },
     };
@@ -308,7 +318,7 @@ export const ascension: ModeImpl<AscClue> = {
 
 export const cipher: ModeImpl<{ emojis: string[] }> = {
   mode: "emoji",
-  candidates: (data) => heroPool(data, "emoji", (h) => h.emojisReviewed && h.emojis.length === 6),
+  candidates: (data) => heroPool(data, "emoji", (h) => h.emojis.length === 6),
   build(c, { data }) {
     const h = data.hero(c.ref as number)!;
     return {

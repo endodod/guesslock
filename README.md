@@ -9,23 +9,24 @@ No accounts: player progress lives in `localStorage`.
 
 ## Locks
 
-| # | Lock | Mode | Needs curation? |
+| # | Lock | Mode | Source |
 |---|---|---|---|
-| I | The Reckoning | hero attributes | species + release date per hero |
-| II | The Visage | zoomed portrait | – |
-| III | The Sigil | ability icon under tiles (+ bonus) | – |
-| IV | The Testament | redacted lore | approve lore texts |
-| V | The Incantation | redacted ability description (+ bonus) | approve description texts |
-| VI | The Belongings | most distinctive items (analytics) | – |
-| VII | The Ascension | ability upgrade texts | approve T1–T3 texts |
-| VIII | The Cipher | 6 emojis | emoji set per hero |
-| IX | The Echo | voice lines (text only, Deadlock Wiki) | run voice import, review |
-| X | The Relic | blurred item icon | – |
-| XI | The Appraisal | item attributes | – |
-| XII | The Lineage | build path (easy) | – |
-| XIII | The Measure | hidden stat value (5 tries) | – |
+| I | The Reckoning | hero attributes | API; species + release date columns appear once filled in for every hero |
+| II | The Visage | zoomed portrait | API |
+| III | The Sigil | ability icon under tiles (+ bonus) | API |
+| IV | The Testament | redacted lore | API, automatic redaction |
+| V | The Incantation | redacted ability description (+ bonus) | API, automatic redaction |
+| VI | The Belongings | most distinctive items (analytics) | analytics API |
+| VII | The Ascension | ability upgrade texts | API, automatic redaction |
+| VIII | The Cipher | 6 emojis | **only curated** (emoji set per hero in /admin) |
+| IX | The Echo | voice lines (text only, Deadlock Wiki) | wiki, imported automatically by the daily job |
+| X | The Relic | blurred item icon | API |
+| XI | The Appraisal | item attributes | API |
+| XII | The Lineage | build path (easy) | API |
+| XIII | The Measure | hidden stat value (5 tries) | API |
 
-Locks without eligible answers show as **Sealed** until curated. Numbering/names/hints live in `src/locks.config.ts`;
+Everything opens automatically; the admin is optional (corrections, rewrites, overrides). The one exception is
+The Cipher, which stays **Sealed** until at least one hero has a 6-emoji set. Numbering/names/hints live in `src/locks.config.ts`;
 attribute columns in `src/lib/engine/columns.ts`; strings in `src/lib/i18n/`.
 
 ## Setup
@@ -39,8 +40,8 @@ npm run generate            # create today's + next 7 days' puzzles
 npm run dev
 ```
 
-Then open `/admin` (password = `ADMIN_PASSWORD`) and curate: hero species/release dates, emoji sets, text approvals,
-and **Import voice lines** (takes a few minutes; it's polite to the wiki).
+Optionally run `npm run import:voicelines` once to fill The Echo right away (otherwise the daily job imports them
+over a few days). In `/admin` (password = `ADMIN_PASSWORD`) you can add emoji sets, species/release dates, rewrites and overrides.
 
 ## How it works
 
@@ -52,8 +53,8 @@ and **Import voice lines** (takes a few minutes; it's polite to the wiki).
   patch never changes today's puzzle. Future days are pre-generated; admins can override any day.
 - **Play** (`/api/play`): stateless — the client sends its guesses, the server recomputes the view from the frozen
   snapshot, so locked clue content never reaches the browser.
-- **Redaction** (`src/lib/text/`): automatic pass (names, aliases, ability names, possessives, accents) → admin review.
-  Only approved/rewritten text is ever shown; source changes after approval mark the text stale.
+- **Redaction** (`src/lib/text/`): automatic pass (names, aliases, ability names, possessives, accents), used directly.
+  An admin rewrite replaces it; if the source text changes later, the rewrite is marked stale and the fresh automatic text is used.
 - **Leak check**: `npm run validate:leaks` fails if any scheduled puzzle shows the answer's name or aliases.
 
 ## Operations
@@ -61,7 +62,7 @@ and **Import voice lines** (takes a few minutes; it's polite to the wiki).
 | Job | Endpoint | Schedule |
 |---|---|---|
 | Asset sync (+ top up puzzles) | `GET /api/cron/sync` | daily (`vercel.json`: 02:00 UTC) |
-| Puzzle generation | `GET /api/cron/generate` | daily (`vercel.json`: 14:00 UTC), a second chance if the sync run failed |
+| Voice line import + puzzle generation | `GET /api/cron/generate` | daily (`vercel.json`: 14:00 UTC); imports heroes not yet (or >30 days ago) imported, within a 150 s budget |
 | Health | `GET /api/health` | monitor it: 503 if the last sync failed, is >36 h old, or today has no puzzle |
 
 Cron endpoints need `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this automatically when `CRON_SECRET` is set).

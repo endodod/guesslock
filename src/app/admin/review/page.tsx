@@ -12,13 +12,13 @@ export default async function ReviewQueue() {
     db.item.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.textEntry.groupBy({ by: ["entityType", "status", "stale"], _count: true }),
-    db.voiceLine.groupBy({ by: ["heroId"], where: { status: "approved" }, _count: true }),
+    db.voiceLine.groupBy({ by: ["heroId"], where: { status: { not: "excluded" } }, _count: true }),
     db.voiceLine.count({ where: { sourceChanged: true } }),
   ]);
   const flagged = heroes.filter((h) => h.needsReview);
   const approvedLines = new Map(voiceCounts.map((v) => [v.heroId, v._count]));
   const missingClassic = heroes.filter((h) => !h.species || !h.releaseDate);
-  const missingEmoji = heroes.filter((h) => h.emojis.length !== 6 || !h.emojisReviewed);
+  const missingEmoji = heroes.filter((h) => h.emojis.length !== 6);
   const fewLines = heroes.filter((h) => !h.genericVoice && (approvedLines.get(h.id) ?? 0) < ECHO_MIN_LINES);
   const pendingTexts = texts.filter((t) => t.status === "auto" || t.stale);
 
@@ -36,7 +36,7 @@ export default async function ReviewQueue() {
         ))}
       </Box>
 
-      <Box title={`Texts awaiting review (${pendingTexts.reduce((a, t) => a + t._count, 0)})`}>
+      <Box title={`Texts not yet reviewed — already live with automatic redaction (${pendingTexts.reduce((a, t) => a + t._count, 0)})`}>
         {pendingTexts.map((t) => (
           <li key={`${t.entityType}-${t.status}-${t.stale}`}>
             <Link className="text-blue-700 hover:underline" href={`/admin/texts?type=${t.entityType}&filter=${t.stale ? "stale" : "pending"}`}>
@@ -53,13 +53,13 @@ export default async function ReviewQueue() {
         </li>
       </Box>
 
-      <Box title={`Missing a complete, reviewed emoji set — The Cipher (${missingEmoji.length})`}>
+      <Box title={`Missing a complete emoji set — The Cipher (${missingEmoji.length})`}>
         <li className="flex flex-wrap gap-x-3">
           {missingEmoji.map((h) => <Link key={h.id} className="text-blue-700 hover:underline" href={`/admin/heroes/${h.id}#emoji`}>{h.name}</Link>)}
         </li>
       </Box>
 
-      <Box title={`Fewer than ${ECHO_MIN_LINES} approved voice lines — The Echo (${fewLines.length}); changed wiki lines: ${changedLines}`}>
+      <Box title={`Fewer than ${ECHO_MIN_LINES} usable voice lines — The Echo (${fewLines.length}); changed wiki lines: ${changedLines}`}>
         <li className="flex flex-wrap gap-x-3">
           {fewLines.map((h) => (
             <Link key={h.id} className="text-blue-700 hover:underline" href={`/admin/heroes/${h.id}#voice`}>

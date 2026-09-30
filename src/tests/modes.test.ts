@@ -23,13 +23,13 @@ describe("The Cipher", () => {
     heroes: [
       talon,
       hero(1, "Infernus", { emojis: ["🔥"], emojisReviewed: true }), // incomplete set
-      hero(2, "Seven", { emojis: set, emojisReviewed: false }), // not reviewed
-      hero(3, "Newbie", { emojis: set, emojisReviewed: true, eligible: false }), // new hero, uncurated
+      hero(2, "Seven", { emojis: ["🎩", "⚡", "🌩️", "🏙️", "🎭", "7️⃣"], emojisReviewed: false }), // no review needed
+      hero(3, "Excluded", { emojis: set, exclude: ["emoji"] }),
     ],
   });
 
-  it("only heroes with a complete, reviewed set are eligible", () => {
-    expect(cipher.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([17]);
+  it("only heroes with a complete set are eligible (no review gate)", () => {
+    expect(cipher.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([17, 2]);
   });
 
   it("reveals in stored order, one per wrong guess", async () => {
@@ -96,14 +96,24 @@ describe("The Echo", () => {
 });
 
 describe("The Reckoning", () => {
-  it("heroes missing curated columns are not eligible, tiles compare correctly", async () => {
-    const a = hero(1, "Abrams"), b = hero(2, "Bebop", { species: null }), c = hero(3, "Calico", { species: "Human, Cat" });
-    const data = makeData({ heroes: [a, b, c] });
-    expect(reckoning.candidates(data, { dayIndex: 0 }).map((x) => x.ref)).toEqual([1, 3]);
-    const p = await reckoning.build({ answerId: "3", ref: 3 }, ctx(data));
+  it("curated columns join only once every hero has a value; tiles compare correctly", async () => {
+    const a = hero(1, "Abrams"), c = hero(3, "Calico", { species: "Human, Cat" });
+    const full = makeData({ heroes: [a, c] });
+    const p = await reckoning.build({ answerId: "3", ref: 3 }, ctx(full));
     const tiles = reckoning.tiles!(p, "1")!;
     expect(tiles.find((t) => t.key === "species")!.result).toBe("partial");
     expect(tiles.find((t) => t.key === "health")!.arrow).toBe("up");
+
+    // One hero without species: the lock still opens, just without the species column.
+    const partial = makeData({ heroes: [a, hero(2, "Bebop", { species: null }), c] });
+    expect(reckoning.candidates(partial, { dayIndex: 0 }).map((x) => x.ref)).toEqual([1, 2, 3]);
+    const p2 = await reckoning.build({ answerId: "2", ref: 2 }, ctx(partial));
+    expect(p2.clue.columns.map((col) => col.key)).not.toContain("species");
+    expect(p2.clue.columns.map((col) => col.key)).toContain("release");
+
+    // A hero missing an API column (e.g. no weapon type) stays guessable but isn't an answer.
+    const noGun = makeData({ heroes: [a, hero(4, "Rem", { weaponType: null })] });
+    expect(reckoning.candidates(noGun, { dayIndex: 0 }).map((x) => x.ref)).toEqual([1]);
   });
 });
 

@@ -60,7 +60,7 @@ export default async function AdminStatus() {
           })}
         </ul>
         <p className="mt-3 text-sm text-neutral-600">
-          Review queue: {counts[0]} heroes, {counts[1]} items, {counts[2]} abilities, {counts[3]} texts awaiting review.
+          Review queue: {counts[0]} heroes, {counts[1]} items, {counts[2]} abilities, {counts[3]} texts not yet reviewed (already live).
         </p>
       </section>
 
