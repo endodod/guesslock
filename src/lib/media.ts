@@ -2,9 +2,18 @@
 // Ids are sha1(sourceUrl): opaque (no hero names in URLs) and deterministic.
 import { createHash } from "node:crypto";
 import { db } from "./db";
+import { config } from "./config";
 
 export function mediaId(url: string): string {
   return createHash("sha1").update(url).digest("hex");
+}
+
+/**
+ * Sound clips (The Resonance) get a salted id: the sound index is public, so plain sha1(url) could be
+ * looked up in a precomputed table of every clip, and the URL names the hero.
+ */
+export function soundMediaId(url: string): string {
+  return createHash("sha1").update(`sound:${config.salt}:${url}`).digest("hex");
 }
 
 export function mediaUrl(url: string | null | undefined): string | null {
@@ -13,22 +22,26 @@ export function mediaUrl(url: string | null | undefined): string | null {
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
-export async function mirror(url: string, headers: Record<string, string> = {}): Promise<string | null> {
-  const id = mediaId(url);
+/** Store already-downloaded bytes under an id (no-op if the id exists). */
+export async function storeAsset(id: string, sourceUrl: string, bytes: Uint8Array, contentType = guessType(sourceUrl)): Promise<string> {
+  if (bytes.length === 0 || bytes.length > MAX_BYTES) throw new Error(`bad size ${bytes.length}`);
+  await db.mirroredAsset.upsert({
+    where: { id },
+    create: { id, sourceUrl, contentType, bytes: Buffer.from(bytes), byteSize: bytes.length },
+    update: {},
+  });
+  return id;
+}
+
+export async function mirror(url: string, headers: Record<string, string> = {}, id = mediaId(url)): Promise<string | null> {
   const existing = await db.mirroredAsset.findUnique({ where: { id }, select: { id: true } });
   if (existing) return id;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(30000), headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length === 0 || buf.length > MAX_BYTES) throw new Error(`bad size ${buf.length}`);
     const contentType = res.headers.get("content-type")?.split(";")[0] ?? guessType(url);
-    await db.mirroredAsset.upsert({
-      where: { id },
-      create: { id, sourceUrl: url, contentType, bytes: buf, byteSize: buf.length },
-      update: {},
-    });
-    return id;
+    return await storeAsset(id, url, buf, contentType);
   } catch (e) {
     console.warn(`[media] mirror failed for ${url}:`, (e as Error).message);
     return null;

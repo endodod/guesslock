@@ -1,6 +1,6 @@
 // Local player data (localStorage). Keyed by date and lock *slug* — never by numeral —
 // so renumbering locks can't corrupt saved progress. Pure helpers are unit-tested.
-import { LEGACY_11_NUMERALS, LOCKS } from "@/locks.config";
+import { LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
 
 export type LockRecord = {
   g: string[]; // guesses (ids or numbers as strings)
@@ -26,6 +26,12 @@ export type Settings = {
   rotation: boolean;
   noHints: boolean;
   colorEmoji: boolean;
+  /** Accessibility: sound locks (The Resonance) are skipped and never counted. */
+  skipSound: boolean;
+  /** Sound locks volume, 0…1 (separate from the SFX toggle). */
+  soundVolume: number;
+  /** Hard mode: The Resonance stays muffled until the win. */
+  muffledOnly: boolean;
 };
 
 export type StoreData = {
@@ -39,7 +45,13 @@ export type StoreData = {
 
 export const DEFAULT_SETTINGS: Settings = {
   colorblind: false, motion: "auto", sound: false, grayscale: false, rotation: false, noHints: false, colorEmoji: false,
+  skipSound: false, soundVolume: 0.8, muffledOnly: false,
 };
+
+/** Slugs to leave out of counts, shares and streaks for these settings. */
+export function ignoredSlugs(settings: Pick<Settings, "skipSound">): Set<string> {
+  return new Set(settings.skipSound ? SOUND_LOCK_SLUGS : []);
+}
 
 export const STORE_KEY = "guesslock";
 
@@ -111,8 +123,14 @@ export function adoptServerProgress(local: StoreData["progress"], server: Record
 
 const live = (r?: LockRecord) => !!r && !r.archive;
 
-export function isDayUnlocked(day: Record<string, LockRecord> | undefined): boolean {
-  return !!day && Object.values(day).some((r) => live(r) && r.s === "won");
+/** A day counts once any lock is solved; `ignore` = skipped locks (e.g. sound locks) that never count. */
+export function isDayUnlocked(day: Record<string, LockRecord> | undefined, ignore: ReadonlySet<string> = new Set()): boolean {
+  return !!day && Object.entries(day).some(([slug, r]) => !ignore.has(slug) && live(r) && r.s === "won");
+}
+
+/** Day streaks (see `streaks`) with some locks left out. */
+export function dayStreaks(progress: StoreData["progress"], today: string, ignore: ReadonlySet<string>) {
+  return streaks(progress, today, (d) => isDayUnlocked(progress[d], ignore));
 }
 
 /** Streak of consecutive days ending today (or yesterday, if today isn't unlocked yet). */
@@ -156,8 +174,8 @@ export function lockStats(progress: StoreData["progress"], slug: string, today: 
   };
 }
 
-export function daySouls(day: Record<string, LockRecord> | undefined): number {
-  return day ? Object.values(day).filter(live).reduce((a, r) => a + (r.souls ?? 0), 0) : 0;
+export function daySouls(day: Record<string, LockRecord> | undefined, ignore: ReadonlySet<string> = new Set()): number {
+  return day ? Object.entries(day).filter(([slug, r]) => !ignore.has(slug) && live(r)).reduce((a, [, r]) => a + (r.souls ?? 0), 0) : 0;
 }
 
 function dayDiff(a: string, b: string) {

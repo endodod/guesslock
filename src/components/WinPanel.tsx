@@ -156,6 +156,17 @@ export function WinPanel({
           <BonusCard bonus={view.bonus} onPick={onBonus} />
         </div>
       )}
+      {/* The Resonance: the ability behind the sounds, once the bonus is answered (or the lock jammed). */}
+      {(() => {
+        const ability = view.bonus?.reveal ?? a.extra?.ability;
+        return ability ? (
+          <p className="mt-4 flex items-center gap-3 text-sm text-ash">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {ability.image && <img src={ability.image} alt="" className="h-10 w-10 rounded-sm bg-ink object-contain p-1" />}
+            The sounds were <span className="text-paper">{ability.name}</span>
+          </p>
+        ) : null;
+      })()}
 
       <div className="mt-5">
         <p className="mb-2 text-sm text-ash">{t.lock.distribution}</p>

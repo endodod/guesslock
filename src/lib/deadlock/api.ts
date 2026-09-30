@@ -73,6 +73,28 @@ export async function fetchMap(backup: BackupMode = "none"): Promise<unknown> {
   return getJson("/v1/assets/map", { key: "assets-map", backup });
 }
 
+/**
+ * The sound index (The Resonance), pruned to the `abilities` and `weapons` folders before it is stored
+ * as a snapshot: the full tree is ~16 MB, mostly voice lines we don't use.
+ */
+export async function fetchSoundIndex(backup: BackupMode = "none"): Promise<Record<string, unknown>> {
+  const key = "assets-sounds";
+  const path = "/v1/assets/sounds";
+  try {
+    const raw = (await fetchJson(path, { timeoutMs: 90000 })) as Record<string, unknown>;
+    if (!raw || typeof raw !== "object" || !raw.abilities) throw new Error("sounds: unexpected shape");
+    const pruned = { abilities: raw.abilities, weapons: raw.weapons ?? {} };
+    await saveSnapshot(key, path, pruned);
+    return pruned;
+  } catch (e) {
+    if (backup === "none") throw e;
+    const snap = await loadSnapshot(key, backup === "snapshot-any-age" ? Infinity : undefined);
+    if (!snap) throw e;
+    console.warn(`[api] ${key} unavailable (${(e as Error).message}); using ${snap.source} backup from ${snap.fetchedAt.toISOString()}`);
+    return snap.data as Record<string, unknown>;
+  }
+}
+
 export async function fetchClientVersion(backup: BackupMode = "none"): Promise<number | null> {
   try {
     return SteamInfoSchema.parse(await getJson("/v1/assets/steam-info", { key: "assets-steam-info", backup })).client_version;

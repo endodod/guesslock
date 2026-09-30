@@ -7,12 +7,12 @@ import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
-import { fetchClientVersion, fetchHeroItemStats, fetchHeroes, fetchItems, fetchMap } from "../src/lib/deadlock/api";
+import { fetchClientVersion, fetchHeroItemStats, fetchHeroes, fetchItems, fetchMap, fetchSoundIndex } from "../src/lib/deadlock/api";
 import { BACKUP_DIR } from "../src/lib/deadlock/snapshots";
 import { generateAhead } from "../src/lib/engine/generate";
 import { db } from "../src/lib/db";
 
-const KEYS = ["assets-heroes", "assets-items", "assets-steam-info", "assets-map", "analytics-item-stats", "analytics-hero-stats"];
+const KEYS = ["assets-heroes", "assets-items", "assets-steam-info", "assets-map", "assets-sounds", "analytics-item-stats", "analytics-hero-stats"];
 
 (async () => {
   const arg = (f: string) => process.argv.includes(f);
@@ -21,7 +21,7 @@ const KEYS = ["assets-heroes", "assets-items", "assets-steam-info", "assets-map"
   const started = new Date();
 
   // Live fetches only: a backup must never be refreshed from an older backup.
-  await Promise.all([fetchHeroes(), fetchItems(), fetchClientVersion(), fetchMap(), fetchHeroItemStats()]);
+  await Promise.all([fetchHeroes(), fetchItems(), fetchClientVersion(), fetchMap(), fetchSoundIndex(), fetchHeroItemStats()]);
   const rows = await db.apiSnapshot.findMany({ where: { key: { in: KEYS } } });
   const stale = KEYS.filter((k) => !rows.some((r) => r.key === k && r.fetchedAt >= started));
   if (stale.length) throw new Error(`not refreshed from the live API: ${stale.join(", ")}`);

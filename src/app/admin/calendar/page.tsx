@@ -8,6 +8,15 @@ import { MODES } from "@/lib/engine/registry";
 import type { BasePayload } from "@/lib/engine/mode";
 import { CalendarCell } from "./CalendarCell";
 
+/** The Resonance: the day's clips (and gun hint) for a quick listen, plus the ability behind them. */
+function soundPreview(p: BasePayload): { clips: { label: string; url: string }[]; ability?: string } | undefined {
+  if (p.mode !== "hero-sound") return undefined;
+  const clue = p.clue as { clips: { url: string }[] };
+  const clips = clue.clips.map((c, i) => ({ label: `Sound ${i + 1}`, url: c.url }));
+  if (p.hints.gun?.audio) clips.push({ label: "Gun", url: p.hints.gun.audio });
+  return { clips, ability: p.bonus?.reveal?.name };
+}
+
 export default async function CalendarAdmin() {
   await requireAdminPage();
   const today = todayDate();
@@ -31,7 +40,7 @@ export default async function CalendarAdmin() {
     <div className="space-y-3">
       <h1 className="text-lg font-semibold">Puzzle calendar</h1>
       <p className="text-xs text-neutral-500">
-        Today and the next 7 days. Overrides freeze a chosen answer. Future days can be regenerated (e.g. after curation). Live days are never regenerated automatically.
+        Today and the next 7 days (The Omens: see Omens). Overrides freeze a chosen answer. Future days can be regenerated (e.g. after curation). Live days are never regenerated automatically.
       </p>
       <div className="overflow-x-auto rounded border border-neutral-300 bg-white">
         <table className="text-sm">
@@ -42,7 +51,8 @@ export default async function CalendarAdmin() {
             </tr>
           </thead>
           <tbody>
-            {LOCKS.map((l) => (
+            {/* The Omens have their own calendar in /admin/omens (no engine mode here). */}
+            {LOCKS.filter((l) => MODES[l.mode]).map((l) => (
               <tr key={l.slug} className="border-t border-neutral-200 align-top">
                 <td className="p-2 font-medium">{l.numeral} {l.name}</td>
                 {days.map((d) => {
@@ -63,6 +73,7 @@ export default async function CalendarAdmin() {
                           sealed: r.sealed, sealedReason: r.sealedReason, overridden: r.overridden,
                         } : null}
                         options={options}
+                        preview={r && !r.sealed ? soundPreview(r.payload as unknown as BasePayload) : undefined}
                       />
                     </td>
                   );

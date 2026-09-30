@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { LOCKS, OMEN_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
+import { countedLocks, LOCKS, OMEN_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
-import { daySouls, streaks, type LockRecord } from "@/lib/client/store";
+import { dayStreaks, daySouls, ignoredSlugs, type LockRecord } from "@/lib/client/store";
 import { shareDay, type LockResult } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
@@ -11,15 +11,29 @@ import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
 import { answerImageClass } from "@/lib/images";
 import { ShareButton } from "./WinPanel";
 
-export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed";
+export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed" | "skipped";
 
-export function boxState(meta: LockMeta | undefined, rec: LockRecord | undefined): BoxState {
+/** `skipped`: the player skips this lock (sound locks with "Skip sound locks" on). */
+export function boxState(meta: LockMeta | undefined, rec: LockRecord | undefined, skipped = false): BoxState {
+  if (skipped) return "skipped";
   if (!meta || meta.state !== "available") return "sealed";
   if (rec?.o !== undefined) return "opened"; // an Omen is opened once locked in
   if (!rec || rec.g.length === 0) return "locked";
   if (rec.s === "won") return "opened";
   if (rec.s === "lost") return "jammed";
   return "progress";
+}
+
+/** Engraved sound waves either side of the keyhole: marks the sound lock (The Resonance). */
+function SoundWaveGlyph() {
+  return (
+    <svg viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+      <g fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.8">
+        <path d="M12 19q-3 5 0 10M8 15.5q-5 8.5 0 17" />
+        <path d="M36 19q3 5 0 10M40 15.5q5 8.5 0 17" />
+      </g>
+    </svg>
+  );
 }
 
 export function VaultBox({
@@ -62,14 +76,15 @@ export function VaultBox({
           <div className="rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2.5 py-0.5 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
             {lock.numeral}
           </div>
-          <div className="flex flex-1 items-center justify-center py-2">
+          <div className={`flex flex-1 items-center justify-center py-2 ${state === "skipped" ? "opacity-40" : ""}`}>
             {state === "sealed" ? (
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_35%,#c24a44,#6e1d1a)] text-[#f0c7c3] shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
                 <Icon name="seal" className="h-7 w-7" />
               </div>
             ) : (
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full border border-brass/60 bg-ink/60 ${state === "progress" ? "text-ecto/70" : "text-brass/70"} group-hover:text-ecto group-focus-visible:text-ecto`}>
+              <div className={`relative flex h-12 w-12 items-center justify-center rounded-full border border-brass/60 bg-ink/60 ${state === "progress" ? "text-ecto/70" : "text-brass/70"} group-hover:text-ecto group-focus-visible:text-ecto`}>
                 <Keyhole className={`h-7 w-5 ${state === "progress" ? "keyhole-glow" : "group-hover:keyhole-glow group-focus-visible:keyhole-glow"}`} />
+                {lock.needsAudio && <SoundWaveGlyph />}
               </div>
             )}
           </div>
@@ -88,10 +103,11 @@ export function VaultBox({
         {state === "opened" && <span className="text-ecto">{omen ? `Opened · ${rec!.souls} souls` : `${rec!.g.length} · ${rec!.souls} souls`}</span>}
         {state === "jammed" && <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>}
         {state === "sealed" && <span className="text-ash">{t.vault.sealed}</span>}
+        {state === "skipped" && <span className="text-ash">{t.vault.states.skipped}</span>}
       </div>
     </div>
   );
-  const label = `${lock.numeral}. ${lock.name}: ${lock.subtitle}. ${state === "sealed" ? t.vault.sealed : state}`;
+  const label = `${lock.numeral}. ${lock.name}: ${lock.subtitle}. ${state === "sealed" ? t.vault.sealed : state === "skipped" ? `${t.vault.states.skipped} (${t.settings.skipSound})` : state}`;
   return href ? (
     <Link href={href} aria-label={label} className="block h-full rounded-[3px]">{inner}</Link>
   ) : (
@@ -105,12 +121,16 @@ export function Vault({
   const { store, today, hydrated } = useGame();
   const day = store.progress[date] ?? {};
   const metaBy = new Map(meta.map((m) => [m.slug, m]));
-  const available = LOCKS.filter((l) => metaBy.get(l.slug)?.state === "available");
-  const openCount = LOCKS.filter((l) => day[l.slug]?.s === "won").length;
+  // "Skip sound locks": those locks drop out of every count, the share and the streak.
+  const skipSound = hydrated && store.settings.skipSound;
+  const ignored = ignoredSlugs({ skipSound });
+  const counted = countedLocks(skipSound);
+  const available = counted.filter((l) => metaBy.get(l.slug)?.state === "available");
+  const openCount = counted.filter((l) => day[l.slug]?.s === "won").length;
   const finished = available.filter((l) => ["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const complete = hydrated && available.length > 0 && finished.length === available.length;
-  const souls = daySouls(day) + (isArchive ? Object.values(day).filter((r) => r.archive).reduce((a, r) => a + r.souls, 0) : 0);
-  const streak = streaks(store.progress, today).current;
+  const souls = daySouls(day, ignored) + (isArchive ? Object.entries(day).filter(([s, r]) => r.archive && !ignored.has(s)).reduce((a, [, r]) => a + r.souls, 0) : 0);
+  const streak = dayStreaks(store.progress, today, ignored).current;
   const q = isArchive ? `?d=${date}` : "";
   const next = available.find((l) => !["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const nothingPlayed = hydrated && Object.keys(day).length === 0;
@@ -121,14 +141,14 @@ export function Vault({
       return [l.slug, { status: r ? (r.s === "won" ? "won" : r.s === "lost" ? "lost" : "playing") : "none", guesses: r?.g.length ?? 0, souls: r?.souls ?? 0 }];
     }),
   );
-  const best = LOCKS.filter((l) => day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
+  const best = counted.filter((l) => day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
 
   const box = (l: LockDef, large = false) => {
     const m = metaBy.get(l.slug);
-    const state = boxState(m, day[l.slug]);
+    const state = boxState(m, day[l.slug], ignored.has(l.slug));
     return (
       <li key={l.slug} className="h-full">
-        <VaultBox lock={l} state={state} rec={day[l.slug]} href={state === "sealed" ? null : `/lock/${l.slug}${q}`} large={large} />
+        <VaultBox lock={l} state={state} rec={day[l.slug]} href={state === "sealed" || state === "skipped" ? null : `/lock/${l.slug}${q}`} large={large} />
       </li>
     );
   };
@@ -144,7 +164,7 @@ export function Vault({
         <div>
           <p className="smallcaps text-sm text-brass">{t.vault.soulTally} · #{number}</p>
           <p className="font-mono text-3xl text-paper" suppressHydrationWarning>{hydrated ? souls : 0} <span className="text-base text-ash">souls</span></p>
-          <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, LOCKS.length)}</p>
+          <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, counted.length)}</p>
         </div>
         {next && (
           <Link
@@ -169,16 +189,17 @@ export function Vault({
             {!isArchive && <> · {t.vault.nextIn} <Countdown target={nextReset} /></>}
           </p>
           <div className="mt-4 flex justify-center">
-            <ShareButton text={shareDay({ number, results, streak, site })} />
+            <ShareButton text={shareDay({ number, results, streak, site, skip: ignored })} />
           </div>
         </DecoFrame>
       )}
 
       {/* The wall */}
-      <div className={`grid gap-8 lg:grid-cols-[3fr_2fr] ${complete ? "rounded-md shadow-[0_0_80px_rgba(127,227,194,0.12)]" : ""}`}>
+      <div className={`grid gap-8 lg:grid-cols-[5fr_2fr] ${complete ? "rounded-md shadow-[0_0_80px_rgba(127,227,194,0.12)]" : ""}`}>
         <section aria-labelledby="spirits-h">
           <h2 id="spirits-h" className="smallcaps mb-3 text-brass">{t.groups.spirits}</h2>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
+          {/* 10 boxes: 2 columns on phones (5 rows, no orphan), 5 × 2 from tablet up */}
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5 md:gap-4">
             {SPIRIT_LOCKS.map((l) => box(l))}
           </ul>
         </section>

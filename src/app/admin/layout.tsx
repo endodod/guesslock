@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               ["/admin/review", "Review queue"],
               ["/admin/heroes", "Heroes"],
               ["/admin/texts", "Texts"],
+              ["/admin/sounds", "Sounds"],
               ["/admin/items", "Items"],
               ["/admin/calendar", "Calendar"],
               ["/admin/omens", "Omens"],

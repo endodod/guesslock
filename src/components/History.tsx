@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import type { ColumnMeta, GuessRow, HintView, Tile } from "@/lib/engine/types";
 import { Icon } from "./ui";
 import { AudioButton } from "./ClueStage";
+import { SoundPlayer } from "./SoundPlayer";
 import { t } from "@/lib/i18n/en";
 
 function TileCell({ tile, index, animate }: { tile: Tile; index: number; animate: boolean }) {
@@ -111,7 +112,8 @@ export function GuessList({ rows, numeric }: { rows: GuessRow[]; numeric?: boole
   );
 }
 
-export function HintShelf({ hints, hidden }: { hints: HintView[]; hidden?: boolean }) {
+/** `muffled`: hard mode "Muffled only" keeps The Resonance's gun clip filtered too, until the win. */
+export function HintShelf({ hints, hidden, muffled = false }: { hints: HintView[]; hidden?: boolean; muffled?: boolean }) {
   if (!hints.length || hidden) return null;
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
@@ -134,7 +136,9 @@ export function HintShelf({ hints, hidden }: { hints: HintView[]; hidden?: boole
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={h.image} alt="Hint image" className="h-14 w-14 rounded bg-ink object-contain p-1 blur-[4px]" />
                 )}
-                {h.audio && <AudioButton src={h.audio} />}
+                {h.audio && (h.gainDb !== undefined
+                  ? <SoundPlayer src={h.audio} gainDb={h.gainDb} muffled={muffled} label="Gun" small />
+                  : <AudioButton src={h.audio} />)}
               </div>
             ) : (
               <span className="text-xs text-ash">{t.lock.hintLocked(h.after)}</span>

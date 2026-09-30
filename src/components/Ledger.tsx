@@ -1,7 +1,7 @@
 "use client";
 import { LOCKS, OMEN_LOCKS, type LockDef } from "@/locks.config";
 import type { StoreData } from "@/lib/client/store";
-import { daySouls, lockStats, streaks } from "@/lib/client/store";
+import { dayStreaks, daySouls, ignoredSlugs, lockStats } from "@/lib/client/store";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { DecoFrame, Icon } from "./ui";
@@ -40,7 +40,7 @@ export function Ledger() {
   const { store, today, hydrated } = useGame();
   if (!hydrated) return null;
   const p = store.progress;
-  const st = streaks(p, today);
+  const st = dayStreaks(p, today, ignoredSlugs(store.settings));
   const total = Object.values(p).reduce((a, d) => a + daySouls(d), 0);
   const days = Object.keys(p).sort();
 

@@ -48,6 +48,9 @@ export type ItemData = {
 
 export type VoiceLineData = { id: number; text: string; audio: string | null; starred: boolean };
 
+/** An approved sound clip (The Resonance). `url` is always an opaque /media/<sha1> URL. */
+export type SoundData = { id: number; url: string; role: string; gainDb: number; durationMs: number; preferred: boolean };
+
 export type GameData = {
   heroes: HeroData[];
   abilities: AbilityData[];
@@ -58,18 +61,26 @@ export type GameData = {
   abilitiesOf(heroId: number): AbilityData[];
   text(type: string, id: number): string | null;
   voiceLines(heroId: number): VoiceLineData[];
+  /** Approved, mirrored clips of one ability / of one hero's gun (The Resonance). */
+  abilitySounds(abilityId: number): SoundData[];
+  weaponSounds(heroId: number): SoundData[];
+  /** Codename and sound folder names of a hero: leak terms, since they appear in upstream URLs. */
+  soundCodenames(heroId: number): string[];
   buildsInto(className: string): NormItem[];
   itemByClass(className: string): ItemData | undefined;
 };
 
 export async function loadGameData(): Promise<GameData> {
-  const [heroRows, abilityRows, itemRows, texts, lines] = await Promise.all([
+  const [heroRows, abilityRows, itemRows, texts, lines, clips, soundMaps] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.textEntry.findMany(),
     // Every line that passed the automatic filters; "needs_redaction" lines use their redacted text.
     db.voiceLine.findMany({ where: { status: { not: "excluded" } }, orderBy: { id: "asc" } }),
+    // Only reviewed and mirrored clips: nothing unreviewed is ever used.
+    db.soundClip.findMany({ where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" } }),
+    db.heroSoundMap.findMany(),
   ]);
 
   const heroes: HeroData[] = heroRows.map((h) => {
@@ -120,6 +131,16 @@ export async function loadGameData(): Promise<GameData> {
       audio: l.audioAssetId ? `/media/${l.audioAssetId}` : null,
     });
   }
+  const abilitySounds = new Map<number, SoundData[]>();
+  const weaponSounds = new Map<number, SoundData[]>();
+  for (const c of clips) {
+    const d: SoundData = { id: c.id, url: `/media/${c.assetId}`, role: c.role, gainDb: c.gainDb ?? 0, durationMs: c.durationMs ?? 0, preferred: c.preferred };
+    const [map, key] = c.kind === "weapon" ? [weaponSounds, c.heroId] : [abilitySounds, c.abilityId === null ? null : Number(c.abilityId)];
+    if (key === null) continue;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(d);
+  }
+  const soundMapBy = new Map(soundMaps.map((m) => [m.heroId, m]));
   const heroById = new Map(heroes.map((h) => [h.id, h]));
   const abilityById = new Map(abilities.map((a) => [a.id, a]));
   const itemById = new Map(items.map((i) => [i.id, i]));
@@ -133,6 +154,13 @@ export async function loadGameData(): Promise<GameData> {
     abilitiesOf: (heroId) => abilities.filter((a) => a.heroId === heroId),
     text: (type, id) => usableText(textMap.get(`${type}:${id}`)),
     voiceLines: (heroId) => linesByHero.get(heroId) ?? [],
+    abilitySounds: (id) => abilitySounds.get(id) ?? [],
+    weaponSounds: (heroId) => weaponSounds.get(heroId) ?? [],
+    soundCodenames: (heroId) => {
+      const m = soundMapBy.get(heroId);
+      const code = heroById.get(heroId)?.className.replace(/^hero_/, "");
+      return [...new Set([code, ...(m?.abilityFolders ?? []), ...(m?.weaponFolders ?? [])].filter((x): x is string => !!x))];
+    },
     buildsInto: (cls) => items.filter((i) => i.src.componentClassNames.includes(cls)).map((i) => i.src),
     itemByClass: (cls) => itemByClass.get(cls),
   };
