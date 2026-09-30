@@ -60,12 +60,15 @@ and **Import voice lines** (takes a few minutes; it's polite to the wiki).
 
 | Job | Endpoint | Schedule |
 |---|---|---|
-| Asset sync (+ top up puzzles) | `GET /api/cron/sync` | every 6 h |
-| Puzzle generation | `GET /api/cron/generate` | daily, before 00:00 Zurich (`vercel.json`: 21:30 UTC) |
-| Health | `GET /api/health` | monitor it: 503 if the last sync failed, is >24 h old, or today has no puzzle |
+| Asset sync (+ top up puzzles) | `GET /api/cron/sync` | daily (`vercel.json`: 02:00 UTC) |
+| Puzzle generation | `GET /api/cron/generate` | daily (`vercel.json`: 14:00 UTC), a second chance if the sync run failed |
+| Health | `GET /api/health` | monitor it: 503 if the last sync failed, is >36 h old, or today has no puzzle |
 
 Cron endpoints need `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this automatically when `CRON_SECRET` is set).
 Set `ALERT_WEBHOOK_URL` (Discord/Slack) to get alerts on sync failures and days without puzzles.
+
+The schedule fits Vercel Hobby (cron jobs at most once per day, ±59 min). Exact timing doesn't matter:
+puzzles are generated 7 days ahead. Functions are pinned to `fra1`, next to the Neon database (eu-central-1).
 
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.

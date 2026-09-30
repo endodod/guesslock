@@ -18,7 +18,8 @@ export async function GET() {
     const live = puzzles.filter((p) => !p.sealed).length;
     const problems: string[] = [];
     if (lastSync?.status === "failed") problems.push("last sync failed");
-    if (syncAgeH > 24) problems.push(`last successful sync ${Number.isFinite(syncAgeH) ? Math.round(syncAgeH) + "h" : "never"} ago`);
+    // Sync runs daily with up to ±59 min drift on Vercel Hobby: allow some slack.
+    if (syncAgeH > 36) problems.push(`last successful sync ${Number.isFinite(syncAgeH) ? Math.round(syncAgeH) + "h" : "never"} ago`);
     if (live === 0) problems.push("no playable puzzle today");
     const missing = LOCKS.filter((l) => !puzzles.some((p) => p.mode === l.slug)).map((l) => l.slug);
     return NextResponse.json(
