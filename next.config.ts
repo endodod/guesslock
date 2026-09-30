@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
   turbopack: { root: path.resolve(__dirname) },
   output: "standalone",
   poweredByHeader: false,
+  // Bundled API backup (data/api-backup, see `npm run backup`) read at runtime by sync/generation.
+  outputFileTracingIncludes: {
+    "/api/cron/*": ["./data/api-backup/**"],
+    "/admin/*": ["./data/api-backup/**"],
+    "/admin/**": ["./data/api-backup/**"],
+  },
   async headers() {
     return [
       {

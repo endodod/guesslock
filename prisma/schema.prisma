@@ -157,3 +157,13 @@ model DailyPuzzle {
   @@unique([date, mode])
   @@index([mode, date])
 }
+
+// Last good response of every external API call the app depends on, so puzzle generation keeps
+// working through an upstream outage (see src/lib/deadlock/snapshots.ts and `npm run backup`).
+model ApiSnapshot {
+  key       String   @id // stable name, e.g. "assets-heroes", "analytics-item-stats"
+  url       String
+  data      Json
+  byteSize  Int
+  fetchedAt DateTime
+}

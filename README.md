@@ -70,12 +70,27 @@ Set `ALERT_WEBHOOK_URL` (Discord/Slack) to get alerts on sync failures and days 
 The schedule fits Vercel Hobby (cron jobs at most once per day, ±59 min). Exact timing doesn't matter:
 puzzles are generated 7 days ahead. Functions are pinned to `fra1`, next to the Neon database (eu-central-1).
 
+### API outage backup
+
+The site keeps running for at least a week if deadlock-api or the wiki goes down:
+
+- **Puzzles** are generated 7 days ahead and frozen in `DailyPuzzle`. Images and audio are mirrored into Postgres.
+- **Every API response** the app uses (heroes, items, client version, The Belongings' usage stats) is stored in
+  `ApiSnapshot` whenever a call succeeds. Puzzle generation falls back to it while the API is down; snapshots older
+  than `API_BACKUP_MAX_DAYS` (default 14) aren't used.
+- **A fresh database** can be filled even during an outage: when there are no heroes yet, the asset sync falls back to
+  the gzipped copies in `data/api-backup/` (committed; shipped with Vercel functions and the Docker image).
+- A failed sync never touches existing data, so an outage only means no new heroes or items until it's over.
+
+Refresh the backup with `npm run backup`: it fetches everything live, stores it in the database, rewrites
+`data/api-backup/`, and generates puzzles 8 days ahead. Commit the updated files.
+
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 
 ## Scripts
 
-`npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `validate:leaks [-- --all]` ·
+`npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `validate:leaks [-- --all]` ·
 `import:voicelines [-- --hero <id>]` · `make:grain`
 
 `/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production).

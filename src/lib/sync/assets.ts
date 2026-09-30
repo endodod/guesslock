@@ -22,7 +22,11 @@ function changedFields(a: Record<string, unknown>, b: Record<string, unknown>): 
 export async function runAssetSync(): Promise<{ id: number; status: string; diff?: Diff; error?: string }> {
   const run = await db.syncRun.create({ data: { kind: "assets", status: "running" } });
   try {
-    const [heroesRaw, itemsRaw, clientVersion] = await Promise.all([fetchHeroes(), fetchItems(), fetchClientVersion()]);
+    // With data already in the DB, a failed sync just keeps it. Only a fresh database may be
+    // filled from the stored/bundled API backup (any age), so a new install works during an outage.
+    const fresh = (await db.hero.count()) === 0;
+    const backup = fresh ? "snapshot-any-age" : "none";
+    const [heroesRaw, itemsRaw, clientVersion] = await Promise.all([fetchHeroes(backup), fetchItems(backup), fetchClientVersion(backup)]);
     const norm = normalizeAll(heroesRaw, itemsRaw);
     const items = norm.items.filter((i) => !config.excludedItemTiers.includes(i.tier));
     if (norm.heroes.length < 10 || items.length < 50)

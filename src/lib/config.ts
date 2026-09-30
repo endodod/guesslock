@@ -24,6 +24,8 @@ export const config = {
   sessionSecret: env("SESSION_SECRET", ""),
   cronSecret: process.env.CRON_SECRET ?? "",
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL ?? "",
+  /** Stored API responses older than this aren't used as an outage fallback (see snapshots.ts). */
+  apiBackupMaxDays: Number(env("API_BACKUP_MAX_DAYS", "14")),
   /** Street Brawl legendaries are tier 5 in the API (cost 9999). */
   excludedItemTiers: env("EXCLUDED_ITEM_TIERS", "5").split(",").map(Number),
 };
