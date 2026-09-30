@@ -128,6 +128,10 @@ Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h (`OM
 budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md). `/admin/omens` has the
 7-day calendar, candidate pool, tuning and inspector. (A practice / endless mode is planned for later.)
 
+**Seed:** `data/omens-seed.json.gz` holds real scenarios from harvested matches. When an Omen has no harvested stock
+for a day (fresh install, a short harvest, an API outage), the unused seed scenarios are imported and used, so every
+Omen still gets its daily puzzle. Refresh it with `npm run omens:seed` after a harvest and commit the file.
+
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 

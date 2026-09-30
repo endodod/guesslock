@@ -1,6 +1,8 @@
 // Omen pipeline: discover recent high-rank matches with replays, run the replay queries (rate
 // limited), build timelines and scenarios, and pick each day's Omen. Runs inside the daily cron jobs
 // (and from the admin page / `npm run omens:harvest`); every step resumes where the last run stopped.
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { db } from "../db";
 import { config } from "../config";
@@ -226,6 +228,42 @@ export async function harvest(deadline: number, log: (s: string) => void = () =>
   return out;
 }
 
+// ───────────── bundled seed (fallback stock) ─────────────
+
+export const SEED_FILE = path.join(process.cwd(), "data", "omens-seed.json.gz");
+
+export type SeedScenario = {
+  id: string; omen: OmenKind; matchId: number; t: number; window: number; positive: boolean;
+  quality: number; rank: number; patch: string | null; payload: OmenPayload;
+};
+
+/**
+ * Import the bundled seed scenarios for an Omen that has no stock (fresh install, a harvest that
+ * came up short, or an API outage). Scenarios already in the DB (used or not) are skipped.
+ */
+export async function importSeed(omen: OmenKind): Promise<number> {
+  if (!existsSync(SEED_FILE)) return 0;
+  const seed = (JSON.parse(gunzipSync(readFileSync(SEED_FILE)).toString("utf8")) as SeedScenario[]).filter((s) => s.omen === omen);
+  const have = new Set((await db.scenario.findMany({ where: { id: { in: seed.map((s) => s.id) } }, select: { id: true } })).map((s) => s.id));
+  let added = 0;
+  for (const s of seed) {
+    if (have.has(s.id)) continue;
+    await db.omenMatch.upsert({
+      where: { matchId: BigInt(s.matchId) },
+      create: { matchId: BigInt(s.matchId), status: "ready", source: "seed", rank: s.rank },
+      update: {},
+    });
+    await db.scenario.create({
+      data: {
+        id: s.id, omen: s.omen, matchId: BigInt(s.matchId), t: s.t, window: s.window, positive: s.positive, quality: s.quality,
+        source: "daily", rank: s.rank, patch: s.patch, payload: s.payload as unknown as Prisma.InputJsonValue,
+      },
+    });
+    added++;
+  }
+  return added;
+}
+
 // ───────────── daily assignment ─────────────
 
 /**
@@ -236,11 +274,11 @@ export async function assignOmen(omen: OmenKind, date: string, seed: string, exc
   const pinned = await db.scenario.findFirst({ where: { omen, dailyDate: date, status: "approved", id: { notIn: exclude } } });
   let pick = pinned;
   if (!pick) {
-    const pool = await db.scenario.findMany({
-      where: { omen, source: "daily", status: { in: ["candidate", "approved"] }, dailyDate: null, id: { notIn: exclude } },
-      orderBy: [{ quality: "desc" }, { createdAt: "desc" }],
-      take: 200,
-    });
+    const where = { omen, source: "daily", status: { in: ["candidate", "approved"] }, dailyDate: null, id: { notIn: exclude } };
+    const orderBy = [{ quality: "desc" as const }, { createdAt: "desc" as const }];
+    let pool = await db.scenario.findMany({ where, orderBy, take: 200 });
+    // No harvested stock: fall back to the bundled seed so the day still gets its Omen.
+    if (!pool.length && (await importSeed(omen)) > 0) pool = await db.scenario.findMany({ where, orderBy, take: 200 });
     if (!pool.length) return null;
     const wantPositive = omen === "rift" ? null : makeRng(`${seed}|side`).next() < (await loadTuning()).positiveShare;
     const ranked = [...pool].sort((a, b) => Number(b.status === "approved") - Number(a.status === "approved"));

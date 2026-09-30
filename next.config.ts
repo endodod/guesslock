@@ -7,9 +7,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Bundled API backup (data/api-backup, see `npm run backup`) read at runtime by sync/generation.
   outputFileTracingIncludes: {
-    "/api/cron/*": ["./data/api-backup/**"],
-    "/admin/*": ["./data/api-backup/**"],
-    "/admin/**": ["./data/api-backup/**"],
+    "/api/cron/*": ["./data/api-backup/**", "./data/omens-seed.json.gz"],
+    "/admin/*": ["./data/api-backup/**", "./data/omens-seed.json.gz"],
+    "/admin/**": ["./data/api-backup/**", "./data/omens-seed.json.gz"],
   },
   async headers() {
     return [
