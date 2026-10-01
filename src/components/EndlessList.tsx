@@ -12,8 +12,8 @@ export function EndlessList({ locks }: { locks: { slug: string; numeral: string;
         const s = d.stats[l.slug];
         const inProgress = d.current[l.slug]?.rec?.s === "playing";
         return (
-          <li key={l.slug}>
-            <Link href={`/endless/${l.slug}`} className="deco flex h-full items-center gap-3 rounded-[3px] p-3 hover:border-ecto/60">
+          <li key={l.slug} className="min-w-0">
+            <Link href={`/endless/${l.slug}`} className="deco flex h-full min-w-0 items-center gap-3 rounded-[3px] p-3 hover:border-ecto/60">
               <span className="flex h-9 min-w-11 items-center justify-center rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-1.5 font-display text-xs tracking-widest text-[#2a1f08]">{l.numeral}</span>
               <span className="min-w-0 flex-1">
                 <span className="block font-display text-paper">{l.name}</span>

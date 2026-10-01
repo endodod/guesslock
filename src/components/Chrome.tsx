@@ -12,12 +12,13 @@ import { Button, Countdown, DecoFrame, Icon, Logo } from "./ui";
 
 export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset: number }) {
   const { toast, user } = useGame();
-  const navBtn = "flex h-11 w-10 items-center justify-center text-brass hover:text-paper sm:w-11";
+  // Five icons and the logo must fit a 320 px phone: the buttons narrow a little below 360 px (they stay 44 px tall).
+  const navBtn = "flex h-11 w-[2.125rem] items-center justify-center text-brass hover:text-paper min-[360px]:w-10 sm:w-11";
   const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-brass/20 bg-ink/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:px-6">
-        <Link href="/" aria-label="GUESSLOCK — The Vault" className="shrink-0">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-1 px-2 min-[360px]:gap-2 min-[360px]:px-3 md:h-16 md:px-6">
+        <Link href="/" aria-label="GUESSLOCK — The Vault" className="shrink-0 max-[359px]:[&>span]:text-lg">
           <Logo size="sm" />
         </Link>
         <div className="hidden flex-col items-center text-center leading-tight sm:flex">
