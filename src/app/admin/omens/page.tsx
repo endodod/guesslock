@@ -8,15 +8,9 @@ import { OMEN_LOCKS } from "@/locks.config";
 import { loadTuning, queriesLastHour } from "@/lib/omens/harvest";
 import { ActionButton } from "../ui";
 import { approveDay, harvestNow, regenerateDay, saveTuning, setScenarioStatus } from "./actions";
+import { Card, PageHeader, Pill, Stat } from "../kit";
 
 export const dynamic = "force-dynamic";
-
-const Box = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="mb-6 rounded border border-neutral-300 bg-white p-4">
-    <h2 className="mb-3 text-lg font-semibold">{title}</h2>
-    {children}
-  </section>
-);
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -39,19 +33,24 @@ export default async function OmensAdmin() {
   const noReplay = byStatus.filter((s) => s.status === "rejected").reduce((a, s) => a + s._count, 0);
 
   return (
-    <div>
-      <h1 className="mb-4 text-2xl font-semibold">The Omens</h1>
+    <div className="space-y-6">
+      <PageHeader title="The Omens" subtitle="Harvest replay scenarios, approve daily outcomes, and tune detection quality." actions={<ActionButton action={harvestNow} label="Harvest now (~50 s)" />} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Ready matches" value={ready} tone="green" sub="Available for daily picks" />
+        <Stat label="Rejected" value={noReplay} tone={noReplay > 0 ? "amber" : "slate"} sub="No usable replay" />
+        <Stat label="Queries / hour" value={`${recentQueries} / ${config.omenQueriesPerHour}`} sub={config.apiKey ? "API key set" : "No API key"} />
+        <Stat label="Candidate pool" value={pool.length} sub="Daily scenarios shown" />
+      </div>
 
-      <Box title="Harvest queue">
+      <Card title="Harvest queue" hint="Replay ingestion and recent failures">
         <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
-          <ActionButton action={harvestNow} label="Harvest now (~50 s)" />
           <span>Replay queries in the last hour: <strong>{recentQueries}</strong> / {config.omenQueriesPerHour}{config.apiKey ? " (API key set)" : " (no API key: 20/h limit)"}</span>
           <span>Matches ready: <strong>{ready}</strong> · rejected/no replay: <strong>{noReplay}</strong></span>
         </div>
         <table className="text-sm">
           <thead><tr className="text-left text-neutral-500"><th className="pr-6">Status</th><th className="pr-6">Source</th><th>Matches</th></tr></thead>
           <tbody>
-            {byStatus.map((s) => <tr key={`${s.status}-${s.source}`}><td className="pr-6">{s.status}</td><td className="pr-6">{s.source}</td><td>{s._count}</td></tr>)}
+            {byStatus.map((s) => <tr key={`${s.status}-${s.source}`}><td className="pr-6"><Pill tone={s.status === "ready" ? "green" : s.status === "failed" ? "red" : "amber"}>{s.status}</Pill></td><td className="pr-6">{s.source}</td><td>{s._count}</td></tr>)}
           </tbody>
         </table>
         {failed.length > 0 && (
@@ -62,9 +61,9 @@ export default async function OmensAdmin() {
             </ul>
           </details>
         )}
-      </Box>
+      </Card>
 
-      <Box title="Next 7 days">
+      <Card title="Next 7 days" hint="Approve or regenerate the scenario assigned to each Omen lock">
         <p className="mb-2 text-sm text-neutral-600">An unapproved day keeps the automatic pick. Regenerate rejects the current scenario and freezes the next best one.</p>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-neutral-500"><th>Date</th>{OMEN_LOCKS.map((l) => <th key={l.slug}>{l.name}</th>)}</tr></thead>
@@ -83,7 +82,7 @@ export default async function OmensAdmin() {
                             <Link className="text-blue-700 hover:underline" href={`/admin/omens/${s.id}`}>{s.id}</Link>
                             <div className="text-xs text-neutral-600">
                               {s.positive ? "positive" : "negative"} · quality {s.quality.toFixed(2)} · rank {s.rank} · T {clock(s.t)}
-                              {s.status === "approved" && <strong className="ml-1 text-green-700">approved</strong>}
+                              {s.status === "approved" && <span className="ml-1"><Pill tone="green">approved</Pill></span>}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -104,9 +103,9 @@ export default async function OmensAdmin() {
             ))}
           </tbody>
         </table>
-      </Box>
+      </Card>
 
-      <Box title={`Daily candidate pool (${pool.length} shown)`}>
+      <Card title={`Daily candidate pool (${pool.length} shown)`} hint="Approved candidates are used first, best quality first.">
         <p className="mb-2 text-sm text-neutral-600">Approved candidates are used first, best quality first.</p>
         <table className="w-full text-sm">
           <thead><tr className="text-left text-neutral-500"><th>Scenario</th><th>Omen</th><th>Outcome</th><th>Quality</th><th>Rank</th><th>Match day</th><th /></tr></thead>
@@ -114,18 +113,18 @@ export default async function OmensAdmin() {
             {pool.map((s) => (
               <tr key={s.id} className="border-t border-neutral-200">
                 <td className="py-1"><Link className="text-blue-700 hover:underline" href={`/admin/omens/${s.id}`}>{s.id}</Link></td>
-                <td>{s.omen}</td><td>{s.positive ? "positive" : "negative"}</td><td>{s.quality.toFixed(2)}</td><td>{s.rank}</td><td>{s.patch}</td>
+                <td>{s.omen}</td><td><Pill tone={s.positive ? "green" : "slate"}>{s.positive ? "positive" : "negative"}</Pill></td><td>{s.quality.toFixed(2)}</td><td>{s.rank}</td><td>{s.patch}</td>
                 <td className="space-x-1 whitespace-nowrap">
-                  {s.status === "approved" ? <strong className="text-green-700">approved</strong> : <ActionButton action={setScenarioStatus.bind(null, s.id, "approved")} label="Approve" />}
+                  {s.status === "approved" ? <Pill tone="green">approved</Pill> : <ActionButton action={setScenarioStatus.bind(null, s.id, "approved")} label="Approve" />}
                   <ActionButton action={setScenarioStatus.bind(null, s.id, "rejected")} label="Reject" />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </Box>
+      </Card>
 
-      <Box title="Detection tuning">
+      <Card title="Detection tuning" hint="Applies to scenarios built from now on. Ranges use min-max seconds.">
         <form action={saveTuning} className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(tuning).map(([k, v]) => (
             <label key={k} className="flex items-center justify-between gap-2">
@@ -135,10 +134,9 @@ export default async function OmensAdmin() {
           ))}
           <div className="sm:col-span-2 lg:col-span-3">
             <button className="rounded border border-neutral-400 bg-neutral-50 px-3 py-1 hover:bg-neutral-200">Save tuning</button>
-            <span className="ml-2 text-xs text-neutral-600">Applies to scenarios built from now on. Ranges as min-max (seconds).</span>
           </div>
         </form>
-      </Box>
+      </Card>
     </div>
   );
 }

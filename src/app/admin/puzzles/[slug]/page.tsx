@@ -14,10 +14,9 @@ import { ActionButton } from "../../ui";
 import { ModeSwitch } from "../../setup/SetupClient";
 import { buildDay, overrideAnswer, setInMode } from "../actions";
 import { poolRows, type PoolRow } from "../pool";
+import { Card, PageHeader, Pill, Stat } from "../../kit";
 
 export const dynamic = "force-dynamic";
-
-const box = "rounded border border-neutral-300 bg-white p-4";
 
 /** Where to edit what this lock uses from one hero/ability/item. */
 function editHref(mode: string, r: PoolRow): string {
@@ -86,20 +85,16 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
   const prev = LOCKS[(idx + LOCKS.length - 1) % LOCKS.length], next = LOCKS[(idx + 1) % LOCKS.length];
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link href={`/admin/puzzles/${prev.slug}`} className="text-sm text-blue-700 hover:underline">← {prev.numeral}</Link>
-        <h1 className="text-2xl font-semibold">{lock.numeral}. {lock.name}</h1>
-        <span className="text-neutral-600">{lock.subtitle}</span>
-        <Link href={`/admin/puzzles/${next.slug}`} className="text-sm text-blue-700 hover:underline">{next.numeral} →</Link>
-        <span className="flex-1" />
-        <Link href="/admin/puzzles" className="text-sm text-blue-700 hover:underline">All puzzles</Link>
-        <Link href={`/lock/${slug}`} className="text-sm text-blue-700 hover:underline">Open on site</Link>
+    <div className="space-y-6">
+      <PageHeader title={`${lock.numeral}. ${lock.name}`} subtitle={lock.subtitle} actions={<div className="flex flex-wrap gap-3 text-sm"><Link href={`/admin/puzzles/${prev.slug}`} className="text-blue-700 hover:underline">← {prev.numeral}</Link><Link href={`/admin/puzzles/${next.slug}`} className="text-blue-700 hover:underline">{next.numeral} →</Link><Link href="/admin/puzzles" className="text-blue-700 hover:underline">All puzzles</Link><Link href={`/lock/${slug}`} className="text-blue-700 hover:underline">Open on site</Link></div>} />
+      <Card className="text-sm text-neutral-700">{RULES[slug]}</Card>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Today" value={byDate.get(today) && !byDate.get(today)!.sealed ? "Ready" : "Sealed"} tone={byDate.get(today) && !byDate.get(today)!.sealed ? "green" : "red"} />
+        <Stat label="Next 7 days" value={`${days.slice(1).filter((d) => { const r = byDate.get(d); return r && !r.sealed; }).length} / 8`} sub="Generated and playable" />
+        <Stat label="Answer pool" value={options.length} sub={isOmen || isSeance ? "Managed in its own library" : `${counts.missing} missing data`} />
+        <Stat label="Mode" value={lock.mode} sub={lock.guess} />
       </div>
-      <p className="max-w-4xl text-sm text-neutral-700">{RULES[slug]}</p>
-
-      <section className={box}>
-        <h2 className="mb-2 font-semibold">Schedule</h2>
+      <Card title="Schedule" hint="Build upcoming days and override answers when needed">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-neutral-500"><th className="pr-4">Day</th><th className="pr-4">Status</th><th className="pr-4">Answer</th><th>Fix</th></tr></thead>
           <tbody>
@@ -110,9 +105,9 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
                 <tr key={d} className="border-t border-neutral-200 align-middle">
                   <td className="py-1.5 pr-4 font-mono">{d}{d === today ? " (today)" : d < today ? " (past)" : ""}</td>
                   <td className="pr-4">
-                    {live ? <span className="text-green-700">ready{r.overridden ? " · overridden" : ""}</span>
-                      : r ? <span className="text-red-700">sealed: {r.sealedReason}</span>
-                      : <span className="text-amber-700">not generated</span>}
+                    {live ? <Pill tone="green">ready{r.overridden ? " · overridden" : ""}</Pill>
+                      : r ? <Pill tone="red">sealed: {r.sealedReason}</Pill>
+                      : <Pill tone="amber">not generated</Pill>}
                   </td>
                   <td className="pr-4">
                     {live ? (
@@ -145,26 +140,20 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
         <p className="mt-2 text-xs text-neutral-500">
           Hints: {lock.hints.length ? lock.hints.map((h) => `${h.label} after ${h.after} wrong`).join(", ") : "none"}. Today can only be built while it has no playable puzzle; set an answer to replace a live one.
         </p>
-      </section>
+      </Card>
 
       {isOmen ? (
-        <section className={box}>
-          <h2 className="mb-2 font-semibold">Scenarios</h2>
+        <Card title="Scenarios">
           <p className="text-sm">Matches are harvested daily and each day freezes one scenario; if none is ready, a bundled seed scenario is used.
             Harvest queue, candidate pool, approvals and detection tuning: <Link href="/admin/omens" className="text-blue-700 hover:underline">Omens admin</Link>.</p>
-        </section>
+        </Card>
       ) : isSeance ? (
-        <section className={box}>
-          <h2 className="mb-2 font-semibold">Séance Table ({lock.table?.label})</h2>
+        <Card title={`Séance Table (${lock.table?.label})`}>
           <p className="text-sm">This table draws from approved, complete Séance categories.
             Manage categories, curate memberships, and preview boards: <Link href="/admin/seance" className="text-blue-700 hover:underline">Séance admin</Link>.</p>
-        </section>
+        </Card>
       ) : (
-        <section className={box}>
-          <div className="mb-2 flex flex-wrap items-baseline gap-3">
-            <h2 className="font-semibold">Answer pool</h2>
-            <span className="text-sm text-neutral-600">{counts.in} in pool · {counts.missing} missing data · {counts.off} turned off</span>
-          </div>
+        <Card title="Answer pool" hint={`${counts.in} in pool · ${counts.missing} missing data · ${counts.off} turned off`}>
           <p className="mb-3 text-xs text-neutral-500">
             Switches here are the same site-wide settings as on the {lock.guess === "item" ? "Items" : lock.guess === "ability" ? "Abilities" : "Heroes"} pages; changes apply to newly built days.
           </p>
@@ -182,7 +171,7 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
                     </div>
                   </td>
                   <td className="w-60 pr-3">
-                    <span className={`rounded px-1.5 py-0.5 text-xs ${!r.on ? "bg-neutral-200 text-neutral-600" : r.inPool ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{r.note}</span>
+                    <Pill tone={!r.on ? "slate" : r.inPool ? "green" : "amber"}>{r.note}</Pill>
                   </td>
                   <td className="pr-3"><Preview mode={lock.mode} r={r} data={data} /></td>
                   <td className="w-12 text-right"><Link href={editHref(lock.mode, r)} className="text-blue-700 hover:underline">Edit</Link></td>
@@ -190,7 +179,7 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
               ))}
             </tbody>
           </table>
-        </section>
+        </Card>
       )}
     </div>
   );

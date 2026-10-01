@@ -11,6 +11,7 @@ import { LOCKS } from "@/locks.config";
 import { ActionButton } from "../../ui";
 import { HERO_MODES, heroStatuses, type ModeStatus } from "../status";
 import { AttributesForm, BuildItems, EmojiList, ModeSwitch, SplashForm } from "../SetupClient";
+import { Card, PageHeader, Pill } from "../../kit";
 import { cellSource } from "@/lib/admin/categories";
 import {
   addVoiceLine, editVoiceLine, rebuildDay, removeVoiceLine, restoreVoiceLine, saveAttributes, saveBuildItems,
@@ -29,16 +30,13 @@ function Section({ heroId, mode, label, status, children }: {
   heroId: number; mode: string; label: string; status: ModeStatus; children: React.ReactNode;
 }) {
   return (
-    <section id={mode} className="scroll-mt-4 rounded border border-neutral-300 bg-white p-4">
+    <Card id={mode} title={label} className="scroll-mt-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold">{label}</h2>
         <ModeSwitch on={status.on} label="In this puzzle" action={setHeroMode.bind(null, heroId, mode)} />
-        <span className={`rounded px-2 py-0.5 text-xs ${!status.on ? "bg-neutral-200 text-neutral-600" : status.inPool ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-          {status.note}
-        </span>
+        <Pill tone={!status.on ? "slate" : status.inPool ? "green" : "amber"}>{status.note}</Pill>
       </div>
       <div className={status.on ? "" : "opacity-60"}>{children}</div>
-    </section>
+    </Card>
   );
 }
 
@@ -101,24 +99,21 @@ export default async function HeroSetup({ params }: { params: Promise<{ id: stri
   const slotName = (slot: number) => (slot === 4 ? "Ultimate" : `Ability ${slot}`);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-4">
+    <div className="space-y-6">
+      <PageHeader title={`${hero.name} puzzle setup`} subtitle="Tune this hero's clues and mode availability." actions={<div className="flex flex-wrap gap-3 text-sm"><Link href={`/admin/heroes/${heroId}`} className="text-blue-700 hover:underline">Curation page</Link><Link href="/admin/setup" className="text-blue-700 hover:underline">All heroes</Link></div>} />
+      <Card className="flex flex-wrap items-center gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {h.icon && <img src={h.icon} alt="" className="h-14 w-14 rounded bg-neutral-800" />}
         <div>
-          <h1 className="text-xl font-semibold">{hero.name} <span className="text-sm font-normal text-neutral-500">puzzle setup</span></h1>
+          <p className="text-sm text-neutral-600">Hero #{hero.id} · configure each mode below</p>
           <nav className="flex flex-wrap gap-x-3 text-sm">
             {HERO_MODES.map(([m, l]) => <a key={m} href={`#${m}`} className="text-blue-700 hover:underline">{l}</a>)}
           </nav>
         </div>
-        <div className="ml-auto flex gap-3 text-sm">
-          <Link href={`/admin/heroes/${heroId}`} className="text-blue-700 hover:underline">Curation page</Link>
-          <Link href="/admin/setup" className="text-blue-700 hover:underline">All heroes</Link>
-        </div>
-      </div>
+      </Card>
 
       {upcoming.length > 0 && (
-        <section className="rounded border border-blue-300 bg-blue-50 p-3 text-sm">
+        <Card title="Upcoming generated days" className="border-blue-200 bg-blue-50 text-sm">
           <p className="mb-2">Generated days with {hero.name} as the answer keep the setup they were built with. Rebuild an upcoming day to apply your edits.</p>
           <ul className="space-y-1">
             {upcoming.map((p) => (
@@ -131,7 +126,7 @@ export default async function HeroSetup({ params }: { params: Promise<{ id: stri
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
       <Section heroId={heroId} mode="classic" label={label.classic} status={status.classic}>

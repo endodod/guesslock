@@ -8,6 +8,7 @@ import { unpackTimeline } from "@/lib/omens/harvest";
 import { toMap } from "@/lib/omens/ingest";
 import type { OmenPayload } from "@/lib/omens/types";
 import { OmenInspector } from "./OmenInspector";
+import { Card, PageHeader, Pill, Stat } from "../../kit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,15 @@ export default async function ScenarioInspector({ params }: { params: Promise<{ 
   const [catalog, map] = await Promise.all([getCatalog(), getMapMeta()]);
   const icons = Object.fromEntries(catalog.hero.map((h) => [Number(h.id), { name: h.name, icon: h.icon }]));
   return (
-    <div>
-      <p className="mb-2 text-sm"><Link className="text-blue-700 hover:underline" href="/admin/omens">← The Omens</Link></p>
-      <h1 className="text-2xl font-semibold">{s.id}</h1>
-      <p className="mb-4 text-sm text-neutral-600">
-        {s.omen} · {s.positive ? "positive" : "negative"} · quality {s.quality.toFixed(2)} · rank {s.rank} · status {s.status}
-        {s.dailyDate && ` · daily ${s.dailyDate}`} · match {String(s.matchId)} ({s.match.status})
-      </p>
+    <div className="space-y-6">
+      <PageHeader title={s.id} subtitle={s.omen} actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/omens">← The Omens</Link>} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Outcome" value={<Pill tone={s.positive ? "green" : "slate"}>{s.positive ? "positive" : "negative"}</Pill>} />
+        <Stat label="Quality" value={s.quality.toFixed(2)} />
+        <Stat label="Rank" value={s.rank} />
+        <Stat label="Status" value={<Pill tone={s.status === "approved" ? "green" : s.status === "rejected" ? "red" : "amber"}>{s.status}</Pill>} />
+      </div>
+      <Card className="text-sm text-neutral-600">{s.dailyDate && `daily ${s.dailyDate} · `}match {String(s.matchId)} ({s.match.status})</Card>
       <OmenInspector payload={payload} before={before} heroes={icons} map={map} />
     </div>
   );

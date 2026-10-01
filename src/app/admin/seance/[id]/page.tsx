@@ -10,6 +10,7 @@ import { CATEGORY_TYPES } from "@/lib/seance/types";
 import { ActionButton } from "../../ui";
 import { clearFlag, deleteCategory, fillUnknown, saveCategory } from "../actions";
 import { MembershipGrid } from "./MembershipGrid";
+import { Card, PageHeader, Pill, Stat } from "../../kit";
 
 export default async function CategoryEditor({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
@@ -31,10 +32,15 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
   const name = new Map(heroes.map((h) => [h.id, h.name]));
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm"><Link className="text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link></p>
-      <section className="rounded border border-neutral-300 bg-white p-4">
-        <h1 className="text-lg font-semibold">{c.label}</h1>
+    <div className="space-y-6">
+      <PageHeader title={c.label} subtitle={`${c.type} · ${c.source}${c.key ? ` (${c.key})` : ""}`} actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat label="Members" value={comp.members.length} />
+        <Stat label="Status" value={<Pill tone={c.status === "approved" ? "green" : c.status === "retired" ? "slate" : "amber"}>{c.status}</Pill>} />
+        <Stat label="Completeness" value={comp.complete ? "Complete" : `${comp.unknown.length} unknown`} tone={comp.complete ? "green" : "red"} />
+        <Stat label="Last used" value={used ? used.date : "Never"} />
+      </div>
+      <Card title="Category details" hint="Label and approval state shown to puzzle solvers">
         <p className="text-sm text-neutral-600">
           {c.type} · source {c.source}{c.key ? ` (${c.key})` : ""} · {comp.members.length} members ·{" "}
           <span className={comp.complete ? "text-green-800" : "text-red-700"}>{comp.complete ? "complete" : `${comp.unknown.length} unknown`}</span> ·
@@ -81,11 +87,10 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
             {c.status === "approved" && !comp.complete && <span className="text-xs text-red-700">Approved but incomplete: not used until every hero is classified.</span>}
           </div>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4">
+      <Card title="Members" hint="Click to cycle yes, no, and unknown. Choices persist across syncs.">
         <div className="mb-2 flex flex-wrap items-center gap-3">
-          <h2 className="font-semibold">Members</h2>
           <span className="text-xs text-neutral-600">
             Click to cycle yes → no → unknown. Your choices are kept across syncs{c.source !== "curated" ? " (they override the API)" : ""}.
             {c.type === "lore" ? " Hover a hero for their lore." : ""}
@@ -98,12 +103,12 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
           heroes={heroes}
           values={Object.fromEntries(c.memberships.map((m) => [m.heroId, { member: m.member, source: m.source }]))}
         />
-      </section>
+      </Card>
 
       {c.source === "curated" && (
-        <section className="rounded border border-neutral-300 bg-white p-4">
+        <Card title="Danger zone" className="border-red-200">
           <ActionButton action={deleteCategory.bind(null, c.id)} label="Delete category" confirm="Delete this category and all its memberships?" />
-        </section>
+        </Card>
       )}
     </div>
   );

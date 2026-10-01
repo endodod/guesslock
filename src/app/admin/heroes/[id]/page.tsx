@@ -9,6 +9,7 @@ import { saveAbility, saveHero } from "../../actions";
 import { ExcludeBoxes, MODE_OPTIONS } from "../../shared";
 import { EmojiEditor } from "./EmojiEditor";
 import { VoiceLineManager } from "./VoiceLineManager";
+import { Card, PageHeader, Pill } from "../../kit";
 
 const HERO_MODES = MODE_OPTIONS.slice(0, 10);
 const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound"].includes(m));
@@ -27,24 +28,27 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <PageHeader
+        title={hero.name}
+        subtitle={`${hero.className} · ${src.gender ?? "?"} · ${src.heroType ?? "?"} · ${src.maxHealth} HP · ${src.dps} DPS`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {hero.needsReview && <Pill tone="amber">Needs review</Pill>}
+            {config.adminSetup && <Link href={`/admin/setup/${hero.id}`} className="text-blue-700 hover:underline">Puzzle setup</Link>}
+            <Link href="/admin/heroes" className="text-blue-700 hover:underline">All heroes</Link>
+          </div>
+        }
+      />
+      <Card className="flex flex-wrap items-center gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {src.images.small && <img src={mediaUrl(src.images.small)!} alt="" className="h-16 w-16 rounded bg-neutral-800" />}
         <div>
-          <h1 className="text-xl font-semibold">{hero.name} <span className="text-sm font-normal text-neutral-500">#{hero.id} · {hero.className}</span></h1>
-          <p className="text-sm text-neutral-600">
-            API: {src.gender ?? "?"} · {src.heroType ?? "?"} · complexity {src.complexity ?? "?"} · {src.gunTag ?? "no gun tag"} · {src.maxHealth} HP · {src.dps} DPS
-          </p>
-          {hero.needsReview && <p className="text-sm text-amber-700">Needs review: {hero.reviewReasons.join(" · ")}</p>}
+          <p className="text-sm text-neutral-600">Hero #{hero.id} · complexity {src.complexity ?? "?"} · {src.gunTag ?? "no gun tag"}</p>
+          {hero.needsReview && <p className="mt-1 text-xs text-amber-700">{hero.reviewReasons.join(" · ")}</p>}
         </div>
-        <div className="ml-auto flex gap-3 text-sm">
-          {config.adminSetup && <Link href={`/admin/setup/${hero.id}`} className="text-blue-700 hover:underline">Puzzle setup</Link>}
-          <Link href="/admin/heroes" className="text-blue-700 hover:underline">All heroes</Link>
-        </div>
-      </div>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4">
-        <h2 className="mb-3 font-semibold">Curation</h2>
+      <Card title="Curation" hint="Overrides and exclusions used by puzzle generation">
         <form action={saveHero.bind(null, hero.id)} className="grid gap-3 md:grid-cols-2">
           <label>Species <span className="text-xs text-neutral-500">(comma-separate multiple, e.g. &quot;Human, Undead&quot;)</span>
             <input name="species" defaultValue={hero.species ?? ""} className={input} />
@@ -65,10 +69,9 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="markReviewed" defaultChecked={hero.needsReview} /> Mark reviewed</label>
           <div><button className="rounded bg-neutral-900 px-4 py-1.5 text-white">Save</button></div>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4">
-        <h2 className="mb-3 font-semibold">Abilities</h2>
+      <Card title="Abilities" hint="Aliases and mode availability for this hero">
         <ul className="space-y-3">
           {hero.abilities.map((a) => (
             <li key={String(a.id)}>
@@ -81,20 +84,17 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
             </li>
           ))}
         </ul>
-      </section>
+      </Card>
 
-      <section id="emoji" className="rounded border border-neutral-300 bg-white p-4">
-        <h2 className="mb-3 font-semibold">The Cipher — emoji set</h2>
+      <Card id="emoji" title="The Cipher — emoji set">
         <EmojiEditor heroId={hero.id} initial={hero.emojis} reviewed={hero.emojisReviewed} others={others} />
-      </section>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4 text-sm">
-        <h2 className="mb-1 font-semibold">The Resonance — sounds</h2>
+      <Card title="The Resonance — sounds" className="text-sm">
         <Link className="text-blue-700 hover:underline" href={`/admin/sounds?hero=${hero.id}`}>Curate {hero.name}&apos;s ability and gun sounds</Link>
-      </section>
+      </Card>
 
-      <section id="voice" className="rounded border border-neutral-300 bg-white p-4">
-        <h2 className="mb-3 font-semibold">The Echo — voice lines</h2>
+      <Card id="voice" title="The Echo — voice lines">
         <VoiceLineManager
           heroId={hero.id}
           heroName={hero.name}
@@ -107,7 +107,7 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
             starred: l.starred, section: l.section, reason: l.autoReason, audio: !!l.audioUrl, changed: l.sourceChanged, edited: l.manuallyEdited,
           }))}
         />
-      </section>
+      </Card>
     </div>
   );
 }

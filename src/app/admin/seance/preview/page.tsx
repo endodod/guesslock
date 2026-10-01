@@ -7,6 +7,7 @@ import { buildSeanceBoard, loadLibrary } from "@/lib/seance/library";
 import type { SeancePayload } from "@/lib/seance/types";
 import { ActionButton } from "../../ui";
 import { applyBoard, resetBoard } from "../actions";
+import { Card, PageHeader, Pill } from "../../kit";
 
 const RANK_BG = ["", "#c9a45c", "#7fe3c2", "#5b82d6", "#8c6bd8"];
 
@@ -46,10 +47,9 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
   const link = (p: Record<string, string | number>) => `/admin/seance/preview?${new URLSearchParams({ date, table, reroll: String(reroll), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm"><Link className="text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link></p>
-      <section className="rounded border border-neutral-300 bg-white p-4">
-        <h1 className="mb-2 text-lg font-semibold">Séance board preview</h1>
+    <div className="space-y-6">
+      <PageHeader title="Séance board preview" subtitle="Inspect a generated board, compare rerolls, and freeze the chosen result." actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
+      <Card title="Preview controls">
         <form className="flex flex-wrap items-end gap-2 text-sm">
           <label className="flex flex-col">Date <input type="date" name="date" defaultValue={date} className="rounded border border-neutral-400 px-1" /></label>
           <label className="flex flex-col">Table
@@ -63,19 +63,18 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
           The automatic board is reroll 0 (what the daily job generates for an empty day, given the no-repeat window).
           &quot;Use this board&quot; freezes the preview as the day&apos;s puzzle (an override, like the calendar&apos;s).
         </p>
-      </section>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4">
-        <h2 className="mb-2 font-semibold">Frozen for {date} ({lock.table!.label})</h2>
+      <Card title={`Frozen for ${date} (${lock.table!.label})`}>
         {!current ? <p className="text-sm text-neutral-500">Not generated yet.</p>
-          : current.sealed ? <p className="text-sm text-red-700">Sealed: {current.sealedReason}</p>
+          : current.sealed ? <p className="text-sm"><Pill tone="red">Sealed: {current.sealedReason}</Pill></p>
           : <>{current.overridden && <p className="text-xs text-blue-700">Override</p>}<Board p={current.payload as unknown as SeancePayload} members={members} /></>}
         {date > today && current && (
           <div className="mt-2"><ActionButton action={resetBoard.bind(null, date, table)} label="Regenerate automatically" /></div>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded border border-neutral-300 bg-white p-4">
+      <Card title={`Preview (reroll ${reroll})`}>
         <div className="mb-2 flex flex-wrap items-center gap-3">
           <h2 className="font-semibold">Preview (reroll {reroll})</h2>
           <Link className="text-sm text-blue-700 hover:underline" href={link({ reroll: reroll + 1 })}>Another board →</Link>
@@ -96,7 +95,7 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
         ) : (
           <p className="text-sm text-red-700">No valid board: {built.reason}. The table is sealed for that day.</p>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

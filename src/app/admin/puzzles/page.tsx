@@ -6,6 +6,7 @@ import { addDays } from "@/lib/time";
 import { loadGameData } from "@/lib/engine/context";
 import { LOCKS } from "@/locks.config";
 import { poolRows } from "./pool";
+import { Card, PageHeader, Pill } from "../kit";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,9 @@ export default async function PuzzlesAdmin() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Puzzles</h1>
-      <p className="text-sm text-neutral-600">One page per lock: its schedule and fixes, and who can be the answer. Hero, ability and item settings are site-wide and shared by every lock.</p>
+      <PageHeader title="Puzzles" subtitle="Schedules, fixes, and answer pools for every lock. Shared hero, ability, and item settings live in the library." />
       {GROUPS.map(([g, title]) => (
-        <section key={g} className="rounded border border-neutral-300 bg-white p-4">
-          <h2 className="mb-2 font-semibold">{title}</h2>
+        <Card key={g} title={title}>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-neutral-500">
@@ -40,7 +39,7 @@ export default async function PuzzlesAdmin() {
                   <tr key={l.slug} className="border-t border-neutral-200">
                     <td className="py-1.5 pr-4"><Link href={`/admin/puzzles/${l.slug}`} className="text-blue-700 hover:underline">{l.numeral}. {l.name}{l.table ? ` · ${l.table.label}` : ""}</Link></td>
                     <td className="pr-4">
-                      {t && !t.sealed ? <span className="text-green-700">ready</span> : t ? <span className="text-red-700">sealed: {t.sealedReason}</span> : <span className="text-amber-700">not generated</span>}
+                      {t && !t.sealed ? <Pill tone="green">ready</Pill> : t ? <Pill tone="red">sealed: {t.sealedReason}</Pill> : <Pill tone="amber">not generated</Pill>}
                     </td>
                     <td className={`pr-4 ${ahead < 7 ? "text-amber-700" : ""}`}>{ahead}/7 ready</td>
                     <td>
@@ -57,7 +56,7 @@ export default async function PuzzlesAdmin() {
               })}
             </tbody>
           </table>
-        </section>
+        </Card>
       ))}
     </div>
   );

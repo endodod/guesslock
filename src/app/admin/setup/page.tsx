@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSetupPage } from "@/lib/admin/auth";
 import { loadGameData } from "@/lib/engine/context";
 import { HERO_MODES, heroStatuses } from "./status";
+import { Card, PageHeader, Pill } from "../kit";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,13 @@ export default async function SetupOverview() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold">Puzzle setup</h1>
+      <PageHeader title="Puzzle setup" subtitle="Control what each hero contributes to every puzzle mode. Changes apply to newly generated days." />
+      <Card>
       <p className="mb-4 text-sm text-neutral-600">
         What each hero brings to each puzzle. Open a hero to turn modes on or off and to edit, add or remove its clues.
         Changes apply to puzzles generated from now on; already generated days can be rebuilt from the hero page.
       </p>
-      <div className="overflow-x-auto rounded border border-neutral-300 bg-white">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-300 text-left text-neutral-500">
@@ -41,8 +43,8 @@ export default async function SetupOverview() {
                   return (
                     <td key={m} className="px-2 py-1.5">
                       <Link href={`/admin/setup/${h.id}#${m}`} title={s.note}
-                        className={`inline-block rounded px-1.5 py-0.5 text-xs ${!s.on ? "bg-neutral-200 text-neutral-500" : s.inPool ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                        {!s.on ? "off" : s.inPool ? "✓" : "missing"}
+                        className="inline-block">
+                        <Pill tone={!s.on ? "slate" : s.inPool ? "green" : "amber"}>{!s.on ? "off" : s.inPool ? "✓" : "missing"}</Pill>
                       </Link>
                     </td>
                   );
@@ -52,6 +54,7 @@ export default async function SetupOverview() {
           </tbody>
         </table>
       </div>
+      </Card>
     </div>
   );
 }
