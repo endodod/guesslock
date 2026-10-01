@@ -42,6 +42,8 @@ export type BuildCtx = {
   images?: ClueImages;
   /** Ready Omen match timelines (The Cache). Absent in tests and when none are harvested. */
   matches?: () => Promise<import("../omens/types").MatchTimeline[]>;
+  /** The minimap as a /media URL (The Wayfinder). Absent in tests. */
+  mapImage?: string | null;
   /** Approved, complete Séance hero groups (The Constellation). Absent in tests. */
   heroCategories?: () => Promise<{ key: string; label: string; info: string; members: number[] }[]>;
   /** Answer ids used in the no-repeat window (for modes that pick their answer in build()). */

@@ -25,11 +25,13 @@ const MAX_BYTES = 8 * 1024 * 1024;
 /** Store already-downloaded bytes under an id (no-op if the id exists). */
 export async function storeAsset(id: string, sourceUrl: string, bytes: Uint8Array, contentType = guessType(sourceUrl)): Promise<string> {
   if (bytes.length === 0 || bytes.length > MAX_BYTES) throw new Error(`bad size ${bytes.length}`);
-  await db.mirroredAsset.upsert({
-    where: { id },
-    create: { id, sourceUrl, contentType, bytes: Buffer.from(bytes), byteSize: bytes.length },
-    update: {},
+  // Ids are content-addressed: a concurrent write of the same id stored the same bytes, so a duplicate is fine.
+  await db.mirroredAsset.createMany({
+    data: [{ id, sourceUrl, contentType, bytes: Buffer.from(bytes), byteSize: bytes.length }],
+    skipDuplicates: true,
   });
+  // Skipped for another reason (the same source URL under a different id): that is a real conflict.
+  if (!(await db.mirroredAsset.findUnique({ where: { id }, select: { id: true } }))) throw new Error(`asset ${id} not stored: ${sourceUrl} is mirrored under another id`);
   return id;
 }
 

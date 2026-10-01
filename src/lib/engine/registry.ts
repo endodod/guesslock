@@ -7,10 +7,11 @@ import { calculus } from "./modes/calculus";
 import { decoy } from "./modes/decoy";
 import { cache } from "./modes/cache";
 import { constellation } from "./modes/constellation";
+import { wayfinder } from "./modes/wayfinder";
 
 export const MODES: Record<string, ModeImpl<any>> = Object.fromEntries( // eslint-disable-line @typescript-eslint/no-explicit-any
   [
     reckoning, visage, sigil, testament, incantation, belongings, ascension, cipher, echo, utterance, colloquy, resonance,
-    shadow, arsenal, calculus, relic, appraisal, lineage, measure, decoy, cache, constellation,
+    shadow, arsenal, calculus, relic, appraisal, lineage, measure, decoy, cache, constellation, wayfinder,
   ].map((m) => [m.mode, withBonus(m)]),
 );

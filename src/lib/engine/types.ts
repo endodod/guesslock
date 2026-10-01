@@ -77,6 +77,17 @@ export type Clue =
       /** Once finished: one valid hero per empty cell. */
       solution?: ({ name: string; image: string | null } | null)[];
     }
+  | {
+      kind: "map";
+      /** The zoomed piece of the minimap for this step. */
+      crop: string; step: number; steps: number;
+      /** The full minimap to pin on (public: it's the Omens' map). */
+      map: string;
+      pins: { x: number; y: number; correct: boolean }[];
+      context: { time?: string; doing?: string };
+      /** Once finished: the spot and its mirror. */
+      answer?: { x: number; y: number }[];
+    }
   | { kind: "relic"; image: string; blur: number; rotate?: number; dark?: boolean }
   | {
       kind: "lineage";
