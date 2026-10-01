@@ -4,7 +4,7 @@ import { LOCK_BY_SLUG } from "@/locks.config";
 
 /** The sorting puzzles share their rules; only the tiles and the four tables differ. */
 function seanceRules(noun: string, tables: string, box: string): string {
-  return `16 ${noun} sit on the table, in 4 hidden groups of 4. Each group shares something. Select 4 ${noun} and submit. A correct group locks in and shows its name; a wrong pick snaps a lockpick. "One away" means 3 of your 4 belong together (still a mistake). Picking the same 4 twice doesn't count. 4 mistakes lose the table. After 2 mistakes you can reveal one group's name for 15 souls. Every group fits exactly one way, so watch for ${noun} that seem to fit two groups. There are four tables a day: ${tables}. A solved table is worth 100 souls, minus 20 per mistake and 15 for the hint (at least 20); a lost table 10 per group found. ${box} is worth the average of its tables.`;
+  return `16 ${noun} sit on the table, in 4 hidden groups of 4. Each group shares something. Select 4 ${noun} and submit. A correct group locks in and shows its name; a wrong pick snaps a lockpick. "One away" means 3 of your 4 belong together (still a mistake). Picking the same 4 twice doesn't count. 4 mistakes lose the table. Every group fits exactly one way, so watch for ${noun} that seem to fit two groups. There are four tables a day: ${tables}. A solved table is worth 100 souls, minus 20 per mistake (at least 20); a lost table 10 per group found. ${box} is worth the average of its tables.`;
 }
 
 const BASE: Record<string, string> = {

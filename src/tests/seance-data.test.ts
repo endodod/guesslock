@@ -74,7 +74,7 @@ describe("Séance family: every table can produce fair boards", () => {
 
   for (const box of SEANCE_BOX_LIST)
     for (const [table, label] of box.tables)
-      it(`${box.name} · ${label}: 14 days of boards, exactly one solution each`, () => {
+      it(`${box.name} · ${label}: 14 days of boards, one solution and no red herrings each`, () => {
         const categories = library(box.entity);
         const tiles = (box.entity === "hero" ? norm.heroes.map((h) => h.id) : box.entity === "item" ? bazaarItems(norm).map((i) => i.id) : norm.abilities.map((a) => a.id));
         const byId = new Map(tiles.map((id) => [id, { id, name: String(id), image: null }]));
@@ -85,8 +85,7 @@ describe("Séance family: every table can produce fair boards", () => {
           if (!r.ok) return;
           expect(r.payload.heroes).toHaveLength(16);
           expect(r.payload.groups).toHaveLength(4);
-          expect(r.payload.redHerrings).toBeGreaterThanOrEqual(2);
-          expect(r.payload.redHerrings).toBeLessThanOrEqual(5);
+          expect(r.payload.redHerrings).toBe(0);
           r.payload.groups.forEach((g) => recent.add(g.categoryId));
           // A group repeats at most once per 14 days only when the pool is small: keep the window honest.
           if (recent.size > categories.length - 4) recent.clear();

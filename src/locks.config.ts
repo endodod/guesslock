@@ -195,7 +195,7 @@ export const LOCKS: LockDef[] = [
       slug: `${b.id}-${kind}`, mode: "seance", numeral: b.numeral, name: b.name,
       subtitle: b.subtitle, group: "seance", guess: "seance", picks: 4, maxTries: 4,
       box: b.id, table: { kind, label },
-      hints: [{ id: "category", label: "Reveal a category name", after: 2 }],
+      hints: [],
     })),
   ),
 ];

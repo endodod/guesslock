@@ -15,6 +15,10 @@ import { daySouls } from "@/lib/client/store";
 const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 const hero = (id: number) => ({ id, name: `Hero ${id}`, image: `/media/h${id}` });
 
+// This fixture library deliberately overlaps, so its tests run the generator in its "red herrings allowed" mode.
+// The real library's boards have none (see seance-data.test.ts).
+Object.assign(BOARD, { minHerrings: 2, maxHerrings: 5 });
+
 let nextId = 1;
 const cat = (type: LibraryCategory["type"], label: string, difficulty: number, members: number[]): LibraryCategory =>
   ({ id: nextId++, type, label, explanation: `${label}, explained`, difficulty, members });

@@ -7,7 +7,7 @@ import { AnimatePresence, motion, useAnimationControls } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS, SEANCE_BOXES, seanceLocksOf } from "@/locks.config";
 import type { LockRecord } from "@/lib/client/store";
 import { boxSouls, shareTable } from "@/lib/seance/scoring";
-import { HINT_ENTRY, type GroupView, type SeanceHero, type SeanceView } from "@/lib/seance/types";
+import { type GroupView, type SeanceHero, type SeanceView } from "@/lib/seance/types";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "../GameProvider";
 import { ShareButton } from "../WinPanel";
@@ -222,7 +222,7 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
 // ───────────── one table ─────────────
 
 function SeanceTable({
-  view, restoring, rules, showRules, setShowRules, noHints, noun, contain, onSubmit, onSound, footer,
+  view, restoring, rules, showRules, setShowRules, noun, contain, onSubmit, onSound, footer,
 }: {
   noun: string;
   /** Items and abilities are icons: show them whole instead of cropping like a portrait. */
@@ -290,13 +290,6 @@ function SeanceTable({
     if (v.status === "won") setTimeout(() => onSound("creak"), 400);
   };
 
-  const hint = async () => {
-    if (busy) return;
-    setBusy(true);
-    await onSubmit(HINT_ENTRY);
-    setBusy(false);
-  };
-
   const shuffle = () => {
     const pos = order.map((id, i) => ({ id, i })).filter((x) => !inBands.has(x.id));
     const ids = pos.map((x) => x.id);
@@ -312,7 +305,7 @@ function SeanceTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <LockpickRow total={view.maxMistakes} broken={view.mistakes} hintAt={noHints ? [] : [view.hint.after]} glowing={view.status === "won"} />
+        <LockpickRow total={view.maxMistakes} broken={view.mistakes} glowing={view.status === "won"} />
         <button type="button" onClick={() => setShowRules((s) => !s)} aria-expanded={showRules} className="flex h-11 w-11 items-center justify-center text-brass" aria-label={t.lock.rules}>
           <Icon name="question" className="h-6 w-6" />
         </button>
@@ -326,7 +319,7 @@ function SeanceTable({
       {restoring && <KeyholeLoader />}
 
       <DecoFrame className="seance-table p-2 sm:p-3">
-        <div className="space-y-2">
+        <div className="mx-auto max-w-[520px] space-y-2">
           <AnimatePresence initial={false}>
             {bands.map((g) => <Band key={g.rank} ns={ns} group={g} done={done} contain={contain} />)}
           </AnimatePresence>
@@ -348,13 +341,6 @@ function SeanceTable({
 
       <p aria-live="polite" className="min-h-6 text-center text-sm text-brass">{message}</p>
 
-      {/* Hint: after 2 mistakes, reveal the easiest unsolved group's name (−15 souls). */}
-      {!noHints && view.hint.used && view.hint.label && !done && !view.groups.some((g) => g.label === view.hint.label) && (
-        <p className="text-center text-sm text-paper/90">
-          <span className="text-ash">{t.seance.hintShown}:</span> <span className="smallcaps text-brass">{view.hint.label}</span>
-        </p>
-      )}
-
       {done ? (
         <DecoFrame className="space-y-3 p-5 text-center" corners={false}>
           <p className={`font-display text-2xl ${view.status === "won" ? "text-ecto" : "text-[#d08a8a]"}`}>{view.status === "won" ? t.seance.won : t.seance.lost}</p>
@@ -366,11 +352,6 @@ function SeanceTable({
       ) : (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-brass/30 bg-ink/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
           <div className="mx-auto flex max-w-[820px] flex-wrap items-center justify-center gap-2">
-            {view.hint.available && (
-              <Button variant="cursed" onClick={hint} disabled={busy || restoring} className="w-full sm:w-auto">
-                {t.seance.hint} <span className="text-xs text-ash">{t.seance.hintCost}</span>
-              </Button>
-            )}
             <Button variant="ghost" onClick={shuffle} disabled={busy || restoring}>{t.seance.shuffle}</Button>
             <Button variant="ghost" onClick={() => { setSelected([]); setMessage(null); }} disabled={busy || selected.length === 0}>{t.seance.deselect}</Button>
             <Button onClick={submit} disabled={busy || restoring || selected.length !== 4} aria-describedby="seance-count" className="min-w-28">

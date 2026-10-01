@@ -1,5 +1,5 @@
 // Séance board generation (pure; unit-tested). Pick 4 categories and 4 heroes for each, then keep the
-// board only if the grouping has exactly one solution and a fair number of red herrings.
+// board only if the grouping has exactly one solution and no red herrings: no tile fits a category it is not part of.
 import type { SeanceBoxId, SeanceEntity, SeanceTable } from "@/locks.config";
 import type { Rng } from "../rng";
 import { tableTypes, type LibraryCategory, type Rank, type SeanceGroup, type SeanceHero, type SeancePayload } from "./types";
@@ -7,11 +7,13 @@ import { tableTypes, type LibraryCategory, type Rank, type SeanceGroup, type Sea
 export const BOARD = {
   groups: 4,
   size: 4,
-  minHerrings: 2,
-  maxHerrings: 5,
+  /** A board has no red herrings: none of the 16 tiles matches a chosen category other than its own. */
+  minHerrings: 0,
+  maxHerrings: 0,
   /** Hero picks tried per category set, and in total, before the table is sealed for the day. */
   heroTries: 6,
-  attempts: 600,
+  /** Category sets tried (each is cheap to rule out) before the table is sealed for the day. */
+  attempts: 3000,
   /** No category repeats within this many days in the same table (capped by the pool size, see repeatWindow). */
   repeatDays: 14,
   /** Mixed tables: at least this many different category types among the 4 groups. */
@@ -130,7 +132,8 @@ export function pickHeroes(cats: LibraryCategory[], rng: Rng): number[][] | null
     const clean = rng.shuffle(avail.filter((h) => !fitsOther(h)));
     const n = Math.min(budget[i], decoys.length, BOARD.size);
     const pick = [...decoys.slice(0, n), ...clean.slice(0, BOARD.size - n)];
-    // Not enough clean heroes: top up with more decoys.
+    // Not enough clean tiles: only a board that allows red herrings may top up with tiles that fit another group.
+    if (pick.length < BOARD.size && BOARD.maxHerrings === 0) return null;
     for (const h of decoys.slice(n)) if (pick.length < BOARD.size) pick.push(h);
     out[i] = pick;
     pick.forEach((h) => used.add(h));
@@ -160,6 +163,12 @@ export type BoardInput = {
 
 export type BoardResult = { ok: true; payload: SeancePayload; attempts: number } | { ok: false; reason: string };
 
+/** With no red herrings allowed: every category needs 4 members that fit none of the other chosen categories. */
+export function cleanEnough(cats: LibraryCategory[]): boolean {
+  const sets = cats.map((c) => new Set(c.members));
+  return cats.every((c, i) => c.members.filter((h) => !sets.some((s, j) => j !== i && s.has(h))).length >= BOARD.size);
+}
+
 /**
  * Builds a board: fresh categories first, then (for the last third of the attempts) the whole pool.
  * Deterministic for a given rng seed and input.
@@ -174,8 +183,10 @@ export function generateBoard({ table, entity = "hero", categories, hero, recent
   for (let attempt = 0; attempt < BOARD.attempts; ) {
     const from = attempt < (BOARD.attempts * 2) / 3 && !tableFeasible(table, fresh) ? fresh : pool;
     const cats = pickCategories(table, from, rng);
-    if (!cats) { attempt += BOARD.heroTries; continue; }
-    for (let h = 0; h < BOARD.heroTries; h++, attempt++) {
+    attempt++;
+    if (!cats) continue;
+    if (BOARD.maxHerrings === 0 && !cleanEnough(cats)) { fails.overlap++; continue; }
+    for (let h = 0; h < BOARD.heroTries; h++) {
       const members = pickHeroes(cats, rng);
       if (!members) { fails.overlap++; continue; }
       const check = checkBoard(cats, members);
@@ -188,14 +199,14 @@ export function generateBoard({ table, entity = "hero", categories, hero, recent
       const heroes = rng.shuffle(members.flat()).map((id) => hero(id) ?? { id, name: `#${id}`, image: null });
       return {
         ok: true,
-        attempts: attempt + 1,
+        attempts: attempt,
         payload: { v: 1, mode: "seance", entity, table, source: "daily", heroes, groups, redHerrings: check.redHerrings },
       };
     }
   }
   return {
     ok: false,
-    reason: `no fair board in ${BOARD.attempts} attempts (${fails.ambiguous} ambiguous, ${fails.herrings} outside 2–5 red herrings, ${fails.overlap} too few distinct heroes)`,
+    reason: `no fair board in ${BOARD.attempts} attempts (${fails.ambiguous} ambiguous, ${fails.herrings} with red herrings, ${fails.overlap} category sets with too few tiles that fit only their own group)`,
   };
 }
 
