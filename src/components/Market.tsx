@@ -24,7 +24,7 @@ async function call(body: unknown): Promise<{ state?: State; result?: unknown; e
 function CosmeticChip({ c, name }: { c: Cosmetic; name: string }) {
   return (
     <span className={`inline-flex min-h-9 items-center rounded-sm border px-2 text-sm ${RARITY_CLS[c.rarity]}`}>
-      {c.slot === "title" ? c.value : c.slot === "color" ? <PlayerName name={name} color={c.value} /> : <span data-vault-theme={c.value} className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-brass" /><span className="h-3 w-3 rounded-full bg-velvet" />{c.name}</span>}
+      {c.slot === "title" ? c.value : c.slot === "color" ? <><PlayerName name={name} color={c.value} /><span className="ml-1.5 text-xs text-ash">{c.name}</span></> : <span data-vault-theme={c.value} className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-brass" /><span className="h-3 w-3 rounded-full bg-velvet" />{c.name}</span>}
     </span>
   );
 }
