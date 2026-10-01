@@ -106,6 +106,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
         description: renderTemplate(d.desc ?? "", vars),
         quip: d.quip ? renderTemplate(d.quip, vars) : null,
         tiers: [tierText(0), tierText(1), tierText(2)],
+        spiritDamage: Object.values(a.data.properties ?? {}).some((p) => p.css_class === "tech_damage" && (num(p.value) ?? 0) > 0),
       });
     });
 
@@ -128,6 +129,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
       },
       maxHealth: h.starting_stats?.max_health?.value ?? null,
       bulletDamage: w?.bullet_damage ?? null,
+      fireRate: w?.cycle_time ? Math.round(10 / w.cycle_time) / 10 : null,
       dps: w?.damage_per_second != null ? Math.round(w.damage_per_second * 10) / 10 : null,
       abilityClassNames: heroAbilities.map((a) => a.className),
     });

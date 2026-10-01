@@ -4,7 +4,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useAnimate } from "motion/react";
 import type { CatalogEntry } from "@/lib/engine/types";
-import { fuzzyScore } from "@/lib/text/normalize";
+import { fuzzyScore, normalize } from "@/lib/text/normalize";
 import { Icon, SlotDot } from "./ui";
 import { useMediaQuery } from "@/lib/client/hooks";
 import { t } from "@/lib/i18n/en";
@@ -39,15 +39,24 @@ function useShake(trigger: number | undefined) {
   return scope;
 }
 
+/** Name (and alias/group) matches first; entries that only match in their keywords (buffs, effects) follow. */
 function rank(entries: CatalogEntry[], q: string) {
   if (!q.trim()) return entries.map((e) => ({ e, s: 1 }));
-  return entries
+  const nq = normalize(q);
+  const named = entries
     .map((e) => ({
       e,
       s: Math.max(fuzzyScore(q, e.name), ...(e.aliases ?? []).map((a) => fuzzyScore(q, a) - 5), e.group ? fuzzyScore(q, e.group) - 30 : 0),
     }))
     .filter((x) => x.s > 0)
     .sort((a, b) => b.s - a.s || a.e.name.localeCompare(b.e.name));
+  if (nq.length < 3) return named;
+  const matched = new Set(named.map((x) => x.e.id));
+  const secondary = entries
+    .filter((e) => !matched.has(e.id) && e.keywords && normalize(e.keywords).includes(nq))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((e) => ({ e, s: 0.5 }));
+  return [...named, ...secondary];
 }
 
 export function GuessInput({ entries, guessed, placeholder, disabled, busy, shake, grouped, onGuess, autoFocus }: Props) {

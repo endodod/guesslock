@@ -34,7 +34,7 @@ export const en = {
     nextIn: "Next locks in",
     archiveBanner: "Archive — doesn't count toward your Ledger",
     sealed: "Sealed — back tomorrow",
-    states: { skipped: "Skipped", locked: "Locked", progress: (n: number) => `${n} ${n === 1 ? "guess" : "guesses"}`, opened: (n: number, s: number) => `Opened in ${n} · ${s} souls`, jammed: "Jammed", sealed: "Sealed" },
+    states: { skipped: "Skipped", locked: "Locked", progress: (n: number) => `${n} ${n === 1 ? "guess" : "guesses"}`, opened: (n: number, s: number) => `Opened in ${n} ${n === 1 ? "try" : "tries"} · ${s} souls`, jammed: "Jammed", sealed: "Sealed" },
   },
   lock: {
     placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "" },
@@ -44,7 +44,7 @@ export const en = {
     empty: "Nothing in this box today.",
     error: "The lock won't turn. Try again.",
     correct: "Click.",
-    openedIn: (n: number) => `Opened in ${n}.`,
+    openedIn: (n: number) => `Opened in ${n} ${n === 1 ? "try" : "tries"}.`,
     jammed: "The lock jammed.",
     triesLeft: (n: number) => `${n} ${n === 1 ? "try" : "tries"} left`,
     legend: "Legend",

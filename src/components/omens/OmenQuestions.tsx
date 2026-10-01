@@ -22,18 +22,16 @@ export function emptyDraft(s: OmenSnapshot): Draft {
 }
 
 /** Draft -> answer, or null while something required is missing. */
-export function draftAnswer(omen: OmenKind, d: Draft, s: OmenSnapshot): OmenAnswer | null {
+export function draftAnswer(omen: OmenKind, d: Draft): OmenAnswer | null {
   if (omen === "clash") {
     if (d.any === null) return null;
     const a: ClashAnswer = d.any ? { anyDeath: true, deaths: d.deaths, died: d.died } : { anyDeath: false, deaths: { amber: 0, sapphire: 0 }, died: [] };
     return a;
   }
   if (omen === "beast") {
-    if (d.any === null) return null;
-    if (d.any && (!d.killer || !d.claimer || d.claimer === "none")) return null;
-    const a: BeastAnswer = d.any
-      ? { killed: true, killer: d.killer, claimer: d.claimer as Team, rejuvs: d.rejuvs }
-      : { killed: false, killer: null, claimer: null, rejuvs: { amber: s.teams.amber.rejuvs, sapphire: s.teams.sapphire.rejuvs } };
+    // The midboss always falls: who kills it, and how many rejuvs each team has afterwards.
+    if (!d.killer) return null;
+    const a: BeastAnswer = { killed: true, killer: d.killer, claimer: d.killer, rejuvs: d.rejuvs };
     return a;
   }
   if (!d.claimer) return null;
@@ -94,7 +92,7 @@ export function OmenQuestions({
   pickedNames: string[]; onLockIn: () => void; busy?: boolean;
 }) {
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
-  const ready = draftAnswer(omen, draft, snapshot) !== null;
+  const ready = draftAnswer(omen, draft) !== null;
   const w = snapshot.window;
 
   return (
@@ -117,13 +115,12 @@ export function OmenQuestions({
 
       {omen === "beast" && (
         <>
-          <Choice label={`Is the midboss killed in the next ${w} s?`} value={draft.any} onChange={(v) => set({ any: v })} options={[{ v: true, label: "Yes" }, { v: false, label: "No" }]} />
-          <Choice label="Which team kills it?" value={draft.killer} disabled={draft.any === false} onChange={(v) => set({ killer: v })} options={teamOptions} />
-          <Choice label="Which team gets the rejuv?" value={draft.claimer === "none" ? null : draft.claimer} disabled={draft.any === false} onChange={(v) => set({ claimer: v })} options={teamOptions} />
-          <div className={`space-y-2 ${draft.any === false ? "opacity-40" : ""}`}>
-            <p className="text-paper">Rejuvs per team after the window</p>
-            <Stepper label="Amber" color="var(--amber)" value={draft.any === false ? snapshot.teams.amber.rejuvs : draft.rejuvs.amber} disabled={draft.any === false} onChange={(n) => set({ rejuvs: { ...draft.rejuvs, amber: n } })} />
-            <Stepper label="Sapphire" color="var(--sapphire)" value={draft.any === false ? snapshot.teams.sapphire.rejuvs : draft.rejuvs.sapphire} disabled={draft.any === false} onChange={(n) => set({ rejuvs: { ...draft.rejuvs, sapphire: n } })} />
+          <p className="text-sm text-ash">The midboss is killed within the next {w} s.</p>
+          <Choice label="Which team kills it?" value={draft.killer} onChange={(v) => set({ killer: v })} options={teamOptions} />
+          <div className="space-y-2">
+            <p className="text-paper">How many rejuvs does each team have afterwards?</p>
+            <Stepper label="Amber" color="var(--amber)" value={draft.rejuvs.amber} onChange={(n) => set({ rejuvs: { ...draft.rejuvs, amber: n } })} />
+            <Stepper label="Sapphire" color="var(--sapphire)" value={draft.rejuvs.sapphire} onChange={(n) => set({ rejuvs: { ...draft.rejuvs, sapphire: n } })} />
           </div>
         </>
       )}

@@ -23,10 +23,10 @@ export function pickPoints(picked: number[], actual: number[], max = 50): number
 
 const q = (id: string, label: string, guess: string, actual: string, points: number, max: number): QuestionResult => ({ id, label, guess, actual, points, max });
 
-export function scoreClash(g: ClashAnswer, a: ClashAnswer, names: (key: number) => string = (k) => `#${k + 1}`): OmenResult {
+export function scoreClash(g: ClashAnswer, a: ClashAnswer, names: (key: number) => string = (k) => `#${k + 1}`, window = 20): OmenResult {
   const list = (ks: number[]) => (ks.length ? ks.map(names).join(", ") : "Nobody");
   const questions = [
-    q("any", "Does anyone die in the next 30 s?", yesNo(g.anyDeath), yesNo(a.anyDeath), g.anyDeath === a.anyDeath ? 20 : 0, 20),
+    q("any", `Does anyone die in the next ${window} s?`, yesNo(g.anyDeath), yesNo(a.anyDeath), g.anyDeath === a.anyDeath ? 20 : 0, 20),
     q("amber", "Amber deaths", String(g.deaths.amber), String(a.deaths.amber), stepperPoints(g.deaths.amber, a.deaths.amber, 15), 15),
     q("sapphire", "Sapphire deaths", String(g.deaths.sapphire), String(a.deaths.sapphire), stepperPoints(g.deaths.sapphire, a.deaths.sapphire, 15), 15),
     q("who", "Who dies?", list(g.anyDeath ? g.died : []), list(a.died), pickPoints(g.anyDeath ? g.died : [], a.died), 50),
@@ -34,16 +34,12 @@ export function scoreClash(g: ClashAnswer, a: ClashAnswer, names: (key: number) 
   return { total: questions.reduce((s, x) => s + x.points, 0), questions };
 }
 
+/** The midboss always falls in the window: who kills it, and how many rejuvs each team has afterwards. */
 export function scoreBeast(g: BeastAnswer, a: BeastAnswer): OmenResult {
-  // A "No" answer disables the team questions; when the midboss survives, that is the right answer.
-  const killer = g.killed ? g.killer : null, claimer = g.killed ? g.claimer : null;
-  const bothExact = g.rejuvs.amber === a.rejuvs.amber && g.rejuvs.sapphire === a.rejuvs.sapphire;
-  const oneExact = g.rejuvs.amber === a.rejuvs.amber || g.rejuvs.sapphire === a.rejuvs.sapphire;
   const questions = [
-    q("killed", "Is the midboss killed in the next 60 s?", yesNo(g.killed), yesNo(a.killed), g.killed === a.killed ? 30 : 0, 30),
-    q("killer", "Which team kills it?", teamName(killer), teamName(a.killer), killer === a.killer ? 20 : 0, 20),
-    q("claimer", "Which team gets the rejuv?", teamName(claimer), teamName(a.claimer), claimer === a.claimer ? 25 : 0, 25),
-    q("rejuvs", "Rejuvs per team after the window", `${g.rejuvs.amber} / ${g.rejuvs.sapphire}`, `${a.rejuvs.amber} / ${a.rejuvs.sapphire}`, bothExact ? 25 : oneExact ? 12 : 0, 25),
+    q("killer", "Which team kills the midboss?", teamName(g.killer), teamName(a.killer), g.killer === a.killer ? 40 : 0, 40),
+    q("amber", "Amber rejuvs afterwards", String(g.rejuvs.amber), String(a.rejuvs.amber), stepperPoints(g.rejuvs.amber, a.rejuvs.amber, 30), 30),
+    q("sapphire", "Sapphire rejuvs afterwards", String(g.rejuvs.sapphire), String(a.rejuvs.sapphire), stepperPoints(g.rejuvs.sapphire, a.rejuvs.sapphire, 30), 30),
   ];
   return { total: questions.reduce((s, x) => s + x.points, 0), questions };
 }
@@ -57,8 +53,8 @@ export function scoreRift(g: RiftAnswer, a: RiftAnswer): OmenResult {
   return { total: questions.reduce((s, x) => s + x.points, 0), questions };
 }
 
-export function scoreOmen(omen: OmenKind, guess: OmenAnswer, actual: OmenAnswer, names?: (key: number) => string): OmenResult {
-  if (omen === "clash") return scoreClash(guess as ClashAnswer, actual as ClashAnswer, names);
+export function scoreOmen(omen: OmenKind, guess: OmenAnswer, actual: OmenAnswer, names?: (key: number) => string, window?: number): OmenResult {
+  if (omen === "clash") return scoreClash(guess as ClashAnswer, actual as ClashAnswer, names, window);
   if (omen === "beast") return scoreBeast(guess as BeastAnswer, actual as BeastAnswer);
   return scoreRift(guess as RiftAnswer, actual as RiftAnswer);
 }

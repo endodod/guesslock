@@ -5,6 +5,7 @@ import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData, SoundData } from "../context";
 import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta, SoundClipView, Tile } from "../types";
+import { normalize } from "../../text/normalize";
 
 // ---------- helpers ----------
 
@@ -217,10 +218,10 @@ export const incantation: ModeImpl<{ text: string; abilityName: string }> = {
 type BuildItem = { name: string; image: string | null; slot: string; lift: number };
 const BUILD_ITEMS = 8;
 
-export const belongings: ModeImpl<{ items: BuildItem[] }> = {
+export const belongings: ModeImpl<{ items: BuildItem[]; path?: number[] }> = {
   mode: "whose-build",
   candidates: (data) => heroPool(data, "whose-build"),
-  async build(c, { data, analytics }) {
+  async build(c, { data, analytics, abilityOrder }) {
     const h = data.hero(c.ref as number)!;
     let stats;
     try {
@@ -230,23 +231,34 @@ export const belongings: ModeImpl<{ items: BuildItem[] }> = {
     }
     const items = distinctiveItems(h.id, data, stats, h.setup);
     if (items.length < 5) throw new SkipCandidate(`not enough item data for ${h.name}`);
+    const path = abilityPath(data.abilitiesOf(h.id), await abilityOrder?.(h.id));
     return {
       v: 1, mode: "whose-build", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
-      clue: { items },
+      clue: { items, ...(path ? { path } : {}) },
     };
   },
   clue: (p, wrong, done) => ({
     kind: "build",
+    path: p.clue.path,
     items: p.clue.items.slice(0, done ? p.clue.items.length : 1 + wrong).map(({ name, image, slot }) => ({ name, image, slot })),
     total: p.clue.items.length,
   }),
   displayed: (p) => p.clue.items.map((i) => i.name),
 };
 
+/** Ability ids in point order -> ability slots 1-4; null when an id is unknown (the path is left out). */
+export function abilityPath(abilities: Pick<AbilityData, "id" | "slot">[], order: number[] | null | undefined): number[] | null {
+  if (!order?.length) return null;
+  const slots = new Map(abilities.map((a) => [a.id, a.slot]));
+  const path = order.map((id) => slots.get(id));
+  return path.every((s): s is number => s !== undefined) ? path : null;
+}
+
 /**
- * Most distinctive items for a hero: lift = hero pick rate / average pick rate across heroes.
- * Returns the top 8, ordered least distinctive first (the reveal order).
+ * Core items of a hero: the items that are both bought a lot on this hero and unusually popular on it
+ * (score = pick rate x lift, lift = hero pick rate / average pick rate across heroes).
+ * Returns the top 8, ordered least defining first (the reveal order).
  * Admin setup: banned items never show; pinned items always do, as the most telling (last) ones.
  */
 export function distinctiveItems(
@@ -264,7 +276,7 @@ export function distinctiveItems(
   const heroTotal = stats.heroMatches.get(heroId) ?? 0;
   if (heroTotal < config.analyticsMinHeroMatches) return pinned.length >= 5 ? pinned.reverse() : [];
   const heroesWithData = [...stats.heroMatches.entries()].filter(([, m]) => m >= config.analyticsMinHeroMatches);
-  const scored: BuildItem[] = [];
+  const scored: (BuildItem & { score: number })[] = [];
   for (const item of data.items) {
     if (ban.has(item.src.className)) continue;
     const pr = (stats.itemMatches.get(heroId)?.get(item.id) ?? 0) / heroTotal;
@@ -272,9 +284,10 @@ export function distinctiveItems(
     const avg =
       heroesWithData.reduce((sum, [hid, m]) => sum + (stats.itemMatches.get(hid)?.get(item.id) ?? 0) / m, 0) / heroesWithData.length;
     if (avg <= 0) continue;
-    scored.push({ name: item.name, image: item.image, slot: item.src.slot, lift: Math.round((pr / avg) * 1000) / 1000 });
+    const lift = pr / avg;
+    scored.push({ name: item.name, image: item.image, slot: item.src.slot, lift: Math.round(lift * 1000) / 1000, score: pr * lift });
   }
-  return [...pinned, ...scored.sort((a, b) => b.lift - a.lift || a.name.localeCompare(b.name))]
+  return [...pinned, ...scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name)).map(({ name, image, slot, lift }) => ({ name, image, slot, lift }))]
     .slice(0, BUILD_ITEMS)
     .reverse();
 }
@@ -356,12 +369,23 @@ export const cipher: ModeImpl<{ emojis: string[] }> = {
 
 // ---------- IX. The Echo (quote) ----------
 
-type EchoLine = { text: string; audio: string | null };
+/** `to` = the hero the line is spoken to, when the wiki lists it under that hero. */
+type EchoLine = { text: string; audio: string | null; to?: string | null };
 export const ECHO_MIN_LINES = 5;
+
+const TO_PREFIX = /^(?:interactions? with|talking to|speaking to|spoken to|against|versus|vs|with|to)s+/i;
+
+/** The hero a voice line is addressed to: its wiki section names another hero ("Abrams", "To Abrams"). */
+export function echoTarget(section: string | undefined, heroes: Pick<HeroData, "id" | "name" | "aliases">[], selfId: number): string | null {
+  if (!section) return null;
+  const key = normalize(section.replace(TO_PREFIX, ""));
+  const hit = heroes.find((x) => x.id !== selfId && [x.name, ...x.aliases].some((n) => normalize(n) === key));
+  return hit?.name ?? null;
+}
 
 /** 4 regular lines in seeded order, then a starred (iconic) line last if one exists. */
 export function pickEchoLines(
-  lines: { text: string; audio: string | null; starred: boolean }[],
+  lines: { text: string; audio: string | null; starred: boolean; to?: string | null }[],
   rng: { shuffle<T>(a: readonly T[]): T[] },
 ): EchoLine[] {
   const starred = rng.shuffle(lines.filter((l) => l.starred));
@@ -369,7 +393,7 @@ export function pickEchoLines(
   const last = starred[0];
   const pool = [...regular, ...starred.slice(1)];
   const picked = last ? [...pool.slice(0, 4), last] : pool.slice(0, 5);
-  return picked.map(({ text, audio }) => ({ text, audio }));
+  return picked.map(({ text, audio, to }) => ({ text, audio, ...(to ? { to } : {}) }));
 }
 
 export const echo: ModeImpl<{ lines: EchoLine[] }> = {
@@ -377,7 +401,7 @@ export const echo: ModeImpl<{ lines: EchoLine[] }> = {
   candidates: (data) => heroPool(data, "quote", (h) => !h.genericVoice && data.voiceLines(h.id).length >= ECHO_MIN_LINES),
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
-    const lines = pickEchoLines(data.voiceLines(h.id), rng);
+    const lines = pickEchoLines(data.voiceLines(h.id).map((l) => ({ ...l, to: echoTarget(l.section, data.heroes, h.id) })), rng);
     return {
       v: 1, mode: "quote",
       answer: { ...heroAnswer(h), extra: { lines } },
@@ -389,7 +413,7 @@ export const echo: ModeImpl<{ lines: EchoLine[] }> = {
   },
   clue: (p, wrong, done) => ({
     kind: "echo",
-    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l) => ({ text: l.text, audio: done ? l.audio : null })),
+    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l) => ({ text: l.text, audio: done ? l.audio : null, to: l.to ?? null })),
     total: p.clue.lines.length,
   }),
   displayed: (p) => p.clue.lines.map((l) => l.text),

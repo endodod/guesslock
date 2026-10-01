@@ -3,7 +3,7 @@
 import { makeRng } from "../rng";
 import { MIDBOSS_POS, dist, objectiveKey, toMap } from "./ingest";
 import {
-  TEAMS, type BeastAnswer, type ClashAnswer, type MatchTimeline, type OmenAnswer, type OmenKind,
+  PREVIEW_SECONDS, TEAMS, type BeastAnswer, type ClashAnswer, type MatchTimeline, type OmenAnswer, type OmenKind,
   type OmenSnapshot, type OmenWindow, type RiftAnswer, type RiftEpisode, type Team, type WindowEvent,
 } from "./types";
 
@@ -17,7 +17,7 @@ export type OmenTuning = {
   positiveShare: number;
 };
 export const DEFAULT_TUNING: OmenTuning = {
-  clashWindow: 30, clashLead: [10, 20], clashFightRange: 3000, clashMinPerTeam: 3,
+  clashWindow: 20, clashLead: [10, 20], clashFightRange: 3000, clashMinPerTeam: 3,
   // Nobody fights the midboss before ~10 min (earliest kill in the spike set: 16:11).
   beastWindow: 60, beastLead: [30, 50], beastPitRadius: 3000, beastMinHeroes: 3, beastSkipStart: 600,
   riftLead: [15, 25], riftDeathRadius: 3000,
@@ -85,6 +85,8 @@ export function detectClash(tl: MatchTimeline, seed: string, tuning = DEFAULT_TU
     const lead = tuning.clashLead[0] + rng.int(tuning.clashLead[1] - tuning.clashLead[0] + 1);
     const t = cluster[0].t - lead;
     if (t < tuning.skipStart || !windowUsable(tl, t - 10, t + W)) continue;
+    // The first seconds are shown before the prediction: no other death may happen in them.
+    if (deaths.some((d) => d !== cluster[0] && d.t >= t && d.t < t + PREVIEW_SECONDS)) continue;
     const focus = { x: cluster[0].x, y: cluster[0].y };
     out.push({ omen: "clash", t, window: W, positive: true, quality: quality(tl, t, focus, tuning), focus });
   }
@@ -128,13 +130,7 @@ export function detectBeast(tl: MatchTimeline, seed: string, tuning = DEFAULT_TU
     if (t < tuning.beastSkipStart || !midbossAliveAt(tl, t) || !windowUsable(tl, t - 10, t + W)) continue;
     out.push({ omen: "beast", t, window: W, positive: true, quality: quality(tl, t, MIDBOSS_POS, tuning), focus: MIDBOSS_POS });
   }
-  // Negative: the midboss is up and heroes are in the pit, but it survives the whole window.
-  for (let t = tuning.beastSkipStart; t + W <= tl.duration; t += tuning.sampleEvery) {
-    if (!midbossAliveAt(tl, t) || tl.midboss.kills.some((k) => k.t >= t && k.t <= t + W)) continue;
-    const inPit = tl.players.filter((p) => (p.hp[t] ?? 0) > 0 && dist(p.x[t], p.y[t], MIDBOSS_POS.x, MIDBOSS_POS.y) <= tuning.beastPitRadius).length;
-    if (inPit < tuning.beastMinHeroes || !windowUsable(tl, t - 10, t + W)) continue;
-    out.push({ omen: "beast", t, window: W, positive: false, quality: quality(tl, t, MIDBOSS_POS, tuning), focus: MIDBOSS_POS });
-  }
+  // Only scenarios where the midboss falls: the questions are who kills it and who gets how many rejuvs.
   return out;
 }
 
@@ -145,8 +141,9 @@ export function detectRift(tl: MatchTimeline, seed: string, tuning = DEFAULT_TUN
     const lead = tuning.riftLead[0] + rng.int(tuning.riftLead[1] - tuning.riftLead[0] + 1);
     const t = r.openAt - lead;
     const window = r.endAt + 3 - t;
-    if (t < tuning.skipStart || !windowUsable(tl, t - 10, t + window)) continue;
-    const focus = r.pos ?? { x: 0, y: 0 };
+    // The rift position is shown from the start, so it needs one (a rift nobody touched has none).
+    if (!r.pos || t < tuning.skipStart || !windowUsable(tl, t - 10, t + window)) continue;
+    const focus = r.pos;
     out.push({ omen: "rift", t, window, positive: r.claimedBy !== null, quality: quality(tl, t, focus, tuning), focus });
   }
   return out;
@@ -218,7 +215,7 @@ export function buildSnapshot(tl: MatchTimeline, c: Candidate): OmenSnapshot {
       // Only show a spawn timer the game itself would display (next spawn within the window).
       spawnsIn: !midbossAliveAt(tl, t) && nextSpawn !== null && nextSpawn - t <= c.window ? nextSpawn - t : null,
     },
-    rift: rift ? { opensIn: rift.openAt - t } : null,
+    rift: rift ? { opensIn: rift.openAt - t, ...(rift.pos ? { pos: toMap(rift.pos.x, rift.pos.y) } : {}) } : null,
   };
 }
 

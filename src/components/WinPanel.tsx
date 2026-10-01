@@ -122,7 +122,7 @@ export function WinPanel({
           {a.sub && <p className="text-ash">{a.sub}</p>}
           <p className="mt-1 text-paper/90">
             {won ? t.lock.openedIn(n) : view.gaveUp ? t.lock.gaveUp : ""}{" "}
-            <span className="text-brass"><CountUp to={souls} /> {t.lock.souls}</span>
+            <span className="text-brass">{won ? "You gain " : ""}<CountUp to={souls} /> {t.lock.souls}</span>
           </p>
         </div>
       </div>

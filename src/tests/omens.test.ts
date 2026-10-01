@@ -52,7 +52,10 @@ describe("Omens: scenarios", () => {
 
   it("detects positive and negative moments, reproducibly", () => {
     expect(clash.some((c) => c.positive) && clash.some((c) => !c.positive)).toBe(true);
-    expect(beast.filter((c) => c.positive)).toHaveLength(1);
+    expect(clash.every((c) => c.window === 20)).toBe(true);
+    // The Beast only ever picks moments where the midboss falls.
+    expect(beast).toHaveLength(1);
+    expect(beast.every((c) => c.positive)).toBe(true);
     expect(rift).toHaveLength(3);
     expect(detect("clash", tl, "s")).toEqual(clash);
   });
@@ -62,8 +65,6 @@ describe("Omens: scenarios", () => {
     expect(b.t).toBeGreaterThanOrEqual(1249 - 50);
     expect(b.t).toBeLessThanOrEqual(1249 - 30);
     expect(buildAnswer(tl, b)).toEqual({ killed: true, killer: "amber", claimer: "amber", rejuvs: { amber: 1, sapphire: 0 } });
-    const noKill = beast.find((c) => !c.positive)!;
-    expect(buildAnswer(tl, noKill)).toMatchObject({ killed: false, killer: null, claimer: null });
     expect((buildAnswer(tl, rift[2]) as RiftAnswer).claimer).toBe("sapphire");
 
     for (const c of clash) {
@@ -84,7 +85,7 @@ describe("Omens: scenarios", () => {
       for (const h of s.heroes) expect([...h.items].sort()).toEqual(owned(tl.players[h.key].slot, c.t));
     }
     const c = rift[0];
-    expect(buildSnapshot(tl, c).rift).toEqual({ opensIn: tl.rifts[0].openAt - c.t });
+    expect(buildSnapshot(tl, c).rift).toEqual({ opensIn: tl.rifts[0].openAt - c.t, pos: toMap(tl.rifts[0].pos!.x, tl.rifts[0].pos!.y) });
   });
 
   it("keeps the positive/negative mix within ±10% over 200 scenarios", () => {
@@ -120,11 +121,12 @@ describe("Omens: scoring", () => {
     expect(stepperPoints(2, 1, 15)).toBe(7);
   });
 
-  it("Beast: a No answer is fully right when the midboss survives", () => {
-    const none: BeastAnswer = { killed: false, killer: null, claimer: null, rejuvs: { amber: 1, sapphire: 0 } };
-    expect(scoreBeast({ ...none, killer: "amber" }, none).total).toBe(100);
-    const steal: BeastAnswer = { killed: true, killer: "amber", claimer: "sapphire", rejuvs: { amber: 1, sapphire: 1 } };
-    expect(scoreBeast({ ...steal, claimer: "amber", rejuvs: { amber: 2, sapphire: 0 } }, steal).total).toBe(50);
+  it("Beast: who kills it, and how many rejuvs each team has", () => {
+    const a: BeastAnswer = { killed: true, killer: "amber", claimer: "sapphire", rejuvs: { amber: 1, sapphire: 1 } };
+    expect(scoreBeast(a, a).total).toBe(100);
+    // Right killer, both counts off by one: 40 + 15 + 15.
+    expect(scoreBeast({ ...a, rejuvs: { amber: 2, sapphire: 0 } }, a).total).toBe(70);
+    expect(scoreBeast({ ...a, killer: "sapphire", rejuvs: { amber: 4, sapphire: 4 } }, a).total).toBe(0);
   });
 
   it("Rift: claimer and deaths", () => {

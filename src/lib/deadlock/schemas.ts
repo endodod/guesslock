@@ -42,6 +42,7 @@ export const PropertySchema = z.object({
   usage_flags: z.array(z.string()).nullish(),
   conditional: z.unknown().optional(),
   scale_function: z.unknown().optional(),
+  css_class: optStr,
   provided_property_type: optStr,
   negative_attribute: optBool,
 });
@@ -63,7 +64,7 @@ export const ItemBaseSchema = z.object({
 
 export const WeaponSchema = ItemBaseSchema.extend({
   weapon_info: z
-    .object({ bullet_damage: z.number().nullish(), damage_per_second: z.number().nullish() })
+    .object({ bullet_damage: z.number().nullish(), damage_per_second: z.number().nullish(), cycle_time: z.number().nullish() })
     .nullish(),
 });
 

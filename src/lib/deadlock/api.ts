@@ -103,6 +103,25 @@ export async function fetchClientVersion(backup: BackupMode = "none"): Promise<n
   }
 }
 
+/**
+ * The most played ability point order of a hero (ability ids, one per upgrade point) over the analytics window,
+ * or null when the API has nothing or is down: The Belongings then simply goes without a level path.
+ */
+export async function fetchAbilityOrder(heroId: number, now = new Date()): Promise<number[] | null> {
+  const min = Math.floor(now.getTime() / 1000) - config.analyticsDays * 86400;
+  try {
+    const rows = await fetchJson(
+      `/v1/analytics/ability-order-stats?hero_id=${heroId}&min_unix_timestamp=${min}&min_average_badge=${config.analyticsMinBadge}&min_matches=50`,
+      { timeoutMs: 30000, retries: 1 },
+    );
+    const parsed = z.array(z.object({ abilities: z.array(z.number()), matches: z.number() })).parse(rows);
+    const best = parsed.filter((r) => r.abilities.length >= 12).sort((a, b) => b.matches - a.matches)[0];
+    return best?.abilities ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export type HeroItemStats = {
   /** heroId -> total matches in the window */
   heroMatches: Map<number, number>;

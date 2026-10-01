@@ -3,6 +3,8 @@
 
 export type OmenKind = "clash" | "beast" | "rift";
 export type Team = "amber" | "sapphire";
+/** Seconds of the window the player may watch before predicting (positions only; every Omen is built so the answer is still open). */
+export const PREVIEW_SECONDS = 10;
 /** Metadata lobby team 0 is Amber (Hidden King, bottom base); 1 is Sapphire (Archmother). See docs/omens-data-spike.md. */
 export const TEAMS: readonly Team[] = ["amber", "sapphire"];
 export const teamOf = (lobbyTeam: number): Team => (lobbyTeam === 0 ? "amber" : "sapphire");
@@ -91,7 +93,8 @@ export type OmenSnapshot = {
   /** Objective map keys as in /v1/assets/map objective_positions (e.g. "team0_tier1_1"). */
   objectives: { key: string; team: Team; alive: boolean }[];
   midboss: { alive: boolean; killedAt: number | null; spawnsIn: number | null };
-  rift: { opensIn: number } | null;
+  /** `pos` = where it opens (map-relative), so the lane is known before it does. */
+  rift: { opensIn: number; pos?: [number, number] } | null;
 };
 
 export type WindowEvent =

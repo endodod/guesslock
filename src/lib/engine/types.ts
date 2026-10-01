@@ -38,9 +38,9 @@ export type Clue =
   | { kind: "splash"; image: string; zoom: number; originX: number; originY: number }
   | { kind: "sigil"; image: string; grid: number; covered: number[] }
   | { kind: "text"; sections: { label?: string; text: string }[]; total: number; image?: string | null }
-  | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number }
+  | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number; /** Ability slots (1-4) in the order the points are spent. */ path?: number[] }
   | { kind: "emoji"; slots: (string | null)[] }
-  | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number }
+  | { kind: "echo"; lines: { text: string; audio?: string | null; to?: string | null }[]; total: number }
   | { kind: "sound"; clips: SoundClipView[]; total: number }
   | { kind: "relic"; image: string; blur: number; rotation: number }
   | {
@@ -66,7 +66,7 @@ export type AnswerView = {
   extra?: {
     alsoValid?: { name: string; image: string | null }[];
     exactValue?: string;
-    lines?: { text: string; audio?: string | null }[];
+    lines?: { text: string; audio?: string | null; to?: string | null }[];
     hero?: { name: string; image: string | null };
     /** The Resonance, when the lock jammed (there's no bonus round to protect then). */
     ability?: { name: string; image: string | null };
@@ -110,6 +110,8 @@ export type CatalogEntry = {
   group?: string; // hero name for abilities, slot for items
   slot?: string;
   aliases?: string[];
+  /** Secondary search text (stat buffs, effects). Matches rank below name matches. */
+  keywords?: string;
 };
 
 export type Catalog = { hero: CatalogEntry[]; ability: CatalogEntry[]; item: CatalogEntry[] };

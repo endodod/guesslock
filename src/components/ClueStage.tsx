@@ -1,6 +1,6 @@
 "use client";
 // Clue stage renderers for the 14 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Clue, GuessRow } from "@/lib/engine/types";
 import { CENSOR } from "@/lib/text/redact";
@@ -81,12 +81,11 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
               <AnimatePresence>
                 {covered.has(i) && (
                   <motion.div
-                    className="absolute inset-[1px] rounded-[2px] border border-brass/40 bg-[linear-gradient(145deg,#3a3129,#1d1a16)] shadow-[inset_0_1px_0_rgba(201,164,92,0.25)]"
+                    className="absolute -inset-px bg-[#2a241e]"
                     initial={false}
                     exit={{ y: 40, opacity: 0 }}
                     transition={{ duration: 0.35, ease: "easeIn" }}
                   >
-                    <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brass/40" />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -126,9 +125,33 @@ function TextStage({ clue, done }: { clue: Extract<Clue, { kind: "text" }>; done
   );
 }
 
+const PATH_LABELS = ["1", "2", "3", "Ult"];
+
+/** Order the hero's ability points are spent: one row per ability slot, one column per point. */
+function AbilityPath({ path }: { path: number[] }) {
+  return (
+    <div className="mt-4 border-t border-brass/20 pt-3" role="img" aria-label={`Ability point order: ${path.map((s) => PATH_LABELS[s - 1]).join(", ")}`}>
+      <p className="smallcaps mb-2 text-xs text-brass">Ability level path</p>
+      <div className="grid items-center gap-x-1 gap-y-1 font-mono text-[0.65rem]" style={{ gridTemplateColumns: `2rem repeat(${path.length}, minmax(0, 1fr))` }}>
+        <span />
+        {path.map((_, i) => <span key={i} className="text-center text-ash/70">{i + 1}</span>)}
+        {PATH_LABELS.map((label, row) => (
+          <Fragment key={label}>
+            <span className="text-ash">{label}</span>
+            {path.map((s, i) => (
+              <span key={i} className={`h-4 rounded-[2px] ${s === row + 1 ? "bg-brass" : "bg-ink/60"}`} />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BuildStage({ clue }: { clue: Extract<Clue, { kind: "build" }> }) {
   return (
     <div className="clue-layer rounded-sm border border-brass/40 bg-[radial-gradient(ellipse_at_top,#5a2429,#2a0f12)] p-4 shadow-[inset_0_0_30px_rgba(0,0,0,0.7)]">
+      <p className="smallcaps mb-3 text-xs text-brass">The core items that define this hero&apos;s build</p>
       <ul className="grid grid-cols-4 gap-3">
         {Array.from({ length: clue.total }, (_, i) => {
           const it = clue.items[i];
@@ -154,6 +177,7 @@ function BuildStage({ clue }: { clue: Extract<Clue, { kind: "build" }> }) {
           );
         })}
       </ul>
+      {clue.path && <AbilityPath path={clue.path} />}
     </div>
   );
 }
@@ -223,7 +247,10 @@ export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue
               className="paper relative flex items-start gap-3 rounded-sm py-3 pl-8 pr-4 font-mono text-[0.95rem] shadow"
             >
               <span className="absolute left-2.5 top-3.5 h-3 w-3 rounded-full bg-[radial-gradient(circle_at_35%_35%,#f1d69a,#8f743f)] shadow" aria-hidden />
-              <span className="flex-1">“<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”</span>
+              <span className="flex-1">
+                <span className="mb-0.5 block text-xs text-[#7a5a1c]">{l.to ? `To ${l.to}` : "To no one in particular"}</span>
+                “<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”
+              </span>
               {showAudio && l.audio && <AudioButton src={l.audio} small />}
             </motion.li>
           );
@@ -349,19 +376,27 @@ function MeasureStage({ clue, rows }: { clue: Extract<Clue, { kind: "measure" }>
           ))}
         </ul>
       </div>
-      <div className="relative w-14 shrink-0 rounded-sm border border-brass/40 bg-ink/70" aria-label="Guess dial">
-        {(low !== null || high !== null) && (
+      <div className="flex w-20 shrink-0 flex-col" role="img" aria-label="Guess gauge">
+        <span className="smallcaps mb-1 text-center text-[0.6rem] text-ash">High</span>
+        <div className="relative flex-1 min-h-48 rounded-full border border-brass/50 bg-[linear-gradient(180deg,#2a241e,#12100e)] shadow-[inset_0_0_14px_rgba(0,0,0,0.85)]">
+          {/* tick marks */}
+          {[0, 25, 50, 75, 100].map((p) => (
+            <span key={p} className="absolute left-1/2 h-px w-3 -translate-x-1/2 bg-brass/30" style={{ top: `${p}%` }} />
+          ))}
+          {/* the range the answer can still be in */}
           <div
-            className="absolute inset-x-1 rounded-sm bg-ecto/15 ring-1 ring-ecto/40 transition-all duration-500"
+            className="absolute inset-x-1 rounded-full bg-ecto/20 shadow-[0_0_14px_rgba(127,227,194,0.3)] ring-1 ring-ecto/50 transition-all duration-500"
             style={{ top: `${high === null ? 0 : pct(high)}%`, bottom: `${low === null ? 0 : 100 - pct(low)}%` }}
           />
-        )}
-        {rows.map((r, i) => (
-          <div key={i} className="absolute inset-x-0 flex items-center justify-between px-1 font-mono text-[0.65rem]" style={{ top: `calc(${pct(Number(r.id))}% - 0.5em)` }}>
-            <span className="h-px w-2 bg-brass" />
-            <span className={r.correct ? "text-ecto" : "text-paper"}>{r.id}</span>
-          </div>
-        ))}
+          {rows.map((r, i) => (
+            <div key={i} className="absolute inset-x-0 flex -translate-y-1/2 items-center justify-center" style={{ top: `${pct(Number(r.id))}%` }}>
+              <span className={`rounded-full border px-1.5 py-px font-mono text-[0.65rem] shadow ${r.correct ? "border-ecto bg-ecto/20 text-ecto" : "border-brass/60 bg-ink text-paper"}`}>
+                {r.arrow === "up" ? "▲ " : r.arrow === "down" ? "▼ " : ""}{r.id}
+              </span>
+            </div>
+          ))}
+        </div>
+        <span className="smallcaps mt-1 text-center text-[0.6rem] text-ash">Low</span>
       </div>
     </DecoFrame>
   );

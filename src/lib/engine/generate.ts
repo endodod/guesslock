@@ -5,7 +5,7 @@ import { LOCKS, type LockDef } from "@/locks.config";
 import { makeRng, puzzleSeed } from "../rng";
 import { addDays } from "../time";
 import { dayIndex, todayDate } from "../day";
-import { fetchHeroItemStats, type HeroItemStats } from "../deadlock/api";
+import { fetchAbilityOrder, fetchHeroItemStats, type HeroItemStats } from "../deadlock/api";
 import { loadGameData, type GameData } from "./context";
 import { MODES } from "./registry";
 import { SealedError, SkipCandidate, type BasePayload, type Candidate } from "./mode";
@@ -82,7 +82,7 @@ export async function buildPuzzle(
   }
   for (const candidate of order.slice(0, 8)) {
     try {
-      const payload = await impl.build(candidate, { data, rng: makeRng(`${seed}|build`), date, dayIndex: idx, analytics });
+      const payload = await impl.build(candidate, { data, rng: makeRng(`${seed}|build`), date, dayIndex: idx, analytics, abilityOrder: fetchAbilityOrder });
       return { candidate, payload };
     } catch (e) {
       if (e instanceof SkipCandidate) continue;

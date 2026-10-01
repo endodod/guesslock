@@ -168,7 +168,7 @@ export async function recordOmen(
   const existing = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } });
   if (existing?.omen) return { answers: existing.omen as unknown as OmenAnswer, ranked: existing.source === "live" && !existing.archive };
   const payload = row.payload as OmenPayload;
-  const souls = scoreOmen(payload.omen, incoming, payload.answer).total;
+  const souls = scoreOmen(payload.omen, incoming, payload.answer, undefined, payload.snapshot.window).total;
   const archive = row.date < todayDate();
   await db.play.upsert({
     where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
@@ -255,7 +255,7 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
         const payload = row.payload as unknown as OmenPayload;
         await db.play.create({
           data: {
-            userId: user.id, date, lock: slug, guesses: [], status: "won", souls: scoreOmen(omen, answers, payload.answer).total,
+            userId: user.id, date, lock: slug, guesses: [], status: "won", souls: scoreOmen(omen, answers, payload.answer, undefined, payload.snapshot.window).total,
             omen: answers as unknown as Prisma.InputJsonValue, archive: !!rec.archive, source: "import", finishedAt: new Date(),
           },
         }).catch(() => undefined);

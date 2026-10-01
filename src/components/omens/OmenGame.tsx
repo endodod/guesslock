@@ -69,6 +69,9 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
   const s = view.snapshot;
   const reveal = view.reveal;
   const W = s.window;
+  // Before lock-in only the first seconds of the window can be watched; after it, all of it.
+  const win = reveal?.window ?? view.preview ?? null;
+  const limit = reveal ? W : Math.max(0, (win?.tracks[0]?.pos.length ?? 1) - 1);
 
   // Restore a locked-in Omen: fetch the reveal and show the final state.
   useEffect(() => {
@@ -86,15 +89,15 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
       const dt = Math.max(0, (now - last) / 1000);
       last = now;
       setTime((t) => {
-        const n = Math.min(W, t + dt * speed);
-        if (n >= W) setPlaying(false);
+        const n = Math.min(limit, t + dt * speed);
+        if (n >= limit) setPlaying(false);
         return n;
       });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, W]);
+  }, [playing, speed, limit]);
 
   const heroName = (key: number) => {
     const h = s.heroes[key];
@@ -103,19 +106,21 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
 
   // ───────── current frame ─────────
   const frame = useMemo(() => {
-    const events = reveal ? reveal.window.events.map((e) => ({ ...e, rel: e.t - s.t })) : [];
+    const events = win ? win.events.map((e) => ({ ...e, rel: e.t - s.t })) : [];
     const past = events.filter((e) => e.rel <= time);
     const heroes: MapHero[] = s.heroes.map((h) => {
       const base = { key: h.key, team: h.team, icon: cat.heroes[h.heroId]?.icon ?? null, label: reveal ? heroName(h.key) : `${TEAM_LABEL[h.team]} hero, level ${h.level}` };
-      const tr = reveal?.window.tracks[h.key];
-      if (!tr || (!reveal && time === 0)) return { ...base, pos: h.pos, trail: h.trail, hp: h.hp, maxHp: h.maxHp, alive: h.alive, respawnIn: h.respawnIn };
+      const tr = win?.tracks[h.key];
+      if (!tr || time === 0) return { ...base, pos: h.pos, trail: h.trail, hp: h.hp, maxHp: h.maxHp, alive: h.alive, respawnIn: h.respawnIn };
       const i = Math.max(0, Math.min(Math.floor(time), tr.pos.length - 1)), j = Math.min(i + 1, tr.pos.length - 1), f = Math.max(0, Math.min(1, time - i));
       const hp = tr.hp[i] <= 0 || tr.hp[j] <= 0 ? tr.hp[i] : lerp(tr.hp[i], tr.hp[j], f);
       const trail = Array.from({ length: 5 }, (_, k) => i - 5 + k).map((x) => (x >= 0 ? tr.pos[x] : h.trail[h.trail.length + x] ?? h.pos));
       const alive = hp > 0;
+      // A hero who died stays where they fell.
+      const fell = alive ? undefined : [...past].reverse().find((e) => e.type === "death" && e.key === h.key);
       return {
         ...base, alive, hp: Math.round(hp), maxHp: tr.maxHp[i],
-        pos: [lerp(tr.pos[i][0], tr.pos[j][0], f), lerp(tr.pos[i][1], tr.pos[j][1], f)] as [number, number],
+        pos: fell?.type === "death" ? fell.pos : ([lerp(tr.pos[i][0], tr.pos[j][0], f), lerp(tr.pos[i][1], tr.pos[j][1], f)] as [number, number]),
         trail, respawnIn: alive ? 0 : h.alive ? 0 : Math.max(0, Math.ceil(h.respawnIn - time)),
       };
     });
@@ -136,9 +141,10 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
         alive: s.midboss.alive && !midbossDead,
         label: !s.midboss.alive && s.midboss.killedAt !== null ? `down since ${clock(s.midboss.killedAt)}` : s.midboss.spawnsIn !== null ? `spawns in ${s.midboss.spawnsIn}s` : undefined,
       },
-      riftPos: riftOpen ? reveal?.window.riftPos ?? null : null,
+      // The rift icon is there from the start (its lane), not only once it opens.
+      riftPos: s.rift?.pos ?? (riftOpen ? reveal?.window.riftPos ?? null : null),
     };
-  }, [s, reveal, time, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [s, reveal, win, time, cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selected = useMemo(() => new Set(reveal ? [] : draft.died), [draft.died, reveal]);
   const selectable = omen === "clash" && !reveal && draft.any !== false;
@@ -148,7 +154,7 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
   };
 
   const lockIn = async () => {
-    const answers = draftAnswer(omen, draft, s);
+    const answers = draftAnswer(omen, draft);
     if (!answers) return;
     setConfirm(false);
     setBusy(true);
@@ -190,9 +196,9 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="smallcaps text-xs text-ash">Game time</p>
-          <p className="font-mono text-4xl leading-none text-paper md:text-5xl">{clock(s.t + (reveal ? time : 0))}</p>
+          <p className="font-mono text-4xl leading-none text-paper md:text-5xl">{clock(s.t + time)}</p>
         </div>
-        {s.rift && !reveal && <p className="rounded-sm border border-ecto/40 bg-ecto/10 px-3 py-1.5 text-sm text-ecto">The Unstable Rift opens in {s.rift.opensIn}s</p>}
+        {s.rift && !reveal && <p className="rounded-sm border border-ecto/40 bg-ecto/10 px-3 py-1.5 text-sm text-ecto">The Unstable Rift opens in {Math.max(0, s.rift.opensIn - Math.floor(time))}s{s.rift.pos ? " at the marked spot" : ""}</p>}
         {myKey !== null && <p className="rounded-sm border border-brass/40 px-3 py-1.5 text-sm text-brass">You: {TEAM_LABEL[s.heroes[myKey].team]}, level {s.heroes[myKey].level}</p>}
       </div>
 
@@ -255,6 +261,16 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
         </>
       ) : (
         <DecoFrame className="p-4 md:p-6" corners={false}>
+          {limit > 0 && (
+            <div className="mb-5 space-y-1.5">
+              <p className="text-sm text-ash">Watch the first {limit} s of the next {W} s. Then predict how it ends.</p>
+              <Playback
+                W={limit} time={time} setTime={(t) => { setPlaying(false); setTime(t); }} playing={playing}
+                toggle={() => { if (time >= limit) setTime(0); setPlaying((p) => !p); }}
+                speed={speed} setSpeed={setSpeed} events={win?.events ?? []} t0={s.t}
+              />
+            </div>
+          )}
           <h2 className="smallcaps mb-4 text-sm text-brass">Your prediction</h2>
           <OmenQuestions
             omen={omen} snapshot={s} draft={draft} setDraft={setDraft}

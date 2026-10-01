@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
 import { ignoredSlugs, lockStats, type LockRecord } from "@/lib/client/store";
@@ -49,6 +49,8 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   // Bumped on every wrong guess so the input can shake.
   const [wrongPulse, setWrongPulse] = useState(0);
+  // The "Click." popup, shown when a guess opens the lock (not when a finished lock is restored).
+  const [popup, setPopup] = useState<{ tries: number; souls: number } | null>(null);
   const isArchive = date < today;
   const noHints = store.settings.noHints;
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
@@ -99,6 +101,12 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     }
   }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!popup) return;
+    const id = setTimeout(() => setPopup(null), 2600);
+    return () => clearTimeout(id);
+  }, [popup]);
+
   const guessed = useMemo(() => new Set(view.rows.map((r) => r.id)), [view.rows]);
   const done = view.status === "won" || view.status === "lost";
 
@@ -114,6 +122,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       persist(v, guesses);
       if (v.status === "won") {
         play("click");
+        setPopup({ tries: v.rows.length, souls: soulsFor({ won: true, guesses: v.rows.length, hintsUsed: noHints ? 0 : v.hintsUsed }) });
         const dayRecs = { ...(store.progress[date] ?? {}), [slug]: { s: "won" } };
         if (available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
@@ -252,6 +261,27 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       </motion.div>
 
       {restoring && <KeyholeLoader />}
+
+      <AnimatePresence>
+        {popup && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setPopup(null)}
+          >
+            <motion.div
+              role="status"
+              className="deco rounded-md px-8 py-6 text-center"
+              initial={{ scale: 0.85, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 26 }}
+            >
+              <p className="font-display text-4xl text-ecto">{t.lock.correct}</p>
+              <p className="mt-2 text-paper">{t.lock.openedIn(popup.tries)}</p>
+              <p className="text-brass">You gain {popup.souls} {t.lock.souls}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {done ? (
         <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={shareGridText} dist={stats.dist} nextHref={nextHref} onBonus={onBonus} />

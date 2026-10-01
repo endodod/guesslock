@@ -40,7 +40,6 @@ type Props = {
 
 const S = 1000; // viewBox size
 export const TEAM_COLOR: Record<Team, string> = { amber: "var(--amber)", sapphire: "var(--sapphire)" };
-const BASE: Record<Team, string> = { amber: "team0_core", sapphire: "team1_core" };
 
 type View = { x: number; y: number; w: number };
 const clampView = (v: View): View => {
@@ -64,6 +63,8 @@ export function OmenMap({
   selected, hovered, onHover, onToggle, selectable,
 }: Props) {
   const [view, setView] = useState<View>({ x: 0, y: 0, w: S });
+  // Hero icon size (1 = default): smaller icons make a crowded fight readable.
+  const [iconScale, setIconScale] = useState(1);
   const svgRef = useRef<SVGSVGElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const drag = useRef<{ view: View; dist?: number; start: { x: number; y: number }; moved: boolean } | null>(null);
@@ -132,15 +133,8 @@ export function OmenMap({
     if (selectable) onToggle?.(key);
   };
 
-  // Dead heroes wait at their base, side by side.
-  const deadIndex = new Map<number, number>();
-  for (const team of ["amber", "sapphire"] as Team[]) heroes.filter((h) => h.team === team && !h.alive).forEach((h, i) => deadIndex.set(h.key, i));
-  const heroXY = (h: MapHero): [number, number] => {
-    if (h.alive) return [h.pos[0] * S, h.pos[1] * S];
-    const base = objectivePositions[BASE[h.team]] ?? (h.team === "amber" ? [0.3, 0.92] : [0.41, 0.03]);
-    const i = deadIndex.get(h.key) ?? 0;
-    return [base[0] * S + (i - 2.5) * 34, base[1] * S + (h.team === "amber" ? -26 : 26)];
-  };
+  // Dead heroes stay where they fell, greyed out with a skull and their respawn timer.
+  const heroXY = (h: MapHero): [number, number] => [h.pos[0] * S, h.pos[1] * S];
 
   const zoomLabel = Math.round((S / view.w) * 100);
 
@@ -187,9 +181,11 @@ export function OmenMap({
         </g>
 
         {riftPos && (
-          <g transform={`translate(${riftPos[0] * S} ${riftPos[1] * S})`}>
-            <circle r="24" fill="none" stroke="var(--ecto)" strokeWidth="2" strokeDasharray="5 4" />
-            <text y="-30" textAnchor="middle" className="fill-ecto font-mono" fontSize="12">Rift</text>
+          <g transform={`translate(${riftPos[0] * S} ${riftPos[1] * S})`} role="img" aria-label="Unstable Rift">
+            <circle r="26" fill="rgba(127,227,194,0.14)" stroke="var(--ecto)" strokeWidth="2" strokeDasharray="5 4" />
+            <circle r="15" fill="rgba(10,30,28,0.7)" stroke="var(--ecto)" strokeWidth="2.5" />
+            <path d="M0 -9 a9 9 0 1 1 -9 9 a5 5 0 1 1 5 -5 a2 2 0 1 1 -2 2" stroke="var(--ecto)" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <text y="-34" textAnchor="middle" className="fill-ecto font-mono" fontSize="13" style={{ paintOrder: "stroke" }} stroke="var(--ink)" strokeWidth="3">Rift</text>
           </g>
         )}
 
@@ -214,7 +210,7 @@ export function OmenMap({
           return (
             <g
               key={h.key}
-              transform={`translate(${x} ${y})`}
+              transform={`translate(${x} ${y}) scale(${iconScale})`}
               onPointerEnter={() => onHover?.(h.key)}
               onPointerLeave={() => onHover?.(null)}
               onClick={() => clickHero(h.key)}
@@ -224,19 +220,26 @@ export function OmenMap({
               aria-label={h.label}
               tabIndex={selectable ? 0 : undefined}
               onKeyDown={(e) => { if (selectable && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onToggle?.(h.key); } }}
-              opacity={h.alive ? 1 : 0.75}
+              opacity={h.alive ? 1 : 0.85}
             >
               {(isHover || isSel) && <circle r="27" fill="none" stroke={isSel ? "#e05a5a" : "var(--brass)"} strokeWidth="3" strokeDasharray={isSel ? "5 3" : undefined} />}
-              <circle r="17" fill="var(--ink)" stroke={TEAM_COLOR[h.team]} strokeWidth="3" />
+              <circle r="17" fill="var(--ink)" stroke={h.alive ? TEAM_COLOR[h.team] : "#7a7a7a"} strokeWidth="3" />
               {h.icon && (
                 <image href={h.icon} x="-15" y="-15" width="30" height="30" clipPath={`url(#hc${h.key})`} preserveAspectRatio="xMidYMid slice" style={h.alive ? undefined : { filter: "grayscale(1)" }} />
               )}
               {h.alive ? (
                 <circle r="19" fill="none" stroke={pct > 0.5 ? "#6fd08c" : pct > 0.25 ? "#e3c14f" : "#e05a5a"} strokeWidth="2.5" strokeDasharray={`${c * pct} ${c}`} transform="rotate(-90)" />
               ) : (
-                <text y="5" textAnchor="middle" fontSize="15" className="fill-paper font-mono" style={{ paintOrder: "stroke" }} stroke="var(--ink)" strokeWidth="3">
-                  {h.respawnIn > 0 ? h.respawnIn : "✝"}
-                </text>
+                <>
+                  <circle r="17" fill="rgba(12,8,8,0.6)" />
+                  <circle r="19" fill="none" stroke="#c0474f" strokeWidth="2" strokeDasharray="3 3" />
+                  <Skull x={0} y={-1} s={1.15} />
+                  {h.respawnIn > 0 && (
+                    <text y="34" textAnchor="middle" fontSize="14" className="fill-paper font-mono" style={{ paintOrder: "stroke" }} stroke="var(--ink)" strokeWidth="3">
+                      {h.respawnIn}s
+                    </text>
+                  )}
+                </>
               )}
               {isSel && <Skull x={16} y={-16} s={0.9} />}
             </g>
@@ -268,6 +271,14 @@ export function OmenMap({
           </button>
         ))}
       </div>
+      <label className="absolute left-2 top-2 flex items-center gap-2 rounded-[3px] border border-brass/50 bg-ink/85 px-2 py-1.5 text-xs text-brass">
+        Icons
+        <input
+          type="range" min={0.5} max={1.5} step={0.05} value={iconScale}
+          onChange={(e) => setIconScale(Number(e.target.value))}
+          aria-label="Hero icon size" className="w-20 accent-[var(--brass)]"
+        />
+      </label>
       <div className="absolute bottom-2 left-2 flex gap-1.5">
         <button type="button" onClick={() => setView(focusView(focus))} className="inline-flex h-9 items-center gap-1.5 rounded-[3px] border border-ecto/60 bg-ink/85 px-3 text-sm text-ecto hover:bg-ecto/15">
           <Icon name="arrow-right" className="h-4 w-4 -rotate-45" /> Focus on action

@@ -280,8 +280,11 @@ export async function assignOmen(omen: OmenKind, date: string, seed: string, exc
     // No harvested stock: fall back to the bundled seed so the day still gets its Omen.
     if (!pool.length && (await importSeed(omen)) > 0) pool = await db.scenario.findMany({ where, orderBy, take: 200 });
     if (!pool.length) return null;
-    const wantPositive = omen === "rift" ? null : makeRng(`${seed}|side`).next() < (await loadTuning()).positiveShare;
-    const ranked = [...pool].sort((a, b) => Number(b.status === "approved") - Number(a.status === "approved"));
+    // The Beast is always a kill; a Rift needs a known position (it is shown from the start).
+    const wantPositive = omen === "rift" ? null : omen === "beast" ? true : makeRng(`${seed}|side`).next() < (await loadTuning()).positiveShare;
+    const usable = (s: (typeof pool)[number]) => omen === "beast" ? s.positive : omen !== "rift" || !!(s.payload as unknown as OmenPayload).window.riftPos;
+    const ranked = [...pool].filter(usable).sort((a, b) => Number(b.status === "approved") - Number(a.status === "approved"));
+    if (!ranked.length) return null;
     pick = ranked.find((s) => wantPositive === null || s.positive === wantPositive) ?? ranked[0];
   }
   await db.scenario.update({ where: { id: pick.id }, data: { status: "used", dailyDate: date } });

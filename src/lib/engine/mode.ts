@@ -33,6 +33,8 @@ export type BuildCtx = {
   date: string;
   dayIndex: number;
   analytics: () => Promise<HeroItemStats>;
+  /** Most played ability point order of a hero (The Belongings). Optional: absent in tests. */
+  abilityOrder?: (heroId: number) => Promise<number[] | null>;
 };
 
 /** The whole mode is unavailable for the day (e.g. no analytics): the lock is sealed. */

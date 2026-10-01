@@ -63,7 +63,7 @@ export const LOCKS: LockDef[] = [
   {
     slug: "visage", mode: "splash", numeral: "II", name: "The Visage",
     subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6,
-    hints: LETTER_HINTS(4, 6),
+    hints: [],
   },
   {
     slug: "sigil", mode: "ability-icon", numeral: "III", name: "The Sigil",

@@ -4,14 +4,21 @@ import { loadGameData } from "./context";
 import type { Catalog, CatalogEntry } from "./types";
 import type { GuessKind } from "@/locks.config";
 
+/** Plain, bounded search text from labels and a description. */
+const keywords = (...parts: (string | null | undefined)[]) =>
+  parts.filter(Boolean).join(" ").replace(/s+/g, " ").slice(0, 600) || undefined;
+
 export async function buildCatalog(): Promise<Catalog> {
   const data = await loadGameData();
   return {
     hero: data.heroes.map((h) => ({ id: String(h.id), name: h.name, icon: h.icon, aliases: h.aliases })),
     ability: data.abilities.map((a) => ({
       id: String(a.id), name: a.name, icon: a.icon, group: data.hero(a.heroId)?.name, aliases: a.aliases,
+      keywords: keywords(a.src.description),
     })),
-    item: data.items.map((i) => ({ id: String(i.id), name: i.name, icon: i.image, slot: i.src.slot, aliases: i.aliases })),
+    item: data.items.map((i) => ({ id: String(i.id), name: i.name, icon: i.image, slot: i.src.slot, aliases: i.aliases,
+      keywords: keywords(i.src.statBonuses.map((s) => s.label).join(" "), i.src.description),
+    })),
   };
 }
 

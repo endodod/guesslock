@@ -79,7 +79,9 @@ export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "complexity", label: "Complexity", info: "In-game complexity rating (1-4 stars).", type: "exact", get: (h) => h.src.complexity, format: (v) => (v == null ? "?" : "★".repeat(Number(v))) },
   { key: "weapon", label: "Weapon", info: "Weapon type as listed in the hero picker.", type: "exact", get: (h) => h.weaponType },
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
-  { key: "dps", label: "Gun DPS", info: "Base weapon damage per second (without reloads). Arrows point toward the answer.", type: "numeric", get: (h) => h.src.dps },
+  { key: "damage", label: "Bullet damage", info: "Base damage per bullet. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.bulletDamage },
+  { key: "firerate", label: "Fire rate", info: "Base shots per second. Arrows point toward the answer.", type: "numeric", curated: true, get: (h) => h.src.fireRate ?? null, format: (v) => (v == null ? "?" : `${v}/s`) },
+  { key: "damagetype", label: "Damage type", info: "Whether the hero's damage comes mostly from Spirit abilities, the gun, or a mix of both.", type: "exact", curated: true, get: (h) => h.damageType },
   { key: "release", label: "Released", info: "When the hero became playable. Arrows point toward the answer.", type: "date", curated: true, get: (h) => h.releaseDate, format: fmtDate },
 ];
 
@@ -91,6 +93,9 @@ export function activeColumns<T>(columns: ColumnDef<T>[], pool: T[], ctx: { buil
   return columns.filter((c) => !c.disabled && (!c.curated || (pool.length > 0 && pool.every((row) => c.get(row, ctx) !== null))));
 }
 
+/** Stat bonus names in tooltip order (the first one is the item's main bonus). */
+const buffLabels = (i: ItemData): string[] => [...new Set(i.src.statBonuses.map((s) => s.label.replace(/[,/]/g, " ").replace(/s+/g, " ").trim()))];
+
 export const ITEM_COLUMNS: ColumnDef<ItemData>[] = [
   { key: "slot", label: "Slot", info: "Weapon, Vitality or Spirit.", type: "exact", get: (i) => i.src.slot, format: (v) => cap(String(v)) },
   { key: "tier", label: "Tier", info: "Shop tier (1-4). Arrows point toward the answer.", type: "numeric", get: (i) => i.src.tier },
@@ -98,7 +103,8 @@ export const ITEM_COLUMNS: ColumnDef<ItemData>[] = [
   { key: "component", label: "Component", info: "Does this item require another item as a component?", type: "exact", get: (i) => (i.src.componentClassNames.length ? "Yes" : "No") },
   { key: "buildsInto", label: "Builds into", info: "Is this item a component of another item?", type: "exact", get: (i, c) => (c.buildsInto(i.src.className).length ? "Yes" : "No") },
   { key: "cooldown", label: "Cooldown", info: "Cooldown in seconds, or none. Arrows point toward the answer.", type: "numeric", get: (i) => i.src.cooldown ?? "none", format: (v) => (v === "none" ? "None" : `${v}s`) },
-  { key: "stats", label: "Stat bonuses", info: "How many stat bonuses the item grants. Arrows point toward the answer.", type: "numeric", get: (i) => i.src.statBonuses.length },
+  { key: "primary", label: "Primary buff", info: "The item's main stat bonus, or none.", type: "exact", get: (i) => buffLabels(i)[0] ?? "None" },
+  { key: "secondary", label: "Secondary buffs", info: "The item's other stat bonuses, or none. Orange means at least one shared buff.", type: "multi", get: (i) => buffLabels(i).slice(1).join(", ") || "None" },
 ];
 
 export function formatCell(col: { type: CompareType; format?: (v: CellValue) => string }, v: CellValue): string {

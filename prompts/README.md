@@ -11,6 +11,9 @@ When a `todo/` prompt is finished, move it to `done/`.
 ## Now in `todo/`
 - [`game-consistency-qa.md`](todo/game-consistency-qa.md): test every game for complete flow, consistency, missing data, and general product feedback, starting with The Reckoning.
 
+- [`mode-fixes.md`](todo/mode-fixes.md): playtest fixes per mode (implemented; move to `done/` after review).
+- [`hard-mode.md`](todo/hard-mode.md): hard-mode ideas per mode, not scheduled.
+
 ## Now in `done/`
 - [`fix-sealed-modes.md`](done/fix-sealed-modes.md): Cipher, Clash, Beast and Rift were sealed; all four are open in production now.
 - [`handoff-merge-resonance-seance.md`](done/handoff-merge-resonance-seance.md): merging The Resonance and The Séance; merged and live.
