@@ -343,7 +343,7 @@ function RelicStage({ clue }: { clue: Extract<Clue, { kind: "relic" }> }) {
   );
 }
 
-function ItemSlot({ item, unknownSlot }: { item?: { name: string; image: string | null; slot: string; tier: number }; unknownSlot?: string }) {
+function ItemSlot({ item, unknownSlot }: { item?: { name: string; image: string | null; slot: string }; unknownSlot?: string }) {
   if (!item) {
     return (
       <div className={`flex h-36 w-32 flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed bg-ink/50 ${unknownSlot === "weapon" ? "border-slot-weapon/70" : unknownSlot === "vitality" ? "border-slot-vitality/70" : "border-slot-spirit/70"}`}>
@@ -357,7 +357,6 @@ function ItemSlot({ item, unknownSlot }: { item?: { name: string; image: string 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.image ?? ""} alt="" className="h-16 w-16 object-contain" />
       <span className="text-center text-sm leading-tight">{item.name}</span>
-      <span className="font-mono text-[0.7rem] text-ash">Tier {item.tier}</span>
     </div>
   );
 }
@@ -398,7 +397,7 @@ function MeasureStage({ clue, rows }: { clue: Extract<Clue, { kind: "measure" }>
           <img src={clue.item.image ?? ""} alt="" className="h-14 w-14 object-contain" />
           <div>
             <div className="text-lg">{clue.item.name}</div>
-            <div className="flex items-center gap-1.5 font-mono text-xs capitalize text-ash"><SlotDot slot={clue.item.slot} />{clue.item.slot} · Tier {clue.item.tier}</div>
+            <div className="flex items-center gap-1.5 font-mono text-xs capitalize text-ash"><SlotDot slot={clue.item.slot} />{clue.item.slot}</div>
           </div>
         </div>
         <ul className="space-y-1.5 font-mono">

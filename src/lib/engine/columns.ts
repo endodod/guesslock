@@ -97,7 +97,6 @@ const buffLabels = (i: ItemData): string[] => [...new Set(i.src.statBonuses.map(
 
 export const ITEM_COLUMNS: ColumnDef<ItemData>[] = [
   { key: "slot", label: "Slot", info: "Weapon, Vitality or Spirit.", type: "exact", get: (i) => i.src.slot, format: (v) => cap(String(v)) },
-  { key: "tier", label: "Tier", info: "Shop tier (1-4). Arrows point toward the answer.", type: "numeric", get: (i) => i.src.tier },
   { key: "active", label: "Type", info: "Active items are used with a key; passive items work on their own.", type: "exact", get: (i) => (i.src.isActive ? "Active" : "Passive") },
   { key: "component", label: "Component", info: "Does this item require another item as a component?", type: "exact", get: (i) => (i.src.componentClassNames.length ? "Yes" : "No") },
   { key: "buildsInto", label: "Builds into", info: "Is this item a component of another item?", type: "exact", get: (i, c) => (c.buildsInto(i.src.className).length ? "Yes" : "No") },

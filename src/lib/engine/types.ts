@@ -47,12 +47,12 @@ export type Clue =
   | {
       kind: "lineage";
       direction: "into" | "from";
-      shown: { name: string; image: string | null; slot: string; tier: number };
+      shown: { name: string; image: string | null; slot: string };
       answerSlot: string;
     }
   | {
       kind: "measure";
-      item: { name: string; image: string | null; slot: string; tier: number };
+      item: { name: string; image: string | null; slot: string };
       stats: { label: string; display: string | null; hidden?: boolean; postfix: string }[];
       hiddenLabel: string;
       postfix: string;

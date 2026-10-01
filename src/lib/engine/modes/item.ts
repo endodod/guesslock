@@ -6,7 +6,7 @@ import { cap, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta, Tile } from "../types";
 import type { StatBonus } from "../../deadlock/types";
 
-const itemAnswer = (i: ItemData) => ({ id: String(i.id), name: i.name, image: i.image, sub: `${cap(i.src.slot)} · Tier ${i.src.tier}` });
+const itemAnswer = (i: ItemData) => ({ id: String(i.id), name: i.name, image: i.image, sub: cap(i.src.slot) });
 const itemLeak = (i: ItemData) => [i.name, ...i.aliases];
 
 function itemPool(data: GameData, mode: string, extra: (i: ItemData) => boolean = () => true): Candidate[] {
@@ -82,10 +82,11 @@ export const appraisal: ModeImpl<GridClue> = {
 
 // ---------- XII. The Lineage (build path) ----------
 
-type ItemCard = { name: string; image: string | null; slot: string; tier: number };
+// No tier: it would give the item's cost away.
+type ItemCard = { name: string; image: string | null; slot: string };
 type LineageClue = { direction: "into" | "from"; shown: ItemCard; answerSlot: string };
 
-const card = (i: ItemData): ItemCard => ({ name: i.name, image: i.image, slot: i.src.slot, tier: i.src.tier });
+const card = (i: ItemData): ItemCard => ({ name: i.name, image: i.image, slot: i.src.slot });
 
 /** Directions alternate daily: even days "what does this build into?", odd days "what's the component?". */
 export function lineageDirection(dayIndex: number): "into" | "from" {
@@ -122,7 +123,8 @@ export const lineage: ModeImpl<LineageClue> = {
       clue: { direction: dir, shown: card(shown), answerSlot: first.src.slot },
     };
   },
-  clue: (p) => ({ kind: "lineage", ...p.clue }),
+  // Explicit fields: puzzles frozen earlier still carry a tier.
+  clue: (p) => ({ kind: "lineage", direction: p.clue.direction, shown: { name: p.clue.shown.name, image: p.clue.shown.image, slot: p.clue.shown.slot }, answerSlot: p.clue.answerSlot }),
   displayed: (p) => [p.clue.shown.name],
 };
 
@@ -165,7 +167,7 @@ export const measure: ModeImpl<MeasureClue> = {
   },
   clue: (p, _wrong, done) => ({
     kind: "measure",
-    item: p.clue.item,
+    item: { name: p.clue.item.name, image: p.clue.item.image, slot: p.clue.item.slot },
     stats: p.clue.stats.map((s, idx) =>
       idx === p.clue.hiddenIndex ? { label: s.label, display: done ? s.display : null, hidden: true, postfix: s.postfix } : s,
     ),

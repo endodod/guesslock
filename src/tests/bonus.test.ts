@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { costBonus, slotBonus, ultimateBonus, withBonus } from "@/lib/engine/bonus";
+import { costBonus, slotBonus, withBonus } from "@/lib/engine/bonus";
 import { visage } from "@/lib/engine/modes/hero";
+import { relic } from "@/lib/engine/modes/item";
 import { evaluate } from "@/lib/engine/play";
 import { makeRng } from "@/lib/rng";
 import { LOCK_BY_SLUG } from "@/locks.config";
@@ -16,38 +17,37 @@ const rng = () => makeRng("x");
 const ctx = { data, rng: makeRng("s"), date: "2026-10-01", dayIndex: 0, analytics: noAnalytics };
 
 describe("Bonus questions", () => {
-  it("heroes: which of their abilities is the ultimate", () => {
-    const b = ultimateBonus(data, 13, rng())!;
-    expect(b.options.map((o) => o.name).sort()).toEqual(["Bullet Dance", "Fixation", "Sleep Dagger", "Smoke Bomb"]);
-    expect(b.options.find((o) => o.id === b.answerId)!.name).toBe("Bullet Dance");
-    expect(ultimateBonus(data, 2, rng())).toBeUndefined(); // no abilities known
-  });
-
   it("abilities: which slot; items: the real cost among three others, in ascending order", () => {
     expect(slotBonus(data, 4)).toMatchObject({ answerId: "4" });
+    expect(slotBonus(data, 4)!.options.map((o) => o.name)).toEqual(["Ability 1", "Ability 2", "Ability 3", "Ultimate"]);
     const b = costBonus(data, 2, rng())!;
-    expect(b.options.map((o) => o.id)).toEqual(["500", "1250", "3000", "6200"].filter((c) => b.options.some((o) => o.id === c)));
+    expect(b.options.map((o) => Number(o.id))).toEqual([...b.options.map((o) => Number(o.id))].sort((x, y) => x - y));
     expect(b.options).toHaveLength(4);
     expect(b.answerId).toBe("1250");
     expect(costBonus(data, 5, rng())).toBeUndefined(); // no cost
   });
 
-  it("withBonus adds the question to a mode without one, deterministically", async () => {
-    const mode = withBonus(visage);
-    const a = await mode.build({ answerId: "13", ref: 13 }, ctx);
-    const b = await mode.build({ answerId: "13", ref: 13 }, ctx);
-    expect(a.bonus).toBeDefined();
+  it("withBonus only touches the item locks and The Ascension, deterministically", async () => {
+    expect(withBonus(visage)).toBe(visage);
+    const mode = withBonus(relic);
+    const a = await mode.build({ answerId: "2", ref: 2 }, ctx);
+    const b = await mode.build({ answerId: "2", ref: 2 }, ctx);
+    expect(a.bonus?.answerId).toBe("1250");
     expect(a.bonus).toEqual(b.bonus);
   });
 
   it("a bonus whose answer was already on screen is not asked", async () => {
-    const p = await withBonus(visage).build({ answerId: "13", ref: 13 }, ctx);
-    const lock = LOCK_BY_SLUG.visage;
-    const row = { date: "2026-10-01", mode: "visage", sealed: false, sealedReason: null, payload: p };
-    const lookup = (id: string) => ({ id, name: id === "13" ? "Haze" : "Seven", icon: null });
-    expect(evaluate(lock, row, 1, ["13"], undefined, lookup).bonus?.options).toHaveLength(4);
-    // Same puzzle, but the ultimate's name shows up in a guessed hero's row (e.g. an ability-named entry).
-    const echoed = { ...row, payload: { ...p, bonus: { ...p.bonus!, options: p.bonus!.options.map((o) => (o.id === p.bonus!.answerId ? { ...o, name: "Haze" } : o)) } } };
-    expect(evaluate(lock, echoed, 1, ["13"], undefined, lookup).bonus).toBeUndefined();
+    const p = await withBonus(relic).build({ answerId: "2", ref: 2 }, ctx);
+    const lock = LOCK_BY_SLUG.relic;
+    const row = { date: "2026-10-01", mode: "relic", sealed: false, sealedReason: null, payload: p };
+    const lookup = (id: string) => ({ id, name: id === "2" ? "B" : "A", icon: null });
+    expect(evaluate(lock, row, 1, ["2"], undefined, lookup).bonus?.options).toHaveLength(4);
+    const echoed = { ...row, payload: { ...p, bonus: { ...p.bonus!, options: p.bonus!.options.map((o) => (o.id === p.bonus!.answerId ? { ...o, name: "B" } : o)) } } };
+    expect(evaluate(lock, echoed, 1, ["2"], undefined, lookup).bonus).toBeUndefined();
+  });
+
+  it("item locks never show or send a tier", async () => {
+    const p = await relic.build({ answerId: "2", ref: 2 }, ctx);
+    expect(JSON.stringify(p.answer)).not.toMatch(/tier/i);
   });
 });
