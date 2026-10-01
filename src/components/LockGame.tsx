@@ -113,7 +113,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (!hydrated || restored.current) return;
     restored.current = true;
     if (user || (rec && (rec.g.length || rec.b))) {
-      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, giveUp: rec?.gu, hard: rec?.hard })
+      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, giveUp: rec?.gu, hard: rec ? rec.hard : hard })
         .then((v) => { setView(v); persist(v, rec?.g ?? [], rec?.b); })
         .catch(() => toast(t.lock.error))
         .finally(() => setRestoreDone(true));
@@ -130,6 +130,22 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
   const guessed = useMemo(() => new Set(view.rows.map((r) => r.id)), [view.rows]);
   const done = view.status === "won" || view.status === "lost";
+
+  /** Before the first guess: show the clue in the other mode (the server may refuse normal → hard once the normal clue was seen). */
+  const switchHard = async (on: boolean) => {
+    setHardPick(on);
+    setBusy(true);
+    try {
+      const v = await evaluateRemote({ date, slug, guesses: [], hard: on });
+      setView(v);
+      if (v.notice) toast(v.notice);
+      if (!!v.hard !== on) setHardPick(!!v.hard);
+    } catch {
+      toast(t.lock.error);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   /** Resolves to true when the guess opened the lock. */
   const onGuess = async (id: string): Promise<boolean> => {
@@ -295,7 +311,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
             <span className={hard ? "text-cursed" : "text-ash"}>{hard ? `Hard mode · ${HARD_MULTIPLIER}× souls` : "Normal mode"}</span>
           ) : (
             <label className="flex min-h-11 cursor-pointer flex-wrap items-center justify-center gap-x-2 text-center">
-              <input type="checkbox" checked={hard} onChange={(e) => setHardPick(e.target.checked)} disabled={restoring} className="h-5 w-5 shrink-0 accent-[var(--cursed)]" />
+              <input type="checkbox" checked={hard} onChange={(e) => switchHard(e.target.checked)} disabled={restoring || busy} className="h-5 w-5 shrink-0 accent-[var(--cursed)]" />
               <span className={hard ? "text-cursed" : "text-paper/90"}>Hard mode</span>
               <span className="text-ash">({t.lock.hardInfo[slug] ?? "a tougher clue"}, {HARD_MULTIPLIER}× souls)</span>
             </label>

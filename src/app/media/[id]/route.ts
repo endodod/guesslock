@@ -11,6 +11,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       "content-type": asset.contentType,
       "cache-control": "public, max-age=31536000, immutable",
       "x-content-type-options": "nosniff",
+      // Mirrored files are data, never documents: an SVG opened directly can't run script or load anything.
+      "content-security-policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
     },
   });
 }

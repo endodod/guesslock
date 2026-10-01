@@ -1,6 +1,8 @@
 "use server";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { rateLimit } from "@/lib/server/ratelimit";
 import { db } from "@/lib/db";
 import { checkPassword, createSession, destroySession, requireAdmin } from "@/lib/admin/auth";
 import { runAssetSync, syncTexts } from "@/lib/sync/assets";
@@ -19,6 +21,10 @@ const list = (v: FormDataEntryValue | null) =>
 
 export async function login(_prev: string | null, form: FormData): Promise<string | null> {
   await new Promise((r) => setTimeout(r, 400)); // slow down guessing
+  // 8 attempts per 10 minutes per address (best effort, per server instance).
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "unknown").slice(0, 64);
+  if (!rateLimit(`admin-login:${ip}`, 8, 10 * 60_000).ok) return "Too many attempts. Try again in a few minutes.";
   if (!checkPassword(String(form.get("password") ?? ""))) return "Wrong password.";
   await createSession();
   redirect("/admin");

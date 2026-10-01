@@ -12,8 +12,9 @@ function secret(): string {
   return config.sessionSecret;
 }
 
+/** Sessions are bound to the current password: changing ADMIN_PASSWORD signs every admin out. */
 function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url");
+  return createHmac("sha256", secret()).update(`${payload}|${config.adminPassword}`).digest("base64url");
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -73,9 +74,9 @@ export async function requireSetup() {
   await requireAdmin();
 }
 
-/** For cron route handlers: Bearer CRON_SECRET. */
+/** For cron route handlers: Authorization: Bearer CRON_SECRET (header only: a secret in the URL ends up in logs). */
 export function checkCronAuth(req: Request): boolean {
   const h = req.headers.get("authorization") ?? "";
-  const token = h.startsWith("Bearer ") ? h.slice(7) : new URL(req.url).searchParams.get("secret") ?? "";
-  return !!config.cronSecret && safeEqual(token, config.cronSecret);
+  const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+  return !!config.cronSecret && config.cronSecret.length >= 16 && safeEqual(token, config.cronSecret);
 }

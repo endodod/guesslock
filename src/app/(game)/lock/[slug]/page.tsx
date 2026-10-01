@@ -18,6 +18,7 @@ import { getMapMeta } from "@/lib/omens/map";
 import { omenView } from "@/lib/omens/serve";
 import type { OmenPayload } from "@/lib/omens/types";
 import type { Catalog } from "@/lib/engine/types";
+import { currentUser } from "@/lib/auth/server";
 
 /** Hero and item lookups for the Omen panels (ids -> name/icon). */
 function omenCatalog(catalog: Catalog) {
@@ -44,7 +45,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   if (!lock) notFound();
   const today = todayDate();
   const date = isDay(d) && d < today ? d : today;
-  const [row, meta, catalog] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog()]);
+  const [row, meta, catalog, user] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog(), currentUser()]);
   if (date === today) healToday(date, meta);
   const number = numberFor(date);
   const available = meta.filter((m) => m.state === "available").map((m) => m.slug);
@@ -98,7 +99,12 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           slug={slug}
           date={date}
           number={number}
-          initialView={evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess))}
+          initialView={(() => {
+            const v = evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess));
+            // Signed in, a lock with a hard variant: the clue comes from the account (in the mode the player picks), never
+            // pre-rendered in the normal mode, so a ranked hard play can't have seen the easier clue.
+            return user && lock.hard ? { ...v, clue: null } : v;
+          })()}
           entries={lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item") ? [] : catalog[lock.guess]}
           site={config.siteUrl}
           available={available}

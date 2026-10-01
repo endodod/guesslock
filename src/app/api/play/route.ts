@@ -8,6 +8,7 @@ import { getPuzzle } from "@/lib/server/puzzles";
 import { currentUser } from "@/lib/auth/server";
 import { playAsUser, playSeanceAsUser } from "@/lib/accounts/service";
 import { evaluateSeance } from "@/lib/seance/play";
+import { clientIp, rateLimit, tooMany } from "@/lib/server/ratelimit";
 
 const Body = z.object({
   date: z.string().refine(isDay),
@@ -19,6 +20,9 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  // Generous (a fast player sends a few a minute), but stops scripted hammering.
+  const limit = rateLimit(`play:${clientIp(req)}`, 300, 60_000);
+  if (!limit.ok) return tooMany(limit.retryAfter);
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const { date, slug, guesses, bonus, giveUp = false, hard = false } = parsed.data;
