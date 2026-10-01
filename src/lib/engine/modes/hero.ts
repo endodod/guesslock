@@ -166,9 +166,10 @@ export const visage: ModeImpl<VisageClue> = {
   },
   clue: (p, wrong, done, opts = {}) => {
     const i = done ? ZOOM_STEPS.length - 1 : Math.min(wrong, ZOOM_STEPS.length - 1);
-    const dark = opts.hard && !done ? { dark: true } : {};
-    if (p.clue.steps) return { kind: "splash", image: done ? p.clue.full ?? p.clue.steps[i] : p.clue.steps[i], zoom: 1, originX: 50, originY: 50, ...dark };
-    return { kind: "splash", image: p.clue.image, originX: p.clue.originX, originY: p.clue.originY, zoom: ZOOM_STEPS[i], ...dark };
+    // Hard mode: black and white from the first clue to the finished picture.
+    const mono = opts.hard ? { mono: true } : {};
+    if (p.clue.steps) return { kind: "splash", image: done ? p.clue.full ?? p.clue.steps[i] : p.clue.steps[i], zoom: 1, originX: 50, originY: 50, ...mono };
+    return { kind: "splash", image: p.clue.image, originX: p.clue.originX, originY: p.clue.originY, zoom: ZOOM_STEPS[i], ...mono };
   },
   displayed: () => [],
 };

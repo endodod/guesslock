@@ -89,8 +89,8 @@ answer for every lock that has a hard clue (`HARD_LOCKS`, slug `<lock>-hard`, ge
 the same answer as the normal lock). It opens once the normal lock of that day is finished (the account's record is the
 proof, checked in `/api/play`), is always played with the hard clue and pays 1.5× souls. The "Hard mode" switch under the
 Vault's intro shows the hard puzzles as red boxes below the normal ones and adds a "Play hard mode" button next to
-"Next lock" on a finished lock. Hidden categories (Reckoning, Appraisal), dark portrait (Visage), turned icon (Sigil), no
-ability path (Belongings), turned and dark (Relic), hidden stat values (Measure), tighter silhouettes (Shadow, Arsenal),
+"Next lock" on a finished lock. Hidden categories (Reckoning, Appraisal), black and white portrait (Visage), turned icon (Sigil), no
+ability path (Belongings), turned and black and white (Relic), hidden stat values (Measure), tighter silhouettes (Shadow, Arsenal),
 one omitted stat per ability (Calculus), no hero (Decoy), blank items (Cache). Hard puzzles are not part of "x / N locks",
 the share or the streak.
 

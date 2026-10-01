@@ -40,8 +40,8 @@ export type Clue =
       kind: "splash"; image: string; zoom: number; originX: number; originY: number;
       /** A silhouette on a light ground (The Shadow, The Arsenal). */
       silhouette?: boolean;
-      /** Hard mode's dark rendering. */
-      dark?: boolean;
+      /** Hard mode: shown in black and white, for the whole puzzle (also once it is finished). */
+      mono?: boolean;
       /** Reveal steps shown / in total (silhouette modes). */
       step?: number; steps?: number;
     }
@@ -79,7 +79,7 @@ export type Clue =
       /** Once finished: one valid hero per empty cell. */
       solution?: ({ name: string; image: string | null } | null)[];
     }
-  | { kind: "relic"; image: string; blur: number; rotate?: number; dark?: boolean }
+  | { kind: "relic"; image: string; blur: number; rotate?: number; mono?: boolean }
   | {
       kind: "lineage";
       direction: "into" | "from";

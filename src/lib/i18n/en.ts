@@ -42,8 +42,8 @@ export const en = {
     submit: "Pick",
     /** What hard mode changes, per lock (shown next to the toggle). */
     hardInfo: {
-      reckoning: "two categories hidden", appraisal: "two categories hidden", visage: "dark portrait", sigil: "turned icon",
-      belongings: "no ability path", relic: "turned and darkened", measure: "every stat value hidden",
+      reckoning: "two categories hidden", appraisal: "two categories hidden", visage: "black and white portrait", sigil: "turned icon",
+      belongings: "no ability path", relic: "turned, in black and white", measure: "every stat value hidden",
       shadow: "tighter silhouette", arsenal: "tighter silhouette, no colour", calculus: "one stat of each ability hidden",
       decoy: "the hero isn't named", cache: "items and net worth partly hidden"
     } as Record<string, string>,

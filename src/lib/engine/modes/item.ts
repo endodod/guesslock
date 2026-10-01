@@ -41,8 +41,8 @@ export const relic: ModeImpl<RelicClue> = {
   },
   clue: (p, wrong, done, opts = {}) => {
     const i = done ? BLUR_STEPS.length - 1 : Math.min(wrong, BLUR_STEPS.length - 1);
-    // Hard mode: turned and darkened (both fixed per puzzle, gone once finished).
-    const hard = opts.hard && !done ? { rotate: 90 * (1 + (p.clue.image.charCodeAt(p.clue.image.length - 1) % 3)), dark: true } : {};
+    // Hard mode: turned (fixed per puzzle, upright once finished) and in black and white (for the whole puzzle).
+    const hard = opts.hard ? { ...(done ? {} : { rotate: 90 * (1 + (p.clue.image.charCodeAt(p.clue.image.length - 1) % 3)) }), mono: true } : {};
     return p.clue.steps
       ? { kind: "relic", image: p.clue.steps[i], blur: 0, ...hard }
       : { kind: "relic", image: p.clue.image, blur: BLUR_STEPS[i], ...hard };

@@ -12,7 +12,8 @@ import { calculus, CALCULUS_MIN_STATS } from "@/lib/engine/modes/calculus";
 import { decoy, fakeCandidates } from "@/lib/engine/modes/decoy";
 import { cache, finalInventory, teamProblem } from "@/lib/engine/modes/cache";
 import { constellation, dedupeFacets, normalizeName, pickGrid, solveGrid, canFinish, type Facet } from "@/lib/engine/modes/constellation";
-import { reckoning } from "@/lib/engine/modes/hero";
+import { reckoning, visage } from "@/lib/engine/modes/hero";
+import { relic } from "@/lib/engine/modes/item";
 import { buildTimeline } from "@/lib/omens/ingest";
 import { decodePng, encodePng, silhouette } from "@/lib/image/png";
 import { blur, cover, crop, opaqueBox, outlineOrigin } from "@/lib/image/clue";
@@ -401,5 +402,25 @@ describe("soul weights", () => {
     const avg = guess.reduce((a, l) => a + (l.soulsWeight ?? 1), 0) / guess.length;
     expect(avg).toBeGreaterThan(0.95);
     expect(avg).toBeLessThan(1.1);
+  });
+});
+
+describe("hard mode in black and white", () => {
+  const base = { v: 1 as const, answer: { id: "1", name: "Haze", image: null }, correctIds: ["1"], leakTerms: [], hints: {} };
+  const visagePayload = { ...base, mode: "splash", clue: { image: "/media/x", originX: 50, originY: 50 } } as unknown as BasePayload<never>;
+  const relicPayload = { ...base, mode: "item-picture", clue: { image: "/media/abc" } } as unknown as BasePayload<never>;
+
+  it("The Visage and The Relic are black and white in hard mode, from the first clue to the finished picture, and never in normal mode", () => {
+    for (const [mode, payload] of [[visage, visagePayload], [relic, relicPayload]] as const) {
+      for (const wrong of [0, 3, 9]) {
+        expect((mode.clue(payload as never, wrong, false, { hard: true }) as { mono?: boolean }).mono, `${mode.mode} after ${wrong}`).toBe(true);
+        expect((mode.clue(payload as never, wrong, false, {}) as { mono?: boolean }).mono, `${mode.mode} normal`).toBeUndefined();
+      }
+      expect((mode.clue(payload as never, 0, true, { hard: true }) as { mono?: boolean }).mono, `${mode.mode} finished`).toBe(true);
+      expect((mode.clue(payload as never, 0, true, {}) as { mono?: boolean }).mono, `${mode.mode} finished normal`).toBeUndefined();
+    }
+    // The Relic's turn is gone once finished, the colour stays off.
+    expect((relic.clue(relicPayload as never, 0, false, { hard: true }) as { rotate?: number }).rotate).toBeGreaterThan(0);
+    expect((relic.clue(relicPayload as never, 0, true, { hard: true }) as { rotate?: number }).rotate).toBeUndefined();
   });
 });

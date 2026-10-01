@@ -57,7 +57,7 @@ function SplashStage({ clue }: { clue: Extract<Clue, { kind: "splash" }> }) {
           src={clue.image}
           alt={CLUE_ALT}
           draggable={false}
-          className={`h-full w-full select-none transition-transform duration-700 ease-out ${clue.silhouette ? "object-contain" : "object-cover"} ${clue.dark ? "[filter:invert(1)_hue-rotate(180deg)_brightness(0.8)]" : ""}`}
+          className={`h-full w-full select-none transition-transform duration-700 ease-out ${clue.silhouette ? "object-contain" : "object-cover"} ${clue.mono ? "[filter:grayscale(1)_contrast(1.1)]" : ""}`}
           style={{
             transform: `scale(${clue.zoom})`,
             transformOrigin: `${clue.originX}% ${clue.originY}%`,
@@ -342,7 +342,7 @@ function RelicStage({ clue }: { clue: Extract<Clue, { kind: "relic" }> }) {
         draggable={false}
         className="h-full w-full select-none object-contain p-8 transition-[filter,transform] duration-700"
         style={{
-          filter: `${clue.blur ? `blur(${clue.blur}px)` : ""}${clue.dark ? " invert(1) hue-rotate(180deg) brightness(0.8)" : ""}` || undefined,
+          filter: `${clue.blur ? `blur(${clue.blur}px)` : ""}${clue.mono ? " grayscale(1) contrast(1.1)" : ""}` || undefined,
           transform: clue.rotate ? `rotate(${clue.rotate}deg)` : undefined,
         }}
       />
