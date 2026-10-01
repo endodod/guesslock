@@ -77,13 +77,13 @@ export function GuessInput({ entries, guessed, placeholder, disabled, busy, shak
     setActive(0);
     if (isMobile) setOpen(false);
     const right = await onGuess(pick);
-    if (right) { setQ(""); setOpen(false); return; }
-    // Wrong (or failed): keep what the player typed so they can refine it; select it so
-    // typing starts a fresh search.
+    setQ("");
+    if (right) { setOpen(false); return; }
+    // Wrong guesses clear the submitted search while keeping the desktop field ready
+    // for the next guess.
     if (!isMobile) {
       const el = inputRef.current;
       el?.focus();
-      el?.select();
       setOpen(true);
     }
   };
