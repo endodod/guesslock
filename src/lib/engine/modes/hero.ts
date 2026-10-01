@@ -3,9 +3,9 @@ import { config } from "../../config";
 import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData, SoundData } from "../context";
+import { CENSOR, redact } from "../../text/redact";
 import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta, SoundClipView, Tile } from "../types";
-import { normalize } from "../../text/normalize";
 
 // ---------- helpers ----------
 
@@ -367,112 +367,162 @@ export const cipher: ModeImpl<{ emojis: string[] }> = {
   displayed: (p) => p.clue.emojis,
 };
 
-// ---------- IX. The Echo (quote) ----------
+// ---------- IX. The Echo family (voice lines from the wiki) ----------
+// Three locks, each a different hero: Select lines (The Echo), what a hero says when casting one ability
+// (The Utterance) and a complete conversation with another hero (The Colloquy).
 
-/** `to` = the hero the line is spoken to, when the wiki lists it under that hero. */
-type EchoLine = { text: string; audio: string | null; to?: string | null };
 export const ECHO_MIN_LINES = 5;
+const ECHO_LINES = 5;
+const CAST_MIN_LINES = 4;
 
-const TO_PREFIX = /^(?:interactions? with|talking to|speaking to|spoken to|against|versus|vs|with|to)s+/i;
+type EchoPayload = { lines: string[] };
+/** Puzzles frozen before The Echo moved to Select lines stored { text, audio } objects. */
+const lineText = (l: string | { text: string }) => (typeof l === "string" ? l : l.text);
 
-/** The hero a voice line is addressed to: its wiki section names another hero ("Abrams", "To Abrams"). */
-export function echoTarget(section: string | undefined, heroes: Pick<HeroData, "id" | "name" | "aliases">[], selfId: number): string | null {
-  if (!section) return null;
-  const key = normalize(section.replace(TO_PREFIX, ""));
-  const hit = heroes.find((x) => x.id !== selfId && [x.name, ...x.aliases].some((n) => normalize(n) === key));
-  return hit?.name ?? null;
+/** Hard mode for Select lines: the start or the end of every line is blacked out (alternating, so both occur). */
+export function hideHalf(text: string, index: number): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return text;
+  const keep = Math.ceil(words.length / 2);
+  return index % 2 === 0 ? `${CENSOR} ${words.slice(words.length - keep).join(" ")}` : `${words.slice(0, keep).join(" ")} ${CENSOR}`;
 }
 
-/** 4 regular lines in seeded order, then a starred (iconic) line last if one exists. */
-export function pickEchoLines(
-  lines: { text: string; audio: string | null; starred: boolean; to?: string | null }[],
-  rng: { shuffle<T>(a: readonly T[]): T[] },
-): EchoLine[] {
-  const starred = rng.shuffle(lines.filter((l) => l.starred));
-  const regular = rng.shuffle(lines.filter((l) => !l.starred));
-  const last = starred[0];
-  const pool = [...regular, ...starred.slice(1)];
-  const picked = last ? [...pool.slice(0, 4), last] : pool.slice(0, 5);
-  return picked.map(({ text, audio, to }) => ({ text, audio, ...(to ? { to } : {}) }));
-}
+const echoLeak = (h: HeroData, data: GameData) => [...heroLeakTerms(h), ...data.abilitiesOf(h.id).map((a) => a.name), ...data.soundCodenames(h.id)];
 
-export const echo: ModeImpl<{ lines: EchoLine[] }> = {
+export const echo: ModeImpl<EchoPayload> = {
   mode: "quote",
-  candidates: (data) => heroPool(data, "quote", (h) => !h.genericVoice && data.voiceLines(h.id).length >= ECHO_MIN_LINES),
+  candidates: (data) => heroPool(data, "quote", (h) => data.voiceEntries(h.id, "select").length >= ECHO_MIN_LINES),
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
-    const lines = pickEchoLines(data.voiceLines(h.id).map((l) => ({ ...l, to: echoTarget(l.section, data.heroes, h.id) })), rng);
+    const lines = rng.shuffle(data.voiceEntries(h.id, "select")).slice(0, ECHO_LINES).map((e) => e.text!);
     return {
       v: 1, mode: "quote",
-      answer: { ...heroAnswer(h), extra: { lines } },
-      correctIds: [String(h.id)],
-      leakTerms: [...heroLeakTerms(h), ...data.abilitiesOf(h.id).map((a) => a.name)],
+      answer: { ...heroAnswer(h), extra: { lines: lines.map((text) => ({ text })) } },
+      correctIds: [String(h.id)], leakTerms: echoLeak(h, data),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: { lines },
     };
   },
-  clue: (p, wrong, done) => ({
+  clue: (p, wrong, done, hard) => ({
     kind: "echo",
-    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l) => ({ text: l.text, audio: done ? l.audio : null, to: l.to ?? null })),
+    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l, i) => ({ text: hard && !done ? hideHalf(lineText(l), i) : lineText(l) })),
     total: p.clue.lines.length,
   }),
-  displayed: (p) => p.clue.lines.map((l) => l.text),
+  displayed: (p) => p.clue.lines.map(lineText),
 };
 
-// ---------- X. The Resonance (ability sound) ----------
+type CastPayload = { lines: string[]; slot: number };
+
+export function slotName(slot: number): string {
+  return slot === 4 ? "the Ultimate" : `Ability ${slot}`;
+}
+
+export const utterance: ModeImpl<CastPayload> = {
+  mode: "quote-cast",
+  candidates: (data) =>
+    heroPool(data, "quote-cast", (h) => usableAbilities(data, h.id, "quote-cast").some((a) => data.voiceEntries(h.id, "cast").filter((e) => e.abilityId === a.id).length >= CAST_MIN_LINES)),
+  build(c, { data, rng }) {
+    const h = data.hero(c.ref as number)!;
+    const casts = data.voiceEntries(h.id, "cast");
+    const ability = rng.pick(usableAbilities(data, h.id, "quote-cast").filter((a) => casts.filter((e) => e.abilityId === a.id).length >= CAST_MIN_LINES));
+    const lines = rng.shuffle(casts.filter((e) => e.abilityId === ability.id)).slice(0, ECHO_LINES).map((e) => e.text!);
+    return {
+      v: 1, mode: "quote-cast",
+      answer: { ...heroAnswer(h), extra: { lines: lines.map((text) => ({ text })), ability: { name: ability.name, image: ability.icon } } },
+      correctIds: [String(h.id)], leakTerms: [...echoLeak(h, data), ability.name, ...ability.aliases],
+      hints: {},
+      bonus: { ...bonusFor(data, h.id, ability, rng), reveal: { name: ability.name, image: ability.icon } },
+      clue: { lines, slot: ability.slot },
+    };
+  },
+  clue: (p, wrong, done, hard) => ({
+    kind: "echo",
+    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((text) => ({ text })),
+    total: p.clue.lines.length,
+    // Hard mode does not say which ability the hero is casting.
+    note: hard && !done ? "Said while casting an ability" : `Said when casting ${slotName(p.clue.slot)}`,
+  }),
+  displayed: (p) => p.clue.lines,
+};
+
+type ConvoPayload = { lines: { h: number; t: string }[]; heroId: number; other: { name: string; image: string | null; terms: string[] } };
+
+export const colloquy: ModeImpl<ConvoPayload> = {
+  mode: "quote-convo",
+  candidates: (data) => heroPool(data, "quote-convo", (h) => data.voiceEntries(h.id, "convo").some((e) => e.otherHeroId !== null && data.hero(e.otherHeroId))),
+  build(c, { data, rng }) {
+    const h = data.hero(c.ref as number)!;
+    const usable = data.voiceEntries(h.id, "convo").filter((e) => e.otherHeroId !== null && data.hero(e.otherHeroId));
+    // Prefer conversations of 3+ lines: each wrong guess reveals the next one.
+    const long = usable.filter((e) => (e.lines?.length ?? 0) >= 3);
+    const convo = rng.pick(long.length ? long : usable);
+    const other = data.hero(convo.otherHeroId!)!;
+    const lines = convo.lines!;
+    return {
+      v: 1, mode: "quote-convo",
+      answer: { ...heroAnswer(h), extra: { lines: lines.map((l) => ({ text: l.t })), partner: { name: other.name, image: other.card } } },
+      correctIds: [String(h.id)], leakTerms: echoLeak(h, data),
+      hints: {},
+      clue: { lines, heroId: h.id, other: { name: other.name, image: other.icon, terms: heroLeakTerms(other) } },
+    };
+  },
+  clue: (p, wrong, done, hard) => {
+    const hide = hard && !done;
+    const blank = (t: string) => (hide ? redact(t, p.clue.other.terms.map((term) => ({ term }))).text : t);
+    return {
+      kind: "convo",
+      lines: p.clue.lines.slice(0, done ? p.clue.lines.length : Math.min(p.clue.lines.length, 1 + wrong)).map((l) => ({ mine: l.h === p.clue.heroId, text: blank(l.t) })),
+      total: p.clue.lines.length,
+      other: hide ? null : { name: p.clue.other.name, image: p.clue.other.image },
+    };
+  },
+  displayed: (p) => p.clue.lines.map((l) => l.t),
+};
+
+// ---------- X. The Resonance (ability cast sound) ----------
 
 type SoundRef = { url: string; gainDb: number };
 
-/** An ability can be an answer with ≥ 1 approved cast clip and ≥ 2 approved clips in total. */
+/** An ability can be an answer when it has at least one approved cast clip. */
 export function soundEligible(clips: Pick<SoundData, "role">[]): boolean {
-  return clips.length >= 2 && clips.some((c) => c.role === "cast");
-}
-
-const CLIP2_ROLES = ["impact", "loop", "other", "cast"];
-
-/** Clip 1: the starred cast clip, else a seeded cast. Clip 2: another clip, preferring impact > loop > other > cast. */
-export function pickResonanceClips(clips: SoundData[], rng: { pick<T>(a: readonly T[]): T }): [SoundData, SoundData] {
-  const casts = clips.filter((c) => c.role === "cast");
-  const first = casts.find((c) => c.preferred) ?? rng.pick(casts);
-  const rest = clips.filter((c) => c.id !== first.id);
-  const role = CLIP2_ROLES.find((r) => rest.some((c) => c.role === r))!;
-  return [first, rng.pick(rest.filter((c) => c.role === role))];
+  return clips.some((c) => c.role === "cast");
 }
 
 const soundRef = (c: SoundData): SoundRef => ({ url: c.url, gainDb: c.gainDb });
+/** Clips of one ability heard over the course of the puzzle (wrong guesses add a variant). */
+const RESONANCE_CLIPS = 3;
 
-/** After this many wrong guesses the hero's gun sound joins the clue (if an approved gun clip exists). */
-const GUN_AFTER = 3;
-
-export const resonance: ModeImpl<{ clips: SoundRef[]; gun?: SoundRef | null }> = {
+export const resonance: ModeImpl<{ clips: SoundRef[]; slot: number }> = {
   mode: "hero-sound",
   candidates: (data) =>
     heroPool(data, "hero-sound", (h) => usableAbilities(data, h.id, "hero-sound").some((a) => soundEligible(data.abilitySounds(a.id)))),
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
-    const ability = rng.pick(usableAbilities(data, h.id, "hero-sound").filter((a) => soundEligible(data.abilitySounds(a.id))));
-    const [one, two] = pickResonanceClips(data.abilitySounds(ability.id), rng);
-    const guns = data.weaponSounds(h.id);
-    const gun = guns.find((g) => g.preferred) ?? (guns.length ? rng.pick(guns) : null);
+    const eligible = usableAbilities(data, h.id, "hero-sound").filter((a) => soundEligible(data.abilitySounds(a.id)));
+    // Prefer an ability with several cast variants: they are what wrong guesses unlock.
+    const rich = eligible.filter((a) => data.abilitySounds(a.id).filter((s) => s.role === "cast").length >= 2);
+    const ability = rng.pick(rich.length ? rich : eligible);
+    const casts = data.abilitySounds(ability.id).filter((s) => s.role === "cast");
+    const first = casts.find((s) => s.preferred) ?? rng.pick(casts);
+    const clips = [first, ...rng.shuffle(casts.filter((s) => s.id !== first.id))].slice(0, RESONANCE_CLIPS);
     return {
       v: 1, mode: "hero-sound", answer: heroAnswer(h), correctIds: [String(h.id)],
       // Codenames too: they are in every upstream URL, so none may ever reach the player.
       leakTerms: [...heroLeakTerms(h), ...data.soundCodenames(h.id), ability.name, ...ability.aliases],
       hints: {}, // letter hints come from the answer name (engine/play.ts), like every other lock
       bonus: { ...bonusFor(data, h.id, ability, rng), reveal: { name: ability.name, image: ability.icon } },
-      clue: { clips: [soundRef(one), soundRef(two)], gun: gun ? soundRef(gun) : null },
+      clue: { clips: clips.map(soundRef), slot: ability.slot },
     };
   },
-  // 0 wrong: clip 1 muffled · 1: clip 1 clear · 2: clip 2 as well · 3+: the hero's gun sound.
-  // Locked clips' URLs are never sent.
-  clue: (p, wrong, done) => {
-    const clips: SoundClipView[] = p.clue.clips.slice(0, done || wrong >= 2 ? p.clue.clips.length : 1).map((c, i) => ({
+  // 0 wrong: clip 1 muffled · 1: clip 1 clear · 2: a second cast sound · 3+: a third. Locked clips' URLs are never sent.
+  // The ability slot is shown, except in hard mode.
+  clue: (p, wrong, done, hard) => {
+    const n = done ? p.clue.clips.length : wrong < 2 ? 1 : Math.min(p.clue.clips.length, wrong);
+    const clips: SoundClipView[] = p.clue.clips.slice(0, n).map((c, i) => ({
       url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`, muffled: !done && i === 0 && wrong === 0,
     }));
-    const gun = p.clue.gun;
-    if (gun && (done || wrong >= GUN_AFTER)) clips.push({ url: gun.url, gainDb: gun.gainDb, label: "Gun", muffled: false });
-    return { kind: "sound", total: p.clue.clips.length + (gun ? 1 : 0), clips };
+    return { kind: "sound", total: p.clue.clips.length, clips, slot: hard && !done ? null : p.clue.slot };
   },
   displayed: () => [],
-  audio: (p) => [...p.clue.clips.map((c) => c.url), ...(p.clue.gun ? [p.clue.gun.url] : [])],
+  audio: (p) => p.clue.clips.map((c) => c.url),
 };

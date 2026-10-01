@@ -19,7 +19,9 @@
     "make:grain": "node scripts/make-grain.mjs",
     "backup": "tsx --tsconfig tsconfig.json scripts/backup.ts",
     "omens:harvest": "tsx --tsconfig tsconfig.json scripts/omens-harvest.ts",
-    "omens:seed": "tsx --tsconfig tsconfig.json scripts/omens-seed.ts"
+    "omens:seed": "tsx --tsconfig tsconfig.json scripts/omens-seed.ts",
+    "import:herovoice": "tsx --tsconfig tsconfig.json scripts/import-hero-voice.ts",
+    "import:castsounds": "tsx --tsconfig tsconfig.json scripts/import-cast-sounds.ts"
   },
   "dependencies": {
     "@neon/config": "^1.8.3",

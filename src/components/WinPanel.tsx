@@ -134,6 +134,13 @@ export function WinPanel({
           Ability of <span className="text-paper">{a.extra.hero.name}</span>
         </p>
       )}
+      {a.extra?.partner && (
+        <p className="mt-4 flex items-center gap-2 text-sm text-ash">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {a.extra.partner.image && <img src={a.extra.partner.image} alt="" className="h-10 w-8 rounded-sm object-cover object-top" />}
+          Talking to <span className="text-paper">{a.extra.partner.name}</span>
+        </p>
+      )}
       {a.extra?.exactValue && (
         <p className="mt-4 text-sm text-ash">{t.lock.exactValue}: <span className="font-mono text-lg text-ecto">{a.extra.exactValue}</span></p>
       )}
@@ -163,7 +170,7 @@ export function WinPanel({
           <p className="mt-4 flex items-center gap-3 text-sm text-ash">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {ability.image && <img src={ability.image} alt="" className="h-10 w-10 rounded-sm bg-ink object-contain p-1" />}
-            The sounds were <span className="text-paper">{ability.name}</span>
+            {lock.slug === "resonance" ? "The sound was" : "The lines were said when casting"} <span className="text-paper">{ability.name}</span>
           </p>
         ) : null;
       })()}

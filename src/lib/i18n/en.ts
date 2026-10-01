@@ -91,6 +91,8 @@ export const en = {
     skipSoundDesc: "The Resonance needs audio. When skipped, it never counts toward your locks, share or streak.",
     soundVolume: "Sound locks volume",
     muffledOnly: "Muffled only in The Resonance",
+    hardMode: "Hard variants of the Echo locks and The Resonance",
+    hardModeDesc: "Select lines lose their start or end, the Colloquy hides the other hero, and the ability slot is not shown.",
     reset: "Reset local data",
     resetConfirm: "Erase all progress, streaks and settings on this device? This can't be undone.",
     resetDone: "Local data erased.",

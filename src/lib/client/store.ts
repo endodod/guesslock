@@ -34,6 +34,8 @@ export type Settings = {
   soundVolume: number;
   /** Hard mode: The Resonance stays muffled until the win. */
   muffledOnly: boolean;
+  /** Hard mode for The Echo family (hidden parts of the lines) and The Resonance (no ability slot). */
+  hardMode: boolean;
 };
 
 export type StoreData = {
@@ -45,7 +47,7 @@ export type StoreData = {
 
 export const DEFAULT_SETTINGS: Settings = {
   colorblind: false, motion: "auto", sound: false, grayscale: false, rotation: false, noHints: false, colorEmoji: false,
-  skipSound: false, soundVolume: 0.8, muffledOnly: false,
+  skipSound: false, soundVolume: 0.8, muffledOnly: false, hardMode: false,
 };
 
 /** Slugs to leave out of counts, shares and streaks for these settings. */

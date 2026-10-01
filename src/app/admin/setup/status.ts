@@ -23,8 +23,10 @@ function reason(data: GameData, h: HeroData, mode: string): string {
     case "ability-desc": return abilities.length ? "No ability description" : "All abilities turned off";
     case "upgrades": return abilities.length ? "No ability with all 3 upgrade texts" : "All abilities turned off";
     case "emoji": return `${h.emojis.length}/${EMOJI_SET_SIZE} emojis`;
-    case "quote": return h.genericVoice ? "Generic voice" : `${data.voiceLines(h.id).length}/${ECHO_MIN_LINES} voice lines`;
-    case "hero-sound": return "Needs 1 cast + 2 approved clips";
+    case "quote": return `${data.voiceEntries(h.id, "select").length}/${ECHO_MIN_LINES} select lines`;
+    case "quote-cast": return "Needs an ability with 4+ cast lines";
+    case "quote-convo": return "Needs a complete conversation";
+    case "hero-sound": return "Needs an ability with an approved cast sound";
     default: return "Not eligible";
   }
 }

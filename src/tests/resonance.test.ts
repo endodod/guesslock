@@ -6,7 +6,7 @@ import { resolveHeroFolders, type SoundTree } from "@/lib/sounds/resolve";
 import { guessRole, isWeaponFire, matchClip, skipReason } from "@/lib/sounds/match";
 import { gainFor, LOUDNESS_TARGET_DB, measurePcm } from "@/lib/sounds/loudness";
 import { heroCodenames, planHeroClips, type HeroForSounds } from "@/lib/sounds/import";
-import { pickResonanceClips, resonance, soundEligible } from "@/lib/engine/modes/hero";
+import { resonance, soundEligible } from "@/lib/engine/modes/hero";
 import { checkLeaks, MEDIA_URL } from "@/lib/engine/leaks";
 import { evaluate } from "@/lib/engine/play";
 import type { AbilityData, SoundData } from "@/lib/engine/context";
@@ -145,54 +145,53 @@ describe("The Resonance: eligibility", () => {
     ability(21, 2, 1, "Lightning Ball"), ability(31, 3, 1, "Alchemical Flask"),
   ];
   const sounds = {
-    131: [clip(1, "cast"), clip(2, "impact")], // eligible
+    131: [clip(1, "cast"), clip(2, "cast"), clip(11, "cast")], // eligible: three cast variants
     132: [clip(3, "impact"), clip(4, "loop")], // no cast: never picked
-    134: [clip(5, "cast")], // one clip only
+    134: [clip(5, "cast")], // one cast clip is enough
     21: [clip(6, "impact"), clip(7, "other")], // Seven: no cast anywhere -> not a candidate
     31: [clip(8, "cast"), clip(9, "cast")], // excluded hero
   };
-  const data = makeData({ heroes: [haze, seven, excluded], abilities, sounds, guns: { 13: [clip(10, "cast")] }, codenames: { 13: ["haze"] } });
+  const data = makeData({ heroes: [haze, seven, excluded], abilities, sounds, codenames: { 13: ["haze"] } });
 
-  it("needs an approved cast clip and 2 clips; excluded heroes never appear", () => {
-    expect(soundEligible([{ role: "cast" }, { role: "impact" }])).toBe(true);
+  it("needs an approved cast clip; excluded heroes never appear", () => {
+    expect(soundEligible([{ role: "cast" }])).toBe(true);
     expect(soundEligible([{ role: "impact" }, { role: "loop" }])).toBe(false);
-    expect(soundEligible([{ role: "cast" }])).toBe(false);
     expect(resonance.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([13]);
   });
 
-  it("only ever picks an eligible ability, whatever the seed", async () => {
+  it("only ever picks an ability with a cast clip, and never an impact or loop", async () => {
+    const abilityNames = new Set<string>();
     for (let s = 0; s < 40; s++) {
       const p = await resonance.build({ answerId: "13", ref: 13 }, ctx(data, `seed${s}`));
-      expect(p.bonus?.reveal?.name).toBe("Sleep Dagger");
-      expect(p.clue.clips.map((c) => c.url)).toEqual([sounds[131][0].url, sounds[131][1].url]);
+      abilityNames.add(p.bonus!.reveal!.name);
+      const urls = p.clue.clips.map((c) => c.url);
+      const allowed = p.bonus!.reveal!.name === "Sleep Dagger" ? [1, 2, 11] : [5];
+      expect(urls.every((u) => allowed.some((id) => u === clip(id, "cast").url))).toBe(true);
+      expect(p.clue.slot).toBe(p.bonus!.reveal!.name === "Sleep Dagger" ? 1 : 4);
     }
+    // An ability with several cast variants wins over one with a single clip...
+    expect([...abilityNames]).toEqual(["Sleep Dagger"]);
+    // ...but a single clip is enough when nothing else is available.
+    const single = makeData({ heroes: [haze], abilities, sounds: { 134: sounds[134] } });
+    const p = await resonance.build({ answerId: "13", ref: 13 }, ctx(single));
+    expect(p.bonus!.reveal!.name).toBe("Bullet Dance");
+    expect(p.clue.slot).toBe(4);
   });
 
   it("an ability excluded from the mode is never picked", () => {
     const noDagger = makeData({
-      heroes: [haze], abilities: abilities.map((a) => (a.id === 131 ? { ...a, exclude: ["hero-sound"] } : a)), sounds,
+      heroes: [haze], abilities: abilities.map((a) => (a.id === 131 ? { ...a, exclude: ["hero-sound"] } : a)), sounds: { 132: sounds[132] },
     });
     expect(resonance.candidates(noDagger, { dayIndex: 0 })).toEqual([]);
   });
-
-  it("clip 1 is the starred cast clip; clip 2 prefers an impact", () => {
-    const pool = [clip(1, "cast"), clip(2, "cast", { preferred: true }), clip(3, "loop"), clip(4, "impact")];
-    for (let s = 0; s < 10; s++) {
-      const [a, b] = pickResonanceClips(pool, makeRng(`x${s}`));
-      expect(a.id).toBe(2);
-      expect(b.id).toBe(4);
-    }
-    const [, onlyCasts] = pickResonanceClips([clip(1, "cast"), clip(2, "cast")], makeRng("y"));
-    expect([1, 2]).toContain(onlyCasts.id);
-  });
 });
 
-describe("The Resonance: reveal ladder, hints and leaks", () => {
+describe("The Resonance: reveal ladder, slot, hints and leaks", () => {
   const haze = hero(13, "Haze", { aliases: ["Sandman"] });
   const others = [hero(1, "Infernus"), hero(2, "Seven"), hero(4, "Lash"), hero(5, "Shiv"), hero(6, "Wraith"), hero(7, "Vyper")];
   const abilities = [ability(131, 13, 1, "Sleep Dagger"), ability(132, 13, 2, "Smoke Bomb"), ability(133, 13, 3, "Fixation"), ability(134, 13, 4, "Bullet Dance")];
-  const sounds = { 131: [clip(1, "cast"), clip(2, "impact")] };
-  const data = makeData({ heroes: [haze, ...others], abilities, sounds, guns: { 13: [clip(10, "cast", { gainDb: -3 })] }, codenames: { 13: ["haze", "hazey_folder"] } });
+  const sounds = { 131: [clip(1, "cast"), clip(2, "cast"), clip(3, "cast")] };
+  const data = makeData({ heroes: [haze, ...others], abilities, sounds, codenames: { 13: ["haze", "hazey_folder"] } });
   const lock = LOCK_BY_SLUG.resonance;
   const build = async () => {
     const p = await resonance.build({ answerId: "13", ref: 13 }, ctx(data));
@@ -200,33 +199,37 @@ describe("The Resonance: reveal ladder, hints and leaks", () => {
   };
   const wrongs = ["1", "2", "4", "5", "6", "7"];
 
-  it("0: clip 1 muffled · 1: clear · 2: clip 2 · 3: gun sound · letter hints at 4 and 6", async () => {
+  it("0: clip 1 muffled · 1: clear · 2: second cast sound · 3: third · letter hints at 4 and 6", async () => {
     const { row } = await build();
     const at = (w: number) => evaluate(lock, row, 2, wrongs.slice(0, w), undefined, lookup(data));
-    const clips = (w: number) => (at(w).clue as { clips: { muffled: boolean; url: string; label: string; gainDb: number }[] }).clips;
+    const clips = (w: number) => (at(w).clue as { clips: { muffled: boolean; url: string; label: string }[] }).clips;
     expect(clips(0)).toHaveLength(1);
     expect(clips(0)[0].muffled).toBe(true);
     expect(clips(1)).toHaveLength(1);
     expect(clips(1)[0].muffled).toBe(false);
     expect(clips(2)).toHaveLength(2);
-    expect(clips(3).map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Gun"]);
-    const gun = clips(3)[2];
-    expect(gun.url).toMatch(MEDIA_URL);
-    expect(gun.gainDb).toBe(-3);
-    // Hints are the shared letter hints (first letter, then first two letters of the hero's name).
+    expect(clips(3).map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Sound 3"]);
     const unlocked = (w: number) => at(w).hints.filter((h) => h.unlocked).map((h) => [h.id, h.value]);
     expect(unlocked(3)).toEqual([]);
     expect(unlocked(4)).toEqual([["initial", "H"]]);
     expect(unlocked(6)).toEqual([["initial", "H"], ["initial2", "HA"]]);
   });
 
+  it("shows the ability slot; hard mode hides it until the win", async () => {
+    const { row } = await build();
+    const slot = (opts: { hard?: boolean }, guesses: string[]) => (evaluate(lock, row, 2, guesses, undefined, lookup(data), opts).clue as { slot?: number | null }).slot;
+    expect(slot({}, [])).toBe(1);
+    expect(slot({ hard: true }, ["1"])).toBeNull();
+    expect(slot({ hard: true }, ["1", "13"])).toBe(1);
+  });
+
   it("a locked clip's URL is never sent early; only opaque audio URLs; no names or codenames before the win", async () => {
     const { p, row } = await build();
-    const clip2 = p.clue.clips[1].url;
+    const [, clip2, clip3] = p.clue.clips.map((c) => c.url);
     for (let w = 0; w <= 6; w++) {
       const json = JSON.stringify(evaluate(lock, row, 2, wrongs.slice(0, w), undefined, lookup(data)));
       if (w < 2) expect(json).not.toContain(clip2);
-      if (w < 3) expect(json).not.toContain(clip(10, "cast").url); // gun sound joins the clue at 3 wrong guesses
+      if (w < 3) expect(json).not.toContain(clip3);
       for (const url of json.match(/"(?:url|audio)":"([^"]+)"/g) ?? []) expect(url.split('":"')[1].slice(0, -1)).toMatch(MEDIA_URL);
       for (const term of ["Haze", "haze", "Sandman", "Sleep Dagger", "hazey_folder", ".mp3", "http"]) expect(json).not.toContain(term);
     }
@@ -243,28 +246,18 @@ describe("The Resonance: reveal ladder, hints and leaks", () => {
     const picked = evaluate(lock, row, 2, ["1", "13"], "132", lookup(data));
     expect(picked.bonus?.correct).toBe(false);
     expect(picked.bonus?.reveal?.name).toBe("Sleep Dagger");
-    // After the win every clip plays unfiltered (both ability clips and the gun sound).
-    expect((picked.clue as { clips: { muffled: boolean; label: string }[] }).clips.map((c) => [c.label, c.muffled])).toEqual([["Sound 1", false], ["Sound 2", false], ["Gun", false]]);
+    // After the win every clip plays unfiltered.
+    expect((picked.clue as { clips: { muffled: boolean; label: string }[] }).clips.map((c) => [c.label, c.muffled])).toEqual([["Sound 1", false], ["Sound 2", false], ["Sound 3", false]]);
     const jammed = evaluate(lock, row, 2, ["1"], undefined, lookup(data), { giveUp: true });
     expect(jammed.answer?.extra?.ability?.name).toBe("Sleep Dagger");
   });
 
   it("the leak validator flags non-opaque audio URLs and codenames", async () => {
     const { p } = await build();
-    const leaky = { ...p, clue: { clips: [{ url: "https://assets-bucket.deadlock-api.com/sounds/abilities/haze/haze_sleep_dagger_cast.mp3", gainDb: 0 }, p.clue.clips[1]] } };
+    const leaky = { ...p, clue: { ...p.clue, clips: [{ url: "https://assets-bucket.deadlock-api.com/sounds/abilities/haze/haze_sleep_dagger_cast.mp3", gainDb: 0 }, p.clue.clips[1]] } };
     const leaks = checkLeaks(leaky as BasePayload);
     expect(leaks.map((l) => l.term)).toContain("non-opaque audio URL");
     expect(leaks.map((l) => l.term)).toContain("haze");
-  });
-
-  it("without an approved gun clip the ladder simply has no gun step", async () => {
-    const noGun = makeData({ heroes: [haze], abilities, sounds });
-    const p = await resonance.build({ answerId: "13", ref: 13 }, ctx(noGun));
-    expect(p.clue.gun).toBeNull();
-    expect(p.hints).toEqual({}); // hints are the shared letter hints, computed from the answer name
-    const clue = resonance.clue(p, 6, false) as { clips: { label: string }[]; total: number };
-    expect(clue.clips.map((c) => c.label)).toEqual(["Sound 1", "Sound 2"]);
-    expect(clue.total).toBe(2);
   });
 });
 
@@ -273,17 +266,17 @@ describe("The Resonance: Skip sound locks", () => {
   const skip = ignoredSlugs({ skipSound: true });
 
   it("drops out of the lock count and the combined share", () => {
-    expect(LOCKS).toHaveLength(21) // 17 Vault locks + the 4 Séance tables (one box);
-    expect(countedLocks(true)).toHaveLength(20);
+    expect(LOCKS).toHaveLength(23); // 19 Vault locks + the 4 Séance tables (one box);
+    expect(countedLocks(true)).toHaveLength(22);
     expect(countedLocks(true).some((l) => l.slug === "resonance")).toBe(false);
     const results = { resonance: { status: "won" as const, guesses: 1, souls: 100 }, visage: { status: "won" as const, guesses: 2, souls: 90 } };
     const on = shareDay({ number: 5, results, streak: 1, site: "x", skip });
     const off = shareDay({ number: 5, results, streak: 1, site: "x" });
-    expect(on).toContain("1/17 locks · 90 souls"); // 18 Vault units minus the skipped sound lock
-    expect(off).toContain("2/18 locks · 190 souls");
+    expect(on).toContain("1/19 locks · 90 souls"); // 20 Vault units minus the skipped sound lock
+    expect(off).toContain("2/20 locks · 190 souls");
     const spirits = (s: string) => [...s.split("\n")[1].replace("Spirits  ", "")].filter((ch) => ch !== "️").length;
-    expect(spirits(off)).toBe(10);
-    expect(spirits(on)).toBe(9);
+    expect(spirits(off)).toBe(12);
+    expect(spirits(on)).toBe(11);
   });
 
   it("doesn't affect streaks or souls", () => {

@@ -237,6 +237,7 @@ export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue
   const [seen] = useState(() => clue.lines.length);
   return (
     <ol className="clue-layer space-y-3">
+      {clue.note && <li className="smallcaps text-center text-sm text-brass">{clue.note}</li>}
       <AnimatePresence initial={false}>
         {[...clue.lines].reverse().map((l, ri) => {
           const i = clue.lines.length - 1 - ri;
@@ -247,10 +248,7 @@ export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue
               className="paper relative flex items-start gap-3 rounded-sm py-3 pl-8 pr-4 font-mono text-[0.95rem] shadow"
             >
               <span className="absolute left-2.5 top-3.5 h-3 w-3 rounded-full bg-[radial-gradient(circle_at_35%_35%,#f1d69a,#8f743f)] shadow" aria-hidden />
-              <span className="flex-1">
-                <span className="mb-0.5 block text-xs text-[#7a5a1c]">{l.to ? `To ${l.to}` : "To no one in particular"}</span>
-                “<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”
-              </span>
+              <span className="flex-1">“<Typewriter text={l.text} animate={typewriter && !reducedMotion && i >= seen} />”</span>
               {showAudio && l.audio && <AudioButton src={l.audio} small />}
             </motion.li>
           );
@@ -260,6 +258,43 @@ export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue
         <li className="text-center font-mono text-xs text-ash">{clue.lines.length} / {clue.total}</li>
       )}
     </ol>
+  );
+}
+
+/** The Colloquy: both sides of a conversation, the answer's lines marked "?" and the other hero named (or hidden in hard mode). */
+function ConvoStage({ clue }: { clue: Extract<Clue, { kind: "convo" }> }) {
+  const { reducedMotion } = useGame();
+  const [seen] = useState(() => clue.lines.length);
+  return (
+    <div className="clue-layer space-y-3">
+      <div className="flex items-center justify-center gap-3 text-sm">
+        <span className="rounded-sm border border-brass/40 bg-ink/60 px-3 py-1 font-display text-brass">?</span>
+        <span className="text-ash">talking to</span>
+        <span className="flex items-center gap-2 rounded-sm border border-brass/40 bg-ink/60 px-3 py-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {clue.other?.image && <img src={clue.other.image} alt="" className="h-7 w-7 rounded-sm object-contain" />}
+          <span className={clue.other ? "text-paper" : "font-display text-brass"}>{clue.other?.name ?? "?"}</span>
+        </span>
+      </div>
+      <ol className="space-y-3">
+        <AnimatePresence initial={false}>
+          {[...clue.lines].reverse().map((l, ri) => {
+            const i = clue.lines.length - 1 - ri;
+            return (
+              <motion.li
+                key={i}
+                initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
+                className={`paper relative rounded-sm py-3 pr-4 font-mono text-[0.95rem] shadow ${l.mine ? "ml-6 pl-5" : "mr-6 pl-5"}`}
+              >
+                <span className="mb-0.5 block text-xs text-[#7a5a1c]">{l.mine ? "?" : clue.other?.name ?? "Someone else"}</span>
+                “<Typewriter text={l.text} animate={!reducedMotion && i >= seen} />”
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ol>
+      {clue.total > clue.lines.length && <p className="text-center font-mono text-xs text-ash">{clue.lines.length} / {clue.total}</p>}
+    </div>
   );
 }
 
@@ -432,6 +467,7 @@ export function ClueStage({ clue, rows, done = false, subject = "hero" }: { clue
     case "build": return <BuildStage clue={clue} />;
     case "emoji": return <EmojiStage clue={clue} />;
     case "echo": return <EchoStage clue={clue} typewriter={!done} showAudio={done} />;
+    case "convo": return <ConvoStage clue={clue} />;
     case "sound": return <SoundStage clue={clue} done={done} />;
     case "relic": return <RelicStage clue={clue} />;
     case "lineage": return <LineageStage clue={clue} />;

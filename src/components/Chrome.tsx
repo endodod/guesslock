@@ -162,6 +162,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
           <Toggle label={t.settings.grayscale} checked={s.grayscale} onChange={(v) => setSettings({ grayscale: v })} />
           <Toggle label={t.settings.rotation} checked={s.rotation} onChange={(v) => setSettings({ rotation: v })} />
           <Toggle label={t.settings.muffledOnly} checked={s.muffledOnly} onChange={(v) => setSettings({ muffledOnly: v })} />
+          <Toggle label={t.settings.hardMode} desc={t.settings.hardModeDesc} checked={s.hardMode} onChange={(v) => setSettings({ hardMode: v })} />
           <Toggle label={t.settings.noHints} checked={s.noHints} onChange={(v) => setSettings({ noHints: v })} />
         </div>
         <div className="pt-4">

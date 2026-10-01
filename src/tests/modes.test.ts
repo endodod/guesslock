@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cipher, echo, pickEchoLines, reckoning } from "@/lib/engine/modes/hero";
+import { cipher, colloquy, echo, hideHalf, reckoning, slotName, utterance } from "@/lib/engine/modes/hero";
+import { CENSOR } from "@/lib/text/redact";
+import type { VoiceEntryData } from "@/lib/engine/context";
 import { measure, isCleanStat } from "@/lib/engine/modes/item";
 import { makeRng } from "@/lib/rng";
 import { checkLeaks } from "@/lib/engine/leaks";
@@ -8,7 +10,7 @@ import { LOCK_BY_SLUG } from "@/locks.config";
 import { shareDay, shareLock, soulsFor } from "@/lib/game/scoring";
 import type { BasePayload } from "@/lib/engine/mode";
 import type { ItemData } from "@/lib/engine/context";
-import { hero, makeData, noAnalytics } from "./fixtures";
+import { ability, hero, makeData, noAnalytics } from "./fixtures";
 
 const ctx = (data: ReturnType<typeof makeData>, seed = "s") => ({ data, rng: makeRng(seed), date: "2026-10-01", dayIndex: 0, analytics: noAnalytics });
 const lookup = (data: ReturnType<typeof makeData>) => (id: string) => {
@@ -70,33 +72,78 @@ describe("The Cipher", () => {
   });
 });
 
-describe("The Echo", () => {
-  const lines = (n: number, starred = 0, text = (i: number) => `This is voice line number ${i} for testing today.`) =>
-    Array.from({ length: n }, (_, i) => ({ id: i, text: text(i), audio: null, starred: i < starred }));
+describe("The Echo family", () => {
+  const entry = (id: number, kind: "select" | "cast" | "convo", over: Partial<VoiceEntryData> = {}): VoiceEntryData => ({
+    id, kind, fileKey: `f${id}`, abilityId: null, abilitySlot: null, otherHeroId: null, text: `This is voice line number ${id}.`, lines: null, ...over,
+  });
   const haze = hero(13, "Haze", { aliases: ["Sandman"] });
-  const generic = hero(99, "Boho", { genericVoice: true });
+  const abrams = hero(1, "Abrams");
+  const quiet = hero(5, "Quiet");
+  const abilities = [ability(131, 13, 2, "Smoke Bomb"), ability(132, 13, 4, "Bullet Dance")];
+  const selects = Array.from({ length: 8 }, (_, i) => entry(i + 1, "select"));
+  const casts = Array.from({ length: 6 }, (_, i) => entry(20 + i, "cast", { abilityId: 131, abilitySlot: 2 }));
+  const convo = entry(40, "convo", {
+    otherHeroId: 1, text: null,
+    lines: [{ h: 1, t: "Hey, you. Abrams here." }, { h: 13, t: "Can't talk, busy." }, { h: 1, t: "Fair enough, Abrams out." }],
+  });
   const data = makeData({
-    heroes: [haze, generic, hero(5, "Quiet")],
-    lines: { 13: lines(12, 1), 99: lines(20), 5: lines(3) },
+    heroes: [haze, abrams, quiet], abilities,
+    entries: { "13:select": selects, "13:cast": casts, "13:convo": [convo], "5:select": selects.slice(0, 3), "1:convo": [{ ...convo, id: 41, otherHeroId: 13 }] },
   });
 
-  it("generic-voice heroes and heroes with < 5 lines are never picked", () => {
+  it("Select: needs 5 lines; builds 5 and reveals one more per wrong guess", async () => {
     expect(echo.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([13]);
+    const p = await echo.build({ answerId: "13", ref: 13 }, ctx(data));
+    expect(p.clue.lines).toHaveLength(5);
+    expect((echo.clue(p, 0, false) as { lines: unknown[] }).lines).toHaveLength(1);
+    expect((echo.clue(p, 3, false) as { lines: unknown[] }).lines).toHaveLength(4);
   });
 
-  it("picks 4 regular lines then the starred one last", () => {
-    const picked = pickEchoLines(lines(12, 1), makeRng("x"));
-    expect(picked).toHaveLength(5);
-    expect(picked[4].text).toBe(lines(1)[0].text);
-    expect(picked.slice(0, 4).some((l) => l.text === lines(1)[0].text)).toBe(false);
+  it("Select hard mode blacks out the start or end of each line, until the win", async () => {
+    const p = await echo.build({ answerId: "13", ref: 13 }, ctx(data));
+    const hard = echo.clue(p, 1, false, true) as { lines: { text: string }[] };
+    expect(hard.lines.every((l) => l.text.includes(CENSOR))).toBe(true);
+    expect(hard.lines[0].text.startsWith(CENSOR)).toBe(true);
+    expect(hard.lines[1].text.endsWith(CENSOR)).toBe(true);
+    expect((echo.clue(p, 1, true, true) as { lines: { text: string }[] }).lines.every((l) => !l.text.includes(CENSOR))).toBe(true);
+    expect(hideHalf("a b c d", 0)).toBe(`${CENSOR} c d`);
+    expect(hideHalf("a b c d", 1)).toBe(`a b ${CENSOR}`);
+  });
+
+  it("Utterance: lines of one ability, its slot shown; hard mode hides the slot", async () => {
+    expect(utterance.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([13]);
+    const p = await utterance.build({ answerId: "13", ref: 13 }, ctx(data));
+    expect(p.clue.lines).toHaveLength(5);
+    expect(p.clue.slot).toBe(2);
+    expect(p.bonus!.reveal!.name).toBe("Smoke Bomb");
+    expect((utterance.clue(p, 0, false) as { note?: string }).note).toBe("Said when casting Ability 2");
+    expect((utterance.clue(p, 0, false, true) as { note?: string }).note).not.toContain("2");
+    expect((utterance.clue(p, 0, true, true) as { note?: string }).note).toContain("Ability 2");
+    expect(slotName(4)).toBe("the Ultimate");
+  });
+
+  it("Colloquy: names the other hero, hides them in hard mode and blanks their name in the lines", async () => {
+    expect(colloquy.candidates(data, { dayIndex: 0 }).map((c) => c.ref).sort()).toEqual([1, 13]);
+    const p = await colloquy.build({ answerId: "13", ref: 13 }, ctx(data));
+    const easy = colloquy.clue(p, 0, false) as { kind: string; lines: { mine: boolean; text: string }[]; other: { name: string } | null };
+    expect(easy.other?.name).toBe("Abrams");
+    expect(easy.lines).toHaveLength(1);
+    expect(easy.lines[0].mine).toBe(false);
+    const hard = colloquy.clue(p, 2, false, true) as typeof easy;
+    expect(hard.other).toBeNull();
+    expect(hard.lines.map((l) => l.mine)).toEqual([false, true, false]);
+    expect(JSON.stringify(hard)).not.toContain("Abrams");
+    expect(JSON.stringify(colloquy.clue(p, 2, true, true))).toContain("Abrams");
   });
 
   it("leak validation catches an unredacted name in a displayed line", async () => {
-    const leaky = makeData({ heroes: [haze], lines: { 13: lines(6, 0, (i) => `Haze says line ${i} out loud right now.`) } });
+    const leaky = makeData({ heroes: [haze], entries: { "13:select": Array.from({ length: 6 }, (_, i) => entry(i + 1, "select", { text: `Haze says line ${i} out loud.` })) } });
     const p = await echo.build({ answerId: "13", ref: 13 }, ctx(leaky));
     expect(checkLeaks(p as BasePayload).length).toBeGreaterThan(0);
-    const clean = await echo.build({ answerId: "13", ref: 13 }, ctx(data));
-    expect(checkLeaks(clean as BasePayload)).toEqual([]);
+    for (const mode of [echo, utterance, colloquy]) {
+      const clean = await mode.build({ answerId: "13", ref: 13 }, ctx(data));
+      expect(checkLeaks(clean as BasePayload)).toEqual([]);
+    }
   });
 });
 

@@ -129,7 +129,8 @@ export async function importSounds(opts: { backup?: BackupMode } = {}): Promise<
     }
     for (let i = 0; i < fresh.length; i += 1000) await db.soundClip.createMany({ data: fresh.slice(i, i + 1000), skipDuplicates: true });
     // Left over: no longer in any mapped folder (renamed upstream, or the mapping changed).
-    const gone = [...existing.values()].filter((c) => !c.missing).map((c) => c.id);
+    // Wiki clips (src/lib/wiki/herosounds.ts) are not part of this index: leave them alone.
+    const gone = [...existing.values()].filter((c) => !c.missing && !c.sourcePath.startsWith("wiki/")).map((c) => c.id);
     if (gone.length) await db.soundClip.updateMany({ where: { id: { in: gone } }, data: { missing: true } });
 
     const unclaimedFolders = [...resolved.unclaimed.abilities.map((f) => `abilities/${f}`), ...resolved.unclaimed.weapons.map((f) => `weapons/${f}`)];
@@ -199,7 +200,7 @@ export async function measurePending(deadline: number, opts: { heroId?: number; 
  * frozen puzzles keep working, but it isn't used for new ones until re-approved).
  */
 export async function checkApprovedSources(deadline: number): Promise<{ checked: number; changed: number }> {
-  const approved = await db.soundClip.findMany({ where: { status: "approved", missing: false }, select: { id: true, sourceUrl: true, sourceHash: true } });
+  const approved = await db.soundClip.findMany({ where: { status: "approved", missing: false, NOT: { sourcePath: { startsWith: "wiki/" } } }, select: { id: true, sourceUrl: true, sourceHash: true } });
   let i = 0, checked = 0, changed = 0;
   await Promise.all(
     Array.from({ length: 8 }, async () => {

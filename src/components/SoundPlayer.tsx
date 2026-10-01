@@ -94,11 +94,16 @@ export function SoundPlayer({
 }
 
 /** Clue stage: one player per unlocked clip, placeholders for locked ones. */
-export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; total: number }; done: boolean }) {
+export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; total: number; slot?: number | null }; done: boolean }) {
   const { store } = useGame();
   const hard = store.settings.muffledOnly && !done;
   return (
     <DecoFrame className="clue-layer p-5 md:p-7">
+      {clue.slot ? (
+        <p className="smallcaps mb-4 text-center text-sm text-brass">Cast of {clue.slot === 4 ? "the Ultimate" : `Ability ${clue.slot}`}</p>
+      ) : (
+        <p className="smallcaps mb-4 text-center text-sm text-ash">Which ability? Not telling.</p>
+      )}
       <ul className="flex flex-wrap items-start justify-center gap-8 md:gap-14">
         {Array.from({ length: clue.total }, (_, i) => {
           const clip = clue.clips[i];
@@ -111,7 +116,7 @@ export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; tot
                   <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-brass/30 bg-ink/40">
                     <span className="font-display text-3xl text-brass/60">?</span>
                   </div>
-                  <span className="text-center text-xs text-ash">{`Sound ${i + 1}`}<br />after 2 wrong guesses</span>
+                  <span className="text-center text-xs text-ash">{`Sound ${i + 1}`}<br />after {i + 1} wrong guesses</span>
                 </div>
               )}
             </li>

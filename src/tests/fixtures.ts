@@ -1,5 +1,5 @@
 // In-memory GameData for mode tests (no DB).
-import type { AbilityData, GameData, HeroData, ItemData, SoundData, VoiceLineData } from "@/lib/engine/context";
+import type { AbilityData, GameData, HeroData, ItemData, SoundData, VoiceEntryData, VoiceLineData } from "@/lib/engine/context";
 import type { NormHero } from "@/lib/deadlock/types";
 import { HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
 
@@ -22,6 +22,8 @@ export function makeData(opts: {
   abilities?: AbilityData[];
   items?: ItemData[];
   lines?: Record<number, VoiceLineData[]>;
+  /** `${heroId}:${kind}` -> wiki voice entries */
+  entries?: Record<string, VoiceEntryData[]>;
   texts?: Record<string, string>;
   /** abilityId -> approved clips */
   sounds?: Record<number, SoundData[]>;
@@ -39,6 +41,7 @@ export function makeData(opts: {
     abilitiesOf: (heroId) => abilities.filter((a) => a.heroId === heroId),
     text: (type, id) => opts.texts?.[`${type}:${id}`] ?? null,
     voiceLines: (heroId) => opts.lines?.[heroId] ?? [],
+    voiceEntries: (heroId, kind) => opts.entries?.[`${heroId}:${kind}`] ?? [],
     abilitySounds: (id) => opts.sounds?.[id] ?? [],
     weaponSounds: (heroId) => opts.guns?.[heroId] ?? [],
     soundCodenames: (heroId) => opts.codenames?.[heroId] ?? [],
@@ -50,3 +53,9 @@ export function makeData(opts: {
 }
 
 export const noAnalytics = async () => { throw new Error("no analytics in tests"); };
+
+export const ability = (id: number, heroId: number, slot: number, name: string, over: Partial<AbilityData> = {}): AbilityData => ({
+  id, heroId, name, slot, aliases: [], exclude: [], icon: `/media/${"c".repeat(39)}${slot}`,
+  src: { id, className: `ability_${name.toLowerCase().replace(/ /g, "_")}`, name, heroId, slot, image: null, description: "", quip: null, tiers: [null, null, null] },
+  ...over,
+});

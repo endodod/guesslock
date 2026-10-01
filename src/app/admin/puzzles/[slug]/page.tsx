@@ -52,7 +52,9 @@ function Preview({ mode, r, data }: { mode: string; r: PoolRow; data: GameData }
     case "ability-icon": case "ability-desc": return abilitySwitches(mode);
     case "lore": return <span className="line-clamp-2 max-w-xl text-xs text-neutral-600">{data.text("hero_lore", r.heroId!) ?? "no lore"}</span>;
     case "emoji": return <span className="text-lg">{h?.emojis.join("")}</span>;
-    case "quote": return <span className="text-xs">{data.voiceLines(r.heroId!).length} lines{h?.genericVoice ? " · generic voice" : ""}</span>;
+    case "quote": return <span className="text-xs">{data.voiceEntries(r.heroId!, "select").length} select lines</span>;
+    case "quote-cast": return <span className="text-xs">{data.voiceEntries(r.heroId!, "cast").length} cast lines</span>;
+    case "quote-convo": return <span className="text-xs">{data.voiceEntries(r.heroId!, "convo").length} conversations</span>;
     case "whose-build": return <span className="text-xs">{(h?.setup.buildPin?.length ?? 0)} always · {(h?.setup.buildBan?.length ?? 0)} never shown</span>;
     case "upgrades": return <span className="line-clamp-2 max-w-xl text-xs text-neutral-600">{data.text("ability_t3", Number(r.id)) ?? "no Tier III text"}</span>;
     // eslint-disable-next-line @next/next/no-img-element

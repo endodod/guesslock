@@ -59,6 +59,12 @@ export type ItemData = {
 /** `section` is the wiki section the line was listed under (a hero's name for lines spoken to that hero). */
 export type VoiceLineData = { id: number; text: string; audio: string | null; starred: boolean; section?: string };
 
+/** A wiki voice entry (The Echo family): a Select line, an ability cast line or a complete conversation. */
+export type VoiceEntryData = {
+  id: number; kind: "select" | "cast" | "convo"; fileKey: string; abilityId: number | null; abilitySlot: number | null;
+  otherHeroId: number | null; text: string | null; lines: { h: number; t: string }[] | null;
+};
+
 /** An approved sound clip (The Resonance). `url` is always an opaque /media/<sha1> URL. */
 export type SoundData = { id: number; url: string; role: string; gainDb: number; durationMs: number; preferred: boolean };
 
@@ -72,6 +78,7 @@ export type GameData = {
   abilitiesOf(heroId: number): AbilityData[];
   text(type: string, id: number): string | null;
   voiceLines(heroId: number): VoiceLineData[];
+  voiceEntries(heroId: number, kind: VoiceEntryData["kind"]): VoiceEntryData[];
   /** Approved, mirrored clips of one ability / of one hero's gun (The Resonance). */
   abilitySounds(abilityId: number): SoundData[];
   weaponSounds(heroId: number): SoundData[];
@@ -93,7 +100,7 @@ export function parseAttrs(raw: unknown): Attrs {
 }
 
 export async function loadGameData(): Promise<GameData> {
-  const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps] = await Promise.all([
+  const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps, entryRows] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -104,7 +111,17 @@ export async function loadGameData(): Promise<GameData> {
     // Only reviewed and mirrored clips: nothing unreviewed is ever used.
     db.soundClip.findMany({ where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" } }),
     db.heroSoundMap.findMany(),
+    db.voiceEntry.findMany({ where: { status: "approved" }, orderBy: { id: "asc" } }),
   ]);
+  const entriesBy = new Map<string, VoiceEntryData[]>();
+  for (const e of entryRows) {
+    const k = `${e.heroId}:${e.kind}`;
+    if (!entriesBy.has(k)) entriesBy.set(k, []);
+    entriesBy.get(k)!.push({
+      id: e.id, kind: e.kind as VoiceEntryData["kind"], fileKey: e.fileKey, abilityId: e.abilityId === null ? null : Number(e.abilityId),
+      abilitySlot: e.abilitySlot, otherHeroId: e.otherHeroId, text: e.text, lines: (e.lines as { h: number; t: string }[] | null) ?? null,
+    });
+  }
 
   const heroes: HeroData[] = heroRows.map((h) => {
     const src = h.source as unknown as NormHero;
@@ -182,6 +199,7 @@ export async function loadGameData(): Promise<GameData> {
     abilitiesOf: (heroId) => abilities.filter((a) => a.heroId === heroId),
     text: (type, id) => usableText(textMap.get(`${type}:${id}`)),
     voiceLines: (heroId) => linesByHero.get(heroId) ?? [],
+    voiceEntries: (heroId, kind) => entriesBy.get(`${heroId}:${kind}`) ?? [],
     abilitySounds: (id) => abilitySounds.get(id) ?? [],
     weaponSounds: (heroId) => weaponSounds.get(heroId) ?? [],
     soundCodenames: (heroId) => {

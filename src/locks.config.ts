@@ -100,35 +100,46 @@ export const LOCKS: LockDef[] = [
   },
   {
     slug: "echo", mode: "quote", numeral: "IX", name: "The Echo",
-    subtitle: "Guess the hero from a voice line", group: "spirits", guess: "hero", picks: 6,
+    subtitle: "Guess the hero from their select lines", group: "spirits", guess: "hero", picks: 6,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "resonance", mode: "hero-sound", numeral: "X", name: "The Resonance",
-    subtitle: "Guess the hero from an ability sound", group: "spirits", guess: "hero", picks: 6,
+    slug: "utterance", mode: "quote-cast", numeral: "X", name: "The Utterance",
+    subtitle: "Guess the hero from what they say casting an ability", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true,
+    hints: LETTER_HINTS(4, 6),
+  },
+  {
+    slug: "colloquy", mode: "quote-convo", numeral: "XI", name: "The Colloquy",
+    subtitle: "Guess the hero from a conversation", group: "spirits", guess: "hero", picks: 6,
+    hints: LETTER_HINTS(3, 5),
+  },
+  {
+    slug: "resonance", mode: "hero-sound", numeral: "XII", name: "The Resonance",
+    subtitle: "Guess the hero from an ability cast sound", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true, needsAudio: true,
-    // Wrong guesses unlock more sound (clear clip, second clip, gun sound; see the mode). Hints are the shared letter hints.
+    // Wrong guesses unlock more sound (clear clip, then more cast variants; see the mode). Hints are the shared letter hints.
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "relic", mode: "item-picture", numeral: "XI", name: "The Relic",
+    slug: "relic", mode: "item-picture", numeral: "XIII", name: "The Relic",
     subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "appraisal", mode: "item-classic", numeral: "XII", name: "The Appraisal",
+    slug: "appraisal", mode: "item-classic", numeral: "XIV", name: "The Appraisal",
     subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "lineage", mode: "build-path", numeral: "XIII", name: "The Lineage",
+    slug: "lineage", mode: "build-path", numeral: "XV", name: "The Lineage",
     subtitle: "Guess what builds into what", group: "shop", guess: "item", picks: 6,
     noRepeatDays: 10,
     hints: LETTER_HINTS(3, 5),
   },
   {
-    slug: "measure", mode: "stat-bonus", numeral: "XIV", name: "The Measure",
+    slug: "measure", mode: "stat-bonus", numeral: "XVI", name: "The Measure",
     subtitle: "Guess the item's hidden stat value", group: "shop", guess: "number", picks: 5,
     maxTries: 5,
     hints: [],
@@ -136,15 +147,15 @@ export const LOCKS: LockDef[] = [
   // The Omens: predict what happens next from a frozen moment of a real high-rank match.
   // No guesses or win/loss: one lock-in, scored out of 100 souls (src/lib/omens/scoring.ts).
   {
-    slug: "clash", mode: "omen-clash", numeral: "XV", name: "The Clash",
+    slug: "clash", mode: "omen-clash", numeral: "XVII", name: "The Clash",
     subtitle: "Predict the teamfight", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   {
-    slug: "beast", mode: "omen-beast", numeral: "XVI", name: "The Beast",
+    slug: "beast", mode: "omen-beast", numeral: "XVIII", name: "The Beast",
     subtitle: "Predict the midboss", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   {
-    slug: "rift", mode: "omen-rift", numeral: "XVII", name: "The Rift",
+    slug: "rift", mode: "omen-rift", numeral: "XIX", name: "The Rift",
     subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   // The Séance: 16 heroes, 4 hidden groups of 4. Four tables a day, each its own frozen puzzle,
@@ -152,7 +163,7 @@ export const LOCKS: LockDef[] = [
   ...(
     [["mechanics", "Mechanics"], ["visuals", "Visuals"], ["lore", "Lore"], ["mixed", "Mixed"]] as const
   ).map(([kind, label]): LockDef => ({
-    slug: `seance-${kind}`, mode: "seance", numeral: "XVIII", name: "The Séance",
+    slug: `seance-${kind}`, mode: "seance", numeral: "XX", name: "The Séance",
     subtitle: "Sort 16 heroes into 4 hidden groups.", group: "seance", guess: "seance", picks: 4, maxTries: 4,
     box: "seance", table: { kind, label },
     hints: [{ id: "category", label: "Reveal a category name", after: 2 }],
@@ -182,7 +193,7 @@ export const omenOf = (l: LockDef) => (l.group === "omens" ? (l.slug as "clash" 
 export const isSeance = (slug: string) => LOCK_BY_SLUG[slug]?.box === "seance";
 
 /** The Séance box as the Vault shows it (one box, one numeral, counts as one lock). */
-export const SEANCE_BOX = { slug: "seance", numeral: "XVIII", name: "The Séance", subtitle: "Sort 16 heroes into 4 hidden groups." };
+export const SEANCE_BOX = { slug: "seance", numeral: "XX", name: "The Séance", subtitle: "Sort 16 heroes into 4 hidden groups." };
 
 /**
  * What the Vault counts as "a lock": every lock on its own, except the Séance tables, which fold

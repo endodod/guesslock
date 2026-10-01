@@ -40,8 +40,9 @@ export type Clue =
   | { kind: "text"; sections: { label?: string; text: string }[]; total: number; image?: string | null }
   | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number; /** Ability slots (1-4) in the order the points are spent. */ path?: number[] }
   | { kind: "emoji"; slots: (string | null)[] }
-  | { kind: "echo"; lines: { text: string; audio?: string | null; to?: string | null }[]; total: number }
-  | { kind: "sound"; clips: SoundClipView[]; total: number }
+  | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number; note?: string }
+  | { kind: "convo"; lines: { mine: boolean; text: string }[]; total: number; other: { name: string; image: string | null } | null }
+  | { kind: "sound"; clips: SoundClipView[]; total: number; slot?: number | null }
   | { kind: "relic"; image: string; blur: number; rotation: number }
   | {
       kind: "lineage";
@@ -66,8 +67,10 @@ export type AnswerView = {
   extra?: {
     alsoValid?: { name: string; image: string | null }[];
     exactValue?: string;
-    lines?: { text: string; audio?: string | null; to?: string | null }[];
+    lines?: { text: string; audio?: string | null }[];
     hero?: { name: string; image: string | null };
+    /** The Colloquy: the hero on the other side of the conversation. */
+    partner?: { name: string; image: string | null };
     /** The Resonance, when the lock jammed (there's no bonus round to protect then). */
     ability?: { name: string; image: string | null };
   };

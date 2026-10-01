@@ -368,3 +368,26 @@ model SeanceMembership {
   @@id([categoryId, heroId])
   @@index([heroId])
 }
+
+// ───────────── The Echo family (select lines, ability cast lines, conversations) from the wiki ─────────────
+
+// One row per voice entry of a hero's wiki voice-line page. `kind`: "select" (a Select line), "cast"
+// (a line when casting an ability: abilityId/abilitySlot set) or "convo" (a complete conversation: `lines`).
+model VoiceEntry {
+  id          Int      @id @default(autoincrement())
+  heroId      Int
+  kind        String
+  fileKey     String // wiki file name (select/cast) or the conversation's first file: unique per hero
+  abilityId   BigInt?
+  abilitySlot Int?
+  otherHeroId Int? // conversations: the hero on the other side
+  /// Select/cast: the line with this hero's own names already blacked out.
+  text        String?
+  /// Conversations: [{ "h": heroId, "t": text }] in order; this hero's names are blacked out.
+  lines       Json?
+  status      String   @default("approved") // "approved" | "excluded"
+  importedAt  DateTime @default(now())
+
+  @@unique([heroId, kind, fileKey])
+  @@index([heroId, kind, status])
+}

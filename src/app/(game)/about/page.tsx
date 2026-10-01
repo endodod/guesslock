@@ -11,10 +11,10 @@ export default function AboutPage() {
       <h2 className="font-display pt-2 text-xl text-paper">Credits</h2>
       <ul className="list-disc space-y-2 pl-5">
         <li>
-          Game data, images, match analytics and the ability and gun sounds of The Resonance (hosted by them): <a className={a} href="https://deadlock-api.com" target="_blank" rel="noreferrer">deadlock-api.com</a>, a community project.
+          Game data, images and match analytics (hosted by them): <a className={a} href="https://deadlock-api.com" target="_blank" rel="noreferrer">deadlock-api.com</a>, a community project.
         </li>
         <li>
-          Voice line transcriptions for The Echo: the <a className={a} href="https://deadlock.wiki" target="_blank" rel="noreferrer">Deadlock Wiki</a> (per-hero voice line pages),
+          Voice line transcriptions for The Echo, The Utterance and The Colloquy, and the ability cast sounds of The Resonance: the <a className={a} href="https://deadlock.wiki" target="_blank" rel="noreferrer">Deadlock Wiki</a> (per-hero voice line and sound pages),
           licensed under <a className={a} href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noreferrer">CC BY-NC-SA 4.0</a>.
           Lines may have names blacked out; those adapted texts are shared under the same license.
         </li>

@@ -2,7 +2,7 @@
 export const MODE_OPTIONS = [
   ["classic", "Reckoning"], ["splash", "Visage"], ["ability-icon", "Sigil"], ["lore", "Testament"],
   ["ability-desc", "Incantation"], ["whose-build", "Belongings"], ["upgrades", "Ascension"], ["emoji", "Cipher"],
-  ["quote", "Echo"], ["hero-sound", "Resonance"], ["item-picture", "Relic"], ["item-classic", "Appraisal"], ["build-path", "Lineage"], ["stat-bonus", "Measure"],
+  ["quote", "Echo"], ["quote-cast", "Utterance"], ["quote-convo", "Colloquy"], ["hero-sound", "Resonance"], ["item-picture", "Relic"], ["item-classic", "Appraisal"], ["build-path", "Lineage"], ["stat-bonus", "Measure"],
 ] as const;
 
 export function ExcludeBoxes({ selected, modes }: { selected: string[]; modes: readonly (readonly [string, string])[] }) {

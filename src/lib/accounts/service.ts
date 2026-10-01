@@ -71,6 +71,7 @@ export async function playAsUser(
   bonusIn: string | undefined,
   noHintsIn: boolean,
   giveUpIn = false,
+  hard = false,
 ): Promise<RecordedPlay> {
   const lock = getLock(slug)!;
   await ensureProfile(user);
@@ -85,7 +86,7 @@ export async function playAsUser(
   const bonus = existing?.bonus ?? bonusIn;
   // A finished "lost" play on a lock without a try limit can only be a give-up: keep it given up.
   const giveUp = giveUpIn || (!!finished && existing.status === "lost" && !lock.maxTries);
-  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { noHints, giveUp });
+  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { noHints, giveUp, hard });
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
 

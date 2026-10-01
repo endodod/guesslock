@@ -30,11 +30,11 @@ async function wikiGet(params: Record<string, string>, attempt = 0): Promise<unk
   return JSON.parse(text);
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type PageRev = { title: string; revid: number; content: string } | null;
 
-async function fetchPage(title: string): Promise<PageRev> {
+export async function fetchPage(title: string): Promise<PageRev> {
   const j = (await wikiGet({ action: "query", prop: "revisions", titles: title, rvprop: "ids|content", rvslots: "main", redirects: "1" })) as {
     query?: { pages?: { title: string; missing?: boolean; revisions?: { revid: number; slots: { main: { content: string } } }[] }[] };
   };

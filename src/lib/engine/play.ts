@@ -24,7 +24,7 @@ export function evaluate(
   guessesIn: string[],
   bonusPick: string | undefined,
   lookup: (id: string) => CatalogEntry | undefined,
-  opts: { noHints?: boolean; giveUp?: boolean } = {},
+  opts: { noHints?: boolean; giveUp?: boolean; hard?: boolean } = {},
 ): PlayView {
   const base = { slug: lock.slug, date: row.date, number, maxTries: lock.maxTries };
   if (row.sealed) {
@@ -87,7 +87,7 @@ export function evaluate(
     status: won ? "won" : lost ? "lost" : "playing",
     ...(gaveUp ? { gaveUp: true } : {}),
     rows, wrong, hints, hintsUsed,
-    clue: impl.clue(payload, wrong, done),
+    clue: impl.clue(payload, wrong, done, !!opts.hard),
   };
   if (done) view.answer = payload.answer;
   // A jammed lock has no bonus round, so a bonus-protected reveal (The Resonance's ability) joins the answer.

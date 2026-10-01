@@ -28,7 +28,7 @@ type Props = {
 /** Signed-in responses carry the account's authoritative guess list. */
 type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean } };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; noHints: boolean; giveUp?: boolean }): Promise<PlayResponse> {
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; noHints: boolean; hard?: boolean; giveUp?: boolean }): Promise<PlayResponse> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -53,6 +53,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const [popup, setPopup] = useState<{ tries: number; souls: number } | null>(null);
   const isArchive = date < today;
   const noHints = store.settings.noHints;
+  const hard = store.settings.hardMode;
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
@@ -92,7 +93,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (!hydrated || restored.current) return;
     restored.current = true;
     if (user || (rec && (rec.g.length || rec.b))) {
-      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, noHints, giveUp: rec?.gu })
+      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, noHints, hard, giveUp: rec?.gu })
         .then((v) => { setView(v); persist(v, rec?.g ?? [], rec?.b); })
         .catch(() => toast(t.lock.error))
         .finally(() => setRestoreDone(true));
@@ -117,7 +118,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setRestoreDone(true);
     const guesses = [...view.rows.map((r) => r.id), id];
     try {
-      const v = await evaluateRemote({ date, slug, guesses, noHints });
+      const v = await evaluateRemote({ date, slug, guesses, noHints, hard });
       setView(v);
       persist(v, guesses);
       if (v.status === "won") {
@@ -146,7 +147,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setBusy(true);
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, noHints, giveUp: true });
+      const v = await evaluateRemote({ date, slug, guesses, noHints, hard, giveUp: true });
       setView(v);
       persist(v, guesses, undefined, true);
       play("tick");
@@ -161,7 +162,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (view.bonus?.picked) return;
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, bonus: id, noHints, giveUp: rec?.gu });
+      const v = await evaluateRemote({ date, slug, guesses, bonus: id, noHints, hard, giveUp: rec?.gu });
       setView(v);
       persist(v, guesses, id, rec?.gu);
       play(v.bonus?.correct ? "click" : "tick");
@@ -234,7 +235,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {showRules && (
         <DecoFrame className="p-4 text-sm leading-relaxed text-paper/90" corners={false}>
           <p>{rules}</p>
-          {slug === "echo" && (
+          {["echo", "utterance", "colloquy"].includes(slug) && (
             <p className="mt-2 text-ash">
               Voice line transcriptions from the{" "}
               <a className="text-brass underline" href="https://deadlock.wiki" target="_blank" rel="noreferrer">Deadlock Wiki</a>, licensed{" "}
