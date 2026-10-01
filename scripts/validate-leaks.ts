@@ -5,6 +5,8 @@ import { db } from "../src/lib/db";
 import { todayDate } from "../src/lib/day";
 import { checkLeaks } from "../src/lib/engine/leaks";
 import type { BasePayload } from "../src/lib/engine/mode";
+import { getLock } from "../src/locks.config";
+import { seanceLeaks } from "../src/lib/seance/play";
 
 (async () => {
   const all = process.argv.includes("--all");
@@ -14,6 +16,19 @@ import type { BasePayload } from "../src/lib/engine/mode";
   });
   let bad = 0;
   for (const r of rows) {
+    const lock = getLock(r.mode);
+    // The Séance: no label or membership of an unsolved group may reach the browser.
+    if (lock?.box === "seance") {
+      const leaks = seanceLeaks(lock, r);
+      if (leaks.length) {
+        bad++;
+        console.log(`LEAK ${r.date} ${r.mode}:`);
+        for (const l of leaks) console.log(`   ${l}`);
+      }
+      continue;
+    }
+    // The Omens have their own server-side reveal (src/lib/omens/serve.ts).
+    if (lock?.group === "omens") continue;
     const leaks = checkLeaks(r.payload as unknown as BasePayload);
     if (leaks.length) {
       bad++;

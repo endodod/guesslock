@@ -273,14 +273,14 @@ describe("The Resonance: Skip sound locks", () => {
   const skip = ignoredSlugs({ skipSound: true });
 
   it("drops out of the lock count and the combined share", () => {
-    expect(LOCKS).toHaveLength(17);
-    expect(countedLocks(true)).toHaveLength(16);
+    expect(LOCKS).toHaveLength(21) // 17 Vault locks + the 4 Séance tables (one box);
+    expect(countedLocks(true)).toHaveLength(20);
     expect(countedLocks(true).some((l) => l.slug === "resonance")).toBe(false);
     const results = { resonance: { status: "won" as const, guesses: 1, souls: 100 }, visage: { status: "won" as const, guesses: 2, souls: 90 } };
     const on = shareDay({ number: 5, results, streak: 1, site: "x", skip });
     const off = shareDay({ number: 5, results, streak: 1, site: "x" });
-    expect(on).toContain("1/16 locks · 90 souls");
-    expect(off).toContain("2/17 locks · 190 souls");
+    expect(on).toContain("1/17 locks · 90 souls"); // 18 Vault units minus the skipped sound lock
+    expect(off).toContain("2/18 locks · 190 souls");
     const spirits = (s: string) => [...s.split("\n")[1].replace("Spirits  ", "")].filter((ch) => ch !== "️").length;
     expect(spirits(off)).toBe(10);
     expect(spirits(on)).toBe(9);

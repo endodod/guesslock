@@ -1,11 +1,12 @@
 # GUESSLOCK
 
-A fan-made daily guessing game for Valve's Deadlock: 17 "locks" per day (14 guessing games and 3 Omens), same for every player, reset at 00:00 Europe/Zurich.
+A fan-made daily guessing game for Valve's Deadlock: 18 "locks" per day (14 guessing games, 3 Omens and The Séance), same for every player, reset at 00:00 Europe/Zurich.
 Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
 [`guesslock-addendum-omens.md`](prompts/guesslock-addendum-omens.md) (The Omens; data findings in [`docs/omens-data-spike.md`](docs/omens-data-spike.md)),
-[`guesslock-addendum-resonance.md`](prompts/guesslock-addendum-resonance.md) (The Resonance; data findings and defaults in [`docs/resonance-data-spike.md`](docs/resonance-data-spike.md)).
+[`guesslock-addendum-resonance.md`](prompts/guesslock-addendum-resonance.md) (The Resonance; data findings and defaults in [`docs/resonance-data-spike.md`](docs/resonance-data-spike.md)),
+[`guesslock-addendum-seance.md`](prompts/guesslock-addendum-seance.md) (The Séance).
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 7 + Postgres (Neon) · Motion · Zod · Vitest.
 No accounts: player progress lives in `localStorage`.
@@ -28,10 +29,13 @@ No accounts: player progress lives in `localStorage`.
 | XII | The Appraisal | item attributes | API |
 | XIII | The Lineage | build path (easy) | API |
 | XIV | The Measure | hidden stat value (5 tries) | API |
+| XV–XVII | The Clash / The Beast / The Rift | Omens: predict a real match | replays (see below) |
+| XVIII | The Séance | sort 16 heroes into 4 hidden groups; four tables (Mechanics, Visuals, Lore, Mixed) in one box | **only approved categories** (/admin/seance) |
 
 Everything opens automatically; the admin is optional (corrections, rewrites, overrides). The exceptions are
-The Cipher, which stays **Sealed** until at least one hero has a 6-emoji set, and The Resonance, which stays Sealed
-until at least one ability has approved clips (1 cast + 2 total; see below). Numbering/names/hints live in `src/locks.config.ts`;
+The Cipher, which stays **Sealed** until at least one hero has an emoji set; The Resonance, which stays Sealed
+until at least one ability has approved clips (1 cast + 2 total; see below); and each Séance table, which stays
+Sealed until the admin has approved enough complete categories for it. Numbering/names/hints live in `src/locks.config.ts`;
 attribute columns in `src/lib/engine/columns.ts`; strings in `src/lib/i18n/`.
 
 ## Setup
@@ -174,6 +178,46 @@ Omen still gets its daily puzzle. Refresh it with `npm run omens:seed` after a h
 set `MIGRATE_ON_BUILD=1` to do the same elsewhere, or run `npm run db:migrate` before starting a Docker image). If a
 visitor opens today's vault while a lock has no puzzle yet (a fresh deploy, a missed cron), generation for those locks
 runs right after the response, at most once per 10 minutes.
+
+### The Séance (XVII)
+
+A Connections-style puzzle: 16 heroes, 4 hidden groups of 4. Code: `src/lib/seance/` (pure: `board.ts` solver and
+generator, `play.ts` server checks, `scoring.ts`, `derive.ts`, `rules.ts`; DB: `library.ts`), UI in `src/components/seance/`.
+
+- **Four tables, one box.** `seance-mechanics`, `seance-visuals`, `seance-lore` and `seance-mixed` are four normal locks
+  (`box: "seance"` in `locks.config.ts`), each a frozen `DailyPuzzle` row, played through `/api/play` like every other lock
+  (a submission is stored as `"id,id,id,id"`, a hint request as `"hint"`). The Vault shows them as one wide box that
+  counts as one lock; the lock screen shows them as tabs.
+- **Category library** (`Category`, `CategoryMembership`): a category is a yes/no set over all active heroes. A missing
+  membership row means "unknown". Boards use only categories that are **approved** and **complete** (every active hero
+  classified). A hero added by a sync has no row in curated categories, so they drop out until classified (review queue).
+- **API-derived mechanics categories** (`derive.ts`) are refreshed by every asset sync: archetype, weapon type,
+  complexity, hero tags, and an **allowlist** of player-facing ability behaviours (`CAN_HEAL_PLAYERS`, `ALLOW_SELF_CAST`,
+  `MOVEMENT`, `PROJECTILE`), multiple charges, stuns, and two fixed health cuts (≥ 850, < 700). New ones (≥ 4 members) are
+  created as **drafts**. When a sync changes members, the category is flagged with a diff; it only drops back to draft
+  below 4 members. Missing API data (e.g. a hero without `hero_type`) is "unknown", never "no". Admin memberships always
+  win over the API. Other behaviour flags are engine internals and never become categories.
+- **Visuals and lore are curated only.** Nothing is seeded: those tables (and Mixed, which needs 3 category types) stay
+  **Sealed** until the admin writes and approves categories.
+- **Generation** (`board.ts`): seeded; picks 4 categories (preferring one per difficulty; Mixed takes 3+ types), then 4
+  heroes each, aiming for a seeded target of 2–5 red herrings. A solver counts every valid split; the board is kept only
+  with exactly **one** solution and **2–5** red herrings (600 attempts, else the table seals with the reason). Group colors
+  rank difficulty + ½ per decoy (max +1.5), ties by category id: brass 🟨, ecto 🟩, sapphire 🟦, cursed 🟪.
+- **Defaults chosen here** (the spec left them open):
+  - No category repeats in the same table within `min(14, pool/4 − 1)` days, so a small library can still make boards.
+    It also avoids categories another table uses that day. Both are soft: if no fresh board exists, recent categories are allowed.
+  - The box is worth the rounded average of the tables **in play** that day (sealed tables don't count; unfinished count 0).
+    Leaderboards, stats and the Ledger fold the tables the same way (`foldPlays`). The box counts as one lock opened once every table in play is finished.
+  - One hint per table. It names the easiest group not yet solved at the moment it's used.
+  - The Vault box links to the first unfinished table. After a wrong pick the selection stays (like Connections). Rank numerals (I–IV) are always shown on bands.
+  - Colorblind palette: Okabe–Ito yellow / orange / sky blue / reddish purple with a stripe pattern. Reduced motion drops the slide/shake (fades only).
+  - The frozen board has `source: "daily"` (and an optional `authorUserId`) for future community boards.
+- **Admin:** `/admin/categories` (library by type/status, completeness, last use, new curated categories, derived-category
+  review with approve/reject and sync diffs), `/admin/categories/<id>` (yes/no/unknown grid: portraits for visuals, lore on
+  hover for lore), `/admin/categories/preview` (board for any date/table with solution, difficulty and red herrings;
+  "Another board" rerolls, "Use this board" freezes it as an override). Incomplete categories, sync changes and sealed tables are in the review queue.
+- **Leak check:** `npm run validate:leaks` also plays each Séance table (start, one group solved plus a wrong and a
+  one-away pick) and fails if a label, explanation or membership of an unsolved group would be sent.
 
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.

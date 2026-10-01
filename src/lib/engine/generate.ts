@@ -12,6 +12,8 @@ import { SealedError, SkipCandidate, type BasePayload, type Candidate } from "./
 import { noRepeatWindow, orderCandidates } from "./select";
 import { alert } from "../monitoring";
 import { assignOmen, harvest } from "../omens/harvest";
+import { buildSeanceBoard } from "../seance/library";
+import { boardKey } from "../seance/board";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type GenResult = { date: string; slug: string; status: "created" | "exists" | "sealed" | "skipped" | "error"; answerId?: string; note?: string };
@@ -42,6 +44,14 @@ async function buildOmen(lock: LockDef, date: string, exclude: string[] = []): P
   const picked = await assignOmen(lock.slug as "clash" | "beast" | "rift", date, puzzleSeed(date, lock.slug, config.salt), exclude);
   if (!picked) throw new SealedError("no Omen scenario harvested yet");
   return { candidate: { answerId: picked.id, ref: picked.id }, payload: picked.payload as unknown as BasePayload };
+}
+
+/** The Séance: a seeded board from the category library (sealed when no valid board exists). */
+async function buildSeance(lock: LockDef, date: string): Promise<{ candidate: Candidate; payload: BasePayload }> {
+  const r = await buildSeanceBoard(lock, date);
+  if (!r.ok) throw new SealedError(r.reason);
+  const key = boardKey(r.payload);
+  return { candidate: { answerId: key, ref: key }, payload: r.payload as unknown as BasePayload };
 }
 
 /** Admin: replace a day's Omen with the next best candidate and reject the old one. */
@@ -103,7 +113,10 @@ export async function generateDay(
       }
     }
     try {
-      const built = lock.group === "omens" ? await buildOmen(lock, date) : await buildPuzzle(lock, date, data, analytics);
+      const built =
+        lock.group === "omens" ? await buildOmen(lock, date)
+        : lock.box === "seance" ? await buildSeance(lock, date)
+        : await buildPuzzle(lock, date, data, analytics);
       if (!built) throw new SealedError("no eligible answers");
       const row = {
         answerId: built.candidate.answerId,
@@ -186,6 +199,7 @@ function countBy(rs: GenResult[]) {
 export async function overridePuzzle(date: string, slug: string, answerId: string): Promise<void> {
   const lock = LOCKS.find((l) => l.slug === slug);
   if (!lock) throw new Error("unknown lock");
+  if (!MODES[lock.mode]) throw new Error(`${lock.name} has no answer list; use its own admin page`);
   const data = await loadGameData();
   const pool = MODES[lock.mode].candidates(data, { dayIndex: dayIndex(date) });
   const candidate = pool.find((c) => c.answerId === answerId);

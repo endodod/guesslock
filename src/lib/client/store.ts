@@ -1,6 +1,7 @@
 // Local player data (localStorage). Keyed by date and lock *slug* — never by numeral —
 // so renumbering locks can't corrupt saved progress. Pure helpers are unit-tested.
-import { LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
+import { isSeance, LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
+import { foldPlays } from "../seance/scoring";
 
 export type LockRecord = {
   g: string[]; // guesses (ids or numbers as strings)
@@ -16,6 +17,7 @@ export type LockRecord = {
   ranked?: boolean; // signed in: counts for leaderboards (set from the server)
   answer?: { name: string; image: string | null };
   at?: number; // finished at (ms)
+  tables?: number; // The Séance: tables in play that day (the box is worth their average)
 };
 
 export type Settings = {
@@ -171,8 +173,15 @@ export function lockStats(progress: StoreData["progress"], slug: string, today: 
   };
 }
 
-export function daySouls(day: Record<string, LockRecord> | undefined, ignore: ReadonlySet<string> = new Set()): number {
-  return day ? Object.entries(day).filter(([slug, r]) => !ignore.has(slug) && live(r)).reduce((a, [, r]) => a + (r.souls ?? 0), 0) : 0;
+/**
+ * A day's souls; the Séance tables fold into one box worth their average (see foldPlays).
+ * `ignore` = skipped slugs (sound locks); `pred` picks the records that count (default: live plays).
+ */
+export function daySouls(day: Record<string, LockRecord> | undefined, ignore: ReadonlySet<string> = new Set(), pred: (r: LockRecord) => boolean = live): number {
+  if (!day) return 0;
+  const entries = Object.entries(day).filter(([slug, r]) => !ignore.has(slug) && pred(r));
+  const tables = Math.max(0, ...entries.filter(([slug]) => isSeance(slug)).map(([, r]) => r.tables ?? 4));
+  return foldPlays(entries.map(([lock, r]) => ({ date: "d", lock, souls: r.souls ?? 0, status: r.s })), isSeance, () => tables).souls;
 }
 
 function dayDiff(a: string, b: string) {

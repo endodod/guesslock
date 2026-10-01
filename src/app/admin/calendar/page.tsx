@@ -7,6 +7,8 @@ import { loadGameData } from "@/lib/engine/context";
 import { MODES } from "@/lib/engine/registry";
 import type { BasePayload } from "@/lib/engine/mode";
 import { CalendarCell } from "./CalendarCell";
+import Link from "next/link";
+import type { SeancePayload } from "@/lib/seance/types";
 
 /** The Resonance: the day's clips (and gun hint) for a quick listen, plus the ability behind them. */
 function soundPreview(p: BasePayload): { clips: { label: string; url: string }[]; ability?: string } | undefined {
@@ -54,9 +56,32 @@ export default async function CalendarAdmin() {
             {/* The Omens have their own calendar in /admin/omens (no engine mode here). */}
             {LOCKS.filter((l) => MODES[l.mode]).map((l) => (
               <tr key={l.slug} className="border-t border-neutral-200 align-top">
-                <td className="p-2 font-medium">{l.numeral} {l.name}</td>
+                <td className="p-2 font-medium">{l.numeral} {l.name}{l.table ? ` · ${l.table.label}` : ""}</td>
                 {days.map((d) => {
                   const r = by.get(`${d}|${l.slug}`);
+                  // The Séance: boards come from the category library; preview/override on /admin/seance/preview.
+                  if (l.box === "seance") {
+                    const p = r && !r.sealed ? (r.payload as unknown as SeancePayload) : null;
+                    return (
+                      <td key={d} className="min-w-44 p-2 text-xs">
+                        {!r ? <span className="text-neutral-400">not generated</span>
+                          : r.sealed ? <span className="text-red-700" title={r.sealedReason ?? ""}>sealed</span>
+                          : <span>{p!.groups.map((g) => g.label).join(" · ")}{r.overridden && <span className="ml-1 text-blue-700">(override)</span>}</span>}
+                        <div className="mt-1">
+                          <Link className="text-blue-700 hover:underline" href={`/admin/seance/preview?date=${d}&table=${l.table!.kind}`}>preview / override</Link>
+                        </div>
+                      </td>
+                    );
+                  }
+                  if (!MODES[l.mode]) {
+                    // The Omens have their own calendar on /admin/omens.
+                    return (
+                      <td key={d} className="min-w-44 p-2 text-xs">
+                        {!r ? <span className="text-neutral-400">not generated</span> : r.sealed ? <span className="text-red-700">sealed</span> : r.answerId}
+                        <div className="mt-1"><Link className="text-blue-700 hover:underline" href="/admin/omens">Omens admin</Link></div>
+                      </td>
+                    );
+                  }
                   const options = MODES[l.mode]
                     .candidates(data, { dayIndex: dayIndex(d) })
                     .map((c) => ({ id: c.answerId, name: nameOf(l.mode, c.answerId) }))

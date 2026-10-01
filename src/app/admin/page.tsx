@@ -55,7 +55,7 @@ export default async function AdminStatus() {
             const m = meta.find((x) => x.slug === l.slug)!;
             return (
               <li key={l.slug} className={m.state === "available" ? "text-green-800" : "text-red-700"}>
-                <Link href={`/admin/puzzles/${l.slug}`} className="hover:underline">{l.numeral} {l.name}</Link>: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
+                <Link href={`/admin/puzzles/${l.slug}`} className="hover:underline">{l.numeral} {l.name}{l.table ? ` · ${l.table.label}` : ""}</Link>: {m.state}{m.sealedReason ? ` (${m.sealedReason})` : ""}
               </li>
             );
           })}

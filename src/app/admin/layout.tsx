@@ -42,6 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 ["/admin/categories", "Categories"],
                 ["/admin/texts", "Texts"],
                 ["/admin/sounds", "Sounds"],
+                ["/admin/seance", "Séance"],
                 ...(config.adminSetup ? [["/admin/setup", "Hero setup"]] : []),
               ].map(([href, label]) => (
                 <Link key={href} href={href} className="text-blue-700 hover:underline">{label}</Link>

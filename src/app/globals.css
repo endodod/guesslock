@@ -32,6 +32,17 @@
   --amber: #e0962a;
   --sapphire: #5b82d6;
 
+  /* The Séance: group colours by difficulty rank (I easiest … IV hardest) */
+  --seance-1: var(--brass);
+  --seance-1-ink: #2a1f08;
+  --seance-2: var(--ecto);
+  --seance-2-ink: #0b2a21;
+  --seance-3: var(--sapphire);
+  --seance-3-ink: #08142e;
+  --seance-4: var(--cursed);
+  --seance-4-ink: #150b2c;
+  --seance-pattern: none;
+
   color-scheme: dark;
 }
 
@@ -46,6 +57,16 @@
   --fb-miss-border: #9a9a9a;
   --fb-pattern-partial: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.18) 0 4px, transparent 4px 9px);
   --fb-pattern-miss: radial-gradient(rgb(255 255 255 / 0.14) 1px, transparent 1.5px) 0 0 / 7px 7px;
+  /* Séance groups: Okabe–Ito yellow / orange / sky blue / reddish purple (rank numerals always shown) */
+  --seance-1: #f0e442;
+  --seance-1-ink: #262200;
+  --seance-2: #e69f00;
+  --seance-2-ink: #2b1a00;
+  --seance-3: #56b4e9;
+  --seance-3-ink: #04202f;
+  --seance-4: #cc79a7;
+  --seance-4-ink: #2b0a1c;
+  --seance-pattern: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.08) 0 5px, transparent 5px 11px);
 }
 
 @theme inline {
@@ -159,6 +180,18 @@
   background: var(--fb-pattern-miss), var(--fb-miss);
   color: var(--fb-miss-ink);
   box-shadow: inset 0 0 0 1px var(--fb-miss-border);
+}
+
+/* ───────────── The Séance ───────────── */
+.seance-band-1 { background: var(--seance-pattern), var(--seance-1); color: var(--seance-1-ink); }
+.seance-band-2 { background: var(--seance-pattern), var(--seance-2); color: var(--seance-2-ink); }
+.seance-band-3 { background: var(--seance-pattern), var(--seance-3); color: var(--seance-3-ink); }
+.seance-band-4 { background: var(--seance-pattern), var(--seance-4); color: var(--seance-4-ink); }
+/* The séance table: velvet cloth under the tiles */
+.seance-table {
+  background:
+    radial-gradient(ellipse at 50% 35%, rgb(140 107 216 / 0.12), transparent 65%),
+    radial-gradient(ellipse at center, #4a2024, var(--velvet) 55%, #2a1013);
 }
 
 /* ───────────── Censor bars for redacted text ───────────── */

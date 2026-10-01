@@ -3,6 +3,9 @@ import { db } from "../db";
 import { todayDate } from "../day";
 import { addDays } from "../time";
 import { weekStart } from "./rules";
+import { isSeance } from "@/locks.config";
+import { foldPlays } from "../seance/scoring";
+import { tablesInPlay } from "../seance/library";
 
 export type Board = "today" | "week" | "all" | "streak";
 export const BOARDS: { id: Board; label: string; sub: string }[] = [
@@ -39,22 +42,20 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
 
   if (board === "today" || board === "week") {
     const from = board === "today" ? today : weekStart(today);
-    const sums = await db.play.groupBy({
-      by: ["userId"],
-      where: { source: "live", archive: false, status: { not: "playing" }, date: { gte: from, lte: today } },
-      _sum: { souls: true },
-      _count: { _all: true },
+    const [plays, inPlay] = await Promise.all([
+      db.play.findMany({
+        where: { source: "live", archive: false, status: { not: "playing" }, date: { gte: from, lte: today } },
+        select: { userId: true, date: true, lock: true, souls: true, status: true },
+      }),
+      tablesInPlay({ gte: from, lte: today }),
+    ]);
+    // Per player; the Séance's four tables fold into one box worth their average (one lock opened).
+    const byUser = new Map<string, typeof plays>();
+    for (const p of plays) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), p]);
+    entries = [...byUser].map(([userId, ps]) => {
+      const f = foldPlays(ps, isSeance, inPlay);
+      return { userId, value: f.souls, tie: -f.opened, detail: `${f.opened} locks opened` };
     });
-    const wins = await db.play.groupBy({
-      by: ["userId"],
-      where: { source: "live", archive: false, status: "won", date: { gte: from, lte: today } },
-      _count: { _all: true },
-    });
-    const winMap = new Map(wins.map((w) => [w.userId, w._count._all]));
-    entries = sums.map((s) => ({
-      userId: s.userId, value: s._sum.souls ?? 0, tie: -(winMap.get(s.userId) ?? 0),
-      detail: `${winMap.get(s.userId) ?? 0} locks opened`,
-    }));
   } else {
     const yesterday = addDays(today, -1);
     const stats = await db.userStats.findMany();

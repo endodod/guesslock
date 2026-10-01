@@ -13,6 +13,11 @@ import { parseAnswer } from "../omens/serve";
 import { scoreOmen } from "../omens/scoring";
 import type { OmenAnswer, OmenPayload } from "../omens/types";
 import type { Prisma } from "@/generated/prisma/client";
+import { isSeance } from "@/locks.config";
+import { evaluateSeance } from "../seance/play";
+import type { SeanceView } from "../seance/types";
+import { foldPlays } from "../seance/scoring";
+import { tablesInPlay } from "../seance/library";
 
 // ───────────── profiles ─────────────
 
@@ -112,6 +117,44 @@ export async function playAsUser(
   return { view, guesses: clean, bonus: bonusPicked, ranked: source === "live" && !archive, conflict: merged.conflict };
 }
 
+// ───────────── The Séance ─────────────
+
+/**
+ * Records a signed-in Séance table, like playAsUser: submissions are append-only (a hint request is
+ * an entry too), finished tables are frozen, and "no hints" is fixed at the first submission.
+ */
+export async function playSeanceAsUser(
+  user: SessionUser, row: PuzzleRow & { date: string }, slug: string, incoming: string[], noHintsIn: boolean,
+): Promise<{ view: SeanceView; guesses: string[]; ranked: boolean; conflict: boolean }> {
+  const lock = getLock(slug)!;
+  await ensureProfile(user);
+  const existing = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } });
+  const finished = existing && existing.status !== "playing";
+  const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
+  const noHints = existing ? existing.noHints : noHintsIn;
+  const { view, accepted } = evaluateSeance(lock, row, numberFor(row.date), merged.guesses, { noHints });
+  if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
+  const archive = existing ? existing.archive : row.date < todayDate();
+  const done = view.status === "won" || view.status === "lost";
+  const source = nextSource(existing?.source as "live" | "import" | undefined, merged.added);
+  const nothingNew = existing && merged.added === 0 && (existing.status !== "playing" || !done);
+  if (!nothingNew && accepted.length > 0) {
+    const data = {
+      guesses: accepted,
+      status: view.status === "won" ? "won" : view.status === "lost" ? "lost" : "playing",
+      hintsUsed: view.hintsUsed, noHints, souls: done ? view.souls ?? 0 : 0, source,
+      finishedAt: done ? (existing?.finishedAt ?? new Date()) : null,
+    };
+    await db.play.upsert({
+      where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
+      create: { userId: user.id, date: row.date, lock: slug, archive, ...data },
+      update: data,
+    });
+    if (done) await recomputeStats(user.id);
+  }
+  return { view, guesses: accepted, ranked: source === "live" && !archive, conflict: merged.conflict };
+}
+
 // ───────────── The Omens ─────────────
 
 /**
@@ -150,11 +193,13 @@ export async function recordedOmen(userId: string, date: string, slug: string): 
 const RANKED = { source: "live", archive: false } as const;
 
 export async function recomputeStats(userId: string) {
-  const plays = await db.play.findMany({ where: { userId, ...RANKED, status: { not: "playing" } }, select: { date: true, status: true, souls: true } });
+  const plays = await db.play.findMany({ where: { userId, ...RANKED, status: { not: "playing" } }, select: { date: true, lock: true, status: true, souls: true } });
   const winDays = plays.filter((p) => p.status === "won").map((p) => p.date);
   const s = streakFromDays(winDays, todayDate());
+  // The Séance's four tables count as one box worth their average.
+  const inPlay = await tablesInPlay();
   const data = {
-    totalSouls: plays.reduce((a, p) => a + p.souls, 0),
+    totalSouls: foldPlays(plays, isSeance, inPlay).souls,
     daysUnlocked: s.count,
     currentStreak: s.current,
     bestStreak: s.best,
@@ -189,6 +234,20 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
       if (omen ? rec.o === undefined : rec.g.length === 0) continue;
       const row = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
       if (!row || row.sealed) continue;
+      if (lock.box === "seance") {
+        // A Séance table from this device: re-evaluated against the frozen board, unranked.
+        const { view: v, accepted } = evaluateSeance(lock, row, numberFor(date), rec.g.map(String).slice(0, 40));
+        if (!accepted.length) continue;
+        const done = v.status === "won" || v.status === "lost";
+        await db.play.create({
+          data: {
+            userId: user.id, date, lock: slug, guesses: accepted, status: done ? v.status : "playing", hintsUsed: v.hintsUsed,
+            souls: done ? v.souls ?? 0 : 0, archive: !!rec.archive, source: "import", finishedAt: done ? new Date() : null,
+          },
+        }).catch(() => undefined);
+        imported++;
+        continue;
+      }
       if (omen) {
         // A locked-in Omen from this device: re-scored against the frozen scenario, unranked.
         const answers = parseAnswer(omen, rec.o);
@@ -227,9 +286,17 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
 export async function accountProgress(userId: string) {
   const plays = await db.play.findMany({ where: { userId }, orderBy: { date: "asc" } });
   const puzzles = await db.dailyPuzzle.findMany({
-    where: { OR: plays.filter((p) => p.status !== "playing").map((p) => ({ date: p.date, mode: p.lock })) },
-    select: { date: true, mode: true, payload: true },
+    where: { OR: plays.filter((p) => p.status !== "playing" || isSeance(p.lock)).map((p) => ({ date: p.date, mode: p.lock })) },
+    select: { date: true, mode: true, payload: true, sealed: true, sealedReason: true },
   });
+  // Séance tables: mistakes aren't a column, so they're recomputed from the frozen board.
+  const inPlay = await tablesInPlay();
+  const seanceMistakes = new Map<string, number>();
+  for (const p of plays) {
+    const lock = getLock(p.lock);
+    const row = lock?.box === "seance" ? puzzles.find((x) => x.date === p.date && x.mode === p.lock) : undefined;
+    if (lock && row) seanceMistakes.set(`${p.date}|${p.lock}`, evaluateSeance(lock, row, 0, p.guesses).view.mistakes);
+  }
   // Omen payloads have no named answer (their `answer` is the prediction key).
   const answers = new Map(puzzles.map((p) => {
     const a = (p.payload as { mode?: string; answer?: { name: string; image: string | null } });
@@ -237,7 +304,7 @@ export async function accountProgress(userId: string) {
   }));
   const out: Record<string, Record<string, {
     g: string[]; b?: string; o?: unknown; s: string; w: number; h: number; souls: number; bonusCorrect: boolean; archive: boolean;
-    ranked: boolean; answer?: { name: string; image: string | null }; at?: number;
+    ranked: boolean; answer?: { name: string; image: string | null }; at?: number; tables?: number;
   }>> = {};
   for (const p of plays) {
     const lock = LOCKS.find((l) => l.slug === p.lock);
@@ -245,11 +312,12 @@ export async function accountProgress(userId: string) {
     const a = answers.get(`${p.date}|${p.lock}`);
     (out[p.date] ??= {})[p.lock] = {
       g: p.guesses, b: p.bonus ?? undefined, o: p.omen ?? undefined, s: p.status,
-      w: p.status === "won" ? Math.max(0, p.guesses.length - 1) : p.guesses.length,
+      w: seanceMistakes.get(`${p.date}|${p.lock}`) ?? (p.status === "won" ? Math.max(0, p.guesses.length - 1) : p.guesses.length),
       h: p.hintsUsed, souls: p.souls, bonusCorrect: p.bonusCorrect, archive: p.archive,
       ranked: p.source === "live" && !p.archive,
       answer: a ? { name: a.name, image: a.image } : undefined,
       at: p.finishedAt?.getTime(),
+      ...(lock.box === "seance" ? { tables: inPlay(p.date) } : {}),
     };
   }
   return out;

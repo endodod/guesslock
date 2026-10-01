@@ -1,7 +1,16 @@
 "use client";
 import Link from "next/link";
-import { LOCKS } from "@/locks.config";
+import { VAULT_UNITS } from "@/locks.config";
+import type { LockRecord } from "@/lib/client/store";
 import { useGame } from "./GameProvider";
+
+/** One dot per Vault lock; the Séance box is won once any table is won, jammed when all finished tables were lost. */
+function unitRecord(day: Record<string, LockRecord>, u: (typeof VAULT_UNITS)[number]): { key: string; s?: string } {
+  if (u.kind === "lock") return { key: u.lock.slug, s: day[u.lock.slug]?.s };
+  const recs = u.locks.map((l) => day[l.slug]).filter((r): r is LockRecord => !!r);
+  const s = recs.some((r) => r.s === "won") ? "won" : recs.some((r) => r.s === "playing") ? "playing" : recs.length ? "lost" : undefined;
+  return { key: "seance", s };
+}
 
 export function ArchiveCalendar({ dates }: { dates: string[] }) {
   const { store } = useGame();
@@ -25,12 +34,12 @@ export function ArchiveCalendar({ dates }: { dates: string[] }) {
                 <li key={d}>
                   <Link href={`/archive/${d}`} className="block rounded-sm border border-brass/25 bg-iron/70 p-2 hover:border-brass" aria-label={`Replay ${d}`}>
                     <div className="font-mono text-sm text-paper">{d.slice(8)}</div>
-                    {/* 13-dot summary, one per lock */}
+                    {/* one dot per lock */}
                     <div className="mt-1.5 grid grid-cols-7 gap-1" aria-hidden>
-                      {LOCKS.map((l) => {
-                        const r = day[l.slug];
-                        const c = !r ? "bg-ash/20" : r.s === "won" ? "bg-ecto" : r.s === "lost" ? "bg-[#b0433f]" : "bg-brass/70";
-                        return <span key={l.slug} className={`h-1.5 w-1.5 rounded-full ${c}`} />;
+                      {VAULT_UNITS.map((u) => {
+                        const r = unitRecord(day, u);
+                        const c = !r.s ? "bg-ash/20" : r.s === "won" ? "bg-ecto" : r.s === "lost" ? "bg-[#b0433f]" : "bg-brass/70";
+                        return <span key={r.key} className={`h-1.5 w-1.5 rounded-full ${c}`} />;
                       })}
                     </div>
                   </Link>

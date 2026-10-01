@@ -333,3 +333,38 @@ model UserStats {
   lastDay       String? // last day with a ranked win
   updatedAt     DateTime @updatedAt
 }
+
+// ───────────── The Séance (hero grouping puzzle) ─────────────
+
+// A set over all active heroes (not a list of examples). Usable for boards only when approved and
+// complete: every active hero has an explicit membership row (a missing row means "unknown").
+model SeanceCategory {
+  id          Int                @id @default(autoincrement())
+  key         String?            @unique // stable id of API-derived categories, e.g. "api:hero_type:marksman"
+  type        String // "mechanics" | "visuals" | "lore"
+  label       String // shown once the group is solved
+  explanation String?
+  source      String // "api" | "derived" | "curated"
+  difficulty  Int                @default(2) // 1 = obvious … 4 = devious
+  status      String             @default("draft") // "draft" | "approved" | "retired"
+  flagged     Boolean            @default(false) // membership changed in a sync: review it
+  flagReason  String?
+  diff        Json? // last sync change: { added: heroId[], removed: heroId[], at }
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  memberships SeanceMembership[]
+
+  @@index([type, status])
+}
+
+model SeanceMembership {
+  categoryId Int
+  category   SeanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  heroId     Int
+  member     Boolean
+  source     String // "api" | "derived" | "admin"
+  updatedAt  DateTime       @updatedAt
+
+  @@id([categoryId, heroId])
+  @@index([heroId])
+}
