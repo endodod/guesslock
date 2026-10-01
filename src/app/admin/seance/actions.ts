@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
-import { LOCKS } from "@/locks.config";
+import { SEANCE_LOCKS, type SeanceEntity } from "@/locks.config";
 import { todayDate } from "@/lib/day";
-import { buildSeanceBoard, saveSeanceBoard } from "@/lib/seance/library";
+import { activeEntities, buildSeanceBoard, saveSeanceBoard } from "@/lib/seance/library";
 import { generateDay } from "@/lib/engine/generate";
-import { CATEGORY_TYPES, type CategoryType } from "@/lib/seance/types";
+import { ENTITY_TYPES, type CategoryType } from "@/lib/seance/types";
 
 const STATUSES = ["draft", "approved", "retired"];
 const clampDifficulty = (v: FormDataEntryValue | null) => Math.min(4, Math.max(1, Number(v) || 2));
@@ -18,15 +18,18 @@ function revalidate(id?: number) {
   if (id) revalidatePath(`/admin/seance/${id}`);
 }
 
-/** New curated category (visuals, lore, or a hand-made mechanics one): starts as a draft with no memberships. */
+const ENTITIES: SeanceEntity[] = ["hero", "item", "ability"];
+
+/** New curated category (looks, lore, or a hand-made one): starts as a draft with no memberships. */
 export async function createCategory(form: FormData) {
   await requireAdmin();
+  const entity = String(form.get("entity") ?? "hero") as SeanceEntity;
   const type = String(form.get("type")) as CategoryType;
   const label = String(form.get("label") ?? "").trim();
-  if (!CATEGORY_TYPES.includes(type) || !label) throw new Error("type and label are required");
+  if (!ENTITIES.includes(entity) || !ENTITY_TYPES[entity].includes(type) || !label) throw new Error("entity, a type of that entity and a label are required");
   const c = await db.seanceCategory.create({
     data: {
-      type, label, explanation: String(form.get("explanation") ?? "").trim() || null,
+      entity, type, label, explanation: String(form.get("explanation") ?? "").trim() || null,
       source: "curated", difficulty: clampDifficulty(form.get("difficulty")), status: "draft",
     },
   });
@@ -47,36 +50,38 @@ export async function saveCategory(id: number, form: FormData) {
       difficulty: clampDifficulty(form.get("difficulty")),
       status: STATUSES.includes(status) ? status : c.status,
       // API-derived categories are always mechanics; curated ones may move between types.
-      ...(c.source === "curated" && CATEGORY_TYPES.includes(type) ? { type } : {}),
+      ...(c.source === "curated" && ENTITY_TYPES[c.entity as SeanceEntity]?.includes(type) ? { type } : {}),
     },
   });
   revalidate(id);
 }
 
-/** One hero's membership: yes / no (an admin decision, kept across syncs) or back to unknown. */
-export async function setMembership(categoryId: number, heroId: number, value: boolean | null) {
+/** One entity's membership: yes / no (an admin decision, kept across syncs) or back to unknown. */
+export async function setMembership(categoryId: number, entityNumber: number, value: boolean | null) {
   await requireAdmin();
-  if (value === null) await db.seanceMembership.deleteMany({ where: { categoryId, heroId } });
+  const entityId = BigInt(entityNumber);
+  if (value === null) await db.seanceMembership.deleteMany({ where: { categoryId, entityId } });
   else
     await db.seanceMembership.upsert({
-      where: { categoryId_heroId: { categoryId, heroId } },
-      create: { categoryId, heroId, member: value, source: "admin" },
+      where: { categoryId_entityId: { categoryId, entityId } },
+      create: { categoryId, entityId, member: value, source: "admin" },
       update: { member: value, source: "admin" },
     });
   await db.seanceCategory.update({ where: { id: categoryId }, data: { updatedAt: new Date() } });
   revalidate(categoryId);
 }
 
-/** Bulk: every active hero without a membership gets `value` (e.g. "everyone else: no"). */
+/** Bulk: every active entity of the category's kind without a membership gets `value` (e.g. "everyone else: no"). */
 export async function fillUnknown(categoryId: number, value: boolean) {
   await requireAdmin();
-  const [heroes, rows] = await Promise.all([
-    db.hero.findMany({ where: { active: true }, select: { id: true } }),
-    db.seanceMembership.findMany({ where: { categoryId }, select: { heroId: true } }),
+  const c = await db.seanceCategory.findUniqueOrThrow({ where: { id: categoryId } });
+  const [entities, rows] = await Promise.all([
+    activeEntities(c.entity as SeanceEntity),
+    db.seanceMembership.findMany({ where: { categoryId }, select: { entityId: true } }),
   ]);
-  const have = new Set(rows.map((r) => r.heroId));
+  const have = new Set(rows.map((r) => Number(r.entityId)));
   await db.seanceMembership.createMany({
-    data: heroes.filter((h) => !have.has(h.id)).map((h) => ({ categoryId, heroId: h.id, member: value, source: "admin" })),
+    data: entities.filter((e) => !have.has(e.id)).map((e) => ({ categoryId, entityId: BigInt(e.id), member: value, source: "admin" })),
     skipDuplicates: true,
   });
   revalidate(categoryId);
@@ -106,9 +111,9 @@ export async function deleteCategory(id: number) {
 }
 
 /** Board preview → the day's puzzle ("Use this board"): an override that sticks, like the calendar's. */
-export async function applyBoard(date: string, table: string, reroll: number) {
+export async function applyBoard(date: string, slug: string, reroll: number) {
   await requireAdmin();
-  const lock = LOCKS.find((l) => l.box === "seance" && l.table?.kind === table);
+  const lock = SEANCE_LOCKS.find((l) => l.slug === slug);
   if (!lock) throw new Error("unknown table");
   const r = await buildSeanceBoard(lock, date, reroll);
   if (!r.ok) throw new Error(r.reason);
@@ -118,10 +123,10 @@ export async function applyBoard(date: string, table: string, reroll: number) {
 }
 
 /** Back to the automatic board for a future day (drops an override). */
-export async function resetBoard(date: string, table: string) {
+export async function resetBoard(date: string, slug: string) {
   await requireAdmin();
   if (date <= todayDate()) throw new Error("Only future days can be reset; live days keep their board.");
-  const lock = LOCKS.find((l) => l.box === "seance" && l.table?.kind === table);
+  const lock = SEANCE_LOCKS.find((l) => l.slug === slug);
   if (!lock) throw new Error("unknown table");
   await db.dailyPuzzle.deleteMany({ where: { date, mode: lock.slug } });
 

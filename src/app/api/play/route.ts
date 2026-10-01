@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   const headers = { "cache-control": "no-store" };
   const user = await currentUser();
-  if (lock.box === "seance") {
+  if (!!lock.box) {
     // The Séance: guesses are submissions ("id,id,id,id") and hint requests; see src/lib/seance/play.ts.
     if (user) {
       const r = await playSeanceAsUser(user, row, slug, guesses, noHints);

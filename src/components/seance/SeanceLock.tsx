@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useAnimationControls } from "motion/react";
-import { LOCK_BY_SLUG, LOCKS, SEANCE_LOCKS } from "@/locks.config";
+import { LOCK_BY_SLUG, LOCKS, SEANCE_BOXES, seanceLocksOf } from "@/locks.config";
 import type { LockRecord } from "@/lib/client/store";
 import { boxSouls, shareTable } from "@/lib/seance/scoring";
 import { HINT_ENTRY, type GroupView, type SeanceHero, type SeanceView } from "@/lib/seance/types";
@@ -45,6 +45,8 @@ export function sealOf(view: SeanceView | undefined, rec: LockRecord | undefined
 
 export function SeanceLock({ initialSlug, date, number, tables, site, available, rules }: Props) {
   const { store, hydrated, today, setRecord, play, toast, user } = useGame();
+  const boxDef = SEANCE_BOXES[LOCK_BY_SLUG[initialSlug].box!];
+  const SEANCE_LOCKS = seanceLocksOf(boxDef.id);
   const [views, setViews] = useState<Record<string, SeanceView>>(() => Object.fromEntries(tables.map((v) => [v.slug, v])));
   const [entries, setEntries] = useState<Record<string, string[]>>({});
   const [active, setActive] = useState(initialSlug);
@@ -113,13 +115,14 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
 
   // Next: the next unfinished table in this box, then the next unfinished lock after the Séance.
   const nextHref = useMemo(() => {
+    const SEANCE_LOCKS = seanceLocksOf(boxDef.id);
     const idx = SEANCE_LOCKS.findIndex((l) => l.slug === active);
     const order = [...SEANCE_LOCKS.slice(idx + 1), ...SEANCE_LOCKS.slice(0, idx)];
     const table = order.find((l) => views[l.slug]?.status === "playing" && !finished(day[l.slug]?.s));
     if (table) return { table: table.slug, href: null };
     const next = LOCKS.find((l) => !l.box && available.includes(l.slug) && !finished(day[l.slug]?.s));
     return { table: null, href: next ? `/lock/${next.slug}${q}` : isArchive ? `/archive/${date}` : "/" };
-  }, [active, views, day, available, q, isArchive, date]);
+  }, [active, views, day, available, q, isArchive, date, boxDef.id]);
 
   if (!hydrated) return <KeyholeLoader />;
   const view = views[active];
@@ -175,12 +178,14 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
             showRules={showRules}
             setShowRules={setShowRules}
             noHints={noHints}
+            noun={boxDef.noun}
+            contain={boxDef.entity !== "hero"}
             onSubmit={(entry) => submit(active, entry)}
             onSound={play}
             footer={(v) => (
               <>
                 {v.share && (
-                  <ShareButton text={shareTable({ number, table: lock.table!.label, rows: v.share, won: v.status === "won", mistakes: v.mistakes, souls: v.souls ?? 0, site })} />
+                  <ShareButton text={shareTable({ number, box: boxDef.name, table: lock.table!.label, rows: v.share, won: v.status === "won", mistakes: v.mistakes, souls: v.souls ?? 0, site })} />
                 )}
                 {nextHref.table ? (
                   <button type="button" onClick={() => selectTab(nextHref.table!)} className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-ecto/60 bg-ecto/10 px-4 py-2 text-ecto hover:bg-ecto/20">
@@ -199,7 +204,7 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
 
       {allDone && (
         <DecoFrame className="p-4 text-center shadow-[0_0_40px_rgba(127,227,194,0.15)]" corners={false}>
-          <p className="smallcaps text-sm text-brass">{t.seance.boxSouls}</p>
+          <p className="smallcaps text-sm text-brass">{boxDef.name}</p>
           <p className="font-mono text-3xl text-paper">{box} <span className="text-base text-ash">souls</span></p>
           <p className="text-xs text-ash">Average of {inPlay} {inPlay === 1 ? "table" : "tables"}</p>
         </DecoFrame>
@@ -217,8 +222,11 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
 // ───────────── one table ─────────────
 
 function SeanceTable({
-  view, restoring, rules, showRules, setShowRules, noHints, onSubmit, onSound, footer,
+  view, restoring, rules, showRules, setShowRules, noHints, noun, contain, onSubmit, onSound, footer,
 }: {
+  noun: string;
+  /** Items and abilities are icons: show them whole instead of cropping like a portrait. */
+  contain: boolean;
   view: SeanceView;
   restoring: boolean;
   rules: string;
@@ -320,16 +328,16 @@ function SeanceTable({
       <DecoFrame className="seance-table p-2 sm:p-3">
         <div className="space-y-2">
           <AnimatePresence initial={false}>
-            {bands.map((g) => <Band key={g.rank} ns={ns} group={g} done={done} />)}
+            {bands.map((g) => <Band key={g.rank} ns={ns} group={g} done={done} contain={contain} />)}
           </AnimatePresence>
           {remaining.length > 0 && (
-            <ul className="grid grid-cols-4 gap-1.5 sm:gap-2" aria-label="Heroes on the table">
+            <ul className="grid grid-cols-4 gap-1.5 sm:gap-2" aria-label={`${noun} on the table`}>
               {remaining.map((id) => {
                 const h = byId.get(id)!;
                 const isSel = selected.includes(id);
                 return (
                   <li key={id}>
-                    <Tile ns={ns} hero={h} selected={isSel} disabled={done || busy || restoring} shake={isSel ? shake : 0} onClick={() => toggle(id)} />
+                    <Tile ns={ns} hero={h} contain={contain} selected={isSel} disabled={done || busy || restoring} shake={isSel ? shake : 0} onClick={() => toggle(id)} />
                   </li>
                 );
               })}
@@ -376,7 +384,7 @@ function SeanceTable({
   );
 }
 
-function Tile({ ns, hero, selected, disabled, shake, onClick }: { ns: string; hero: SeanceHero; selected: boolean; disabled: boolean; shake: number; onClick: () => void }) {
+function Tile({ ns, hero, contain, selected, disabled, shake, onClick }: { ns: string; hero: SeanceHero; contain: boolean; selected: boolean; disabled: boolean; shake: number; onClick: () => void }) {
   const controls = useAnimationControls();
   // A gentle shake on a mistake (skipped with reduced motion: MotionConfig drops transform animations).
   useEffect(() => {
@@ -395,14 +403,14 @@ function Tile({ ns, hero, selected, disabled, shake, onClick }: { ns: string; he
     >
       <span className="block aspect-square w-full overflow-hidden rounded-[2px] bg-ink">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {hero.image && <img src={hero.image} alt="" loading="lazy" className="h-full w-full object-cover object-top" draggable={false} />}
+        {hero.image && <img src={hero.image} alt="" loading="lazy" className={`h-full w-full ${contain ? "object-contain p-1" : "object-cover object-top"}`} draggable={false} />}
       </span>
       <span className={`line-clamp-2 flex min-h-[2lh] w-full items-center justify-center break-words text-[12px] leading-tight sm:min-h-0 sm:text-[13px] ${selected ? "text-ecto" : "text-paper"}`}>{hero.name}</span>
     </motion.button>
   );
 }
 
-function Band({ ns, group, done }: { ns: string; group: GroupView; done: boolean }) {
+function Band({ ns, group, done, contain }: { ns: string; group: GroupView; done: boolean; contain: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -421,7 +429,7 @@ function Band({ ns, group, done }: { ns: string; group: GroupView; done: boolean
           <li key={m.id} className="flex flex-col items-center">
             <motion.span layoutId={`${ns}-hero-${m.id}`} transition={{ layout: { duration: 0.35, ease: "easeInOut" } }} className="block h-9 w-9 overflow-hidden rounded-full border border-black/30 bg-ink sm:h-11 sm:w-11">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {m.image && <img src={m.image} alt="" className="h-full w-full object-cover object-top" draggable={false} />}
+              {m.image && <img src={m.image} alt="" className={`h-full w-full ${contain ? "object-contain p-0.5" : "object-cover object-top"}`} draggable={false} />}
             </motion.span>
             <span className="mt-0.5 line-clamp-1 text-[11px] leading-tight sm:text-xs">{m.name}</span>
           </li>

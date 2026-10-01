@@ -3,7 +3,7 @@ import { db } from "../db";
 import { todayDate } from "../day";
 import { addDays } from "../time";
 import { weekStart } from "./rules";
-import { isSeance } from "@/locks.config";
+import { boxOf } from "@/locks.config";
 import { foldPlays } from "../seance/scoring";
 import { tablesInPlay } from "../seance/library";
 
@@ -53,7 +53,7 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
     const byUser = new Map<string, typeof plays>();
     for (const p of plays) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), p]);
     entries = [...byUser].map(([userId, ps]) => {
-      const f = foldPlays(ps, isSeance, inPlay);
+      const f = foldPlays(ps, boxOf, inPlay);
       return { userId, value: f.souls, tie: -f.opened, detail: `${f.opened} locks opened` };
     });
   } else {

@@ -217,7 +217,10 @@ curl -X POST "https://guesslock.paulkuehn.ch/api/agent/v1/categories" \
 
 ---
 
-### 3.9 Séance Categories (List & Create)
+### 3.9 Séance, Bazaar and Grimoire Categories (List & Create)
+
+The sorting puzzles come in three libraries, selected by `entity`: `hero` (The Séance: types `mechanics`, `visuals`, `lore`), `item` (The Bazaar: `stats`, `effects`, `visuals`) and `ability` (The Grimoire: `mechanics`, `effects`, `visuals`). Member ids are hero, item or ability ids of that entity. Lists return `unknownIds` / `memberIds`.
+
 - **Method:** `GET` / `POST`
 - **Path:** `/api/agent/v1/seance/categories`
 - **GET Scope:** `read` (supports `?members=1` or `?withMembers=1`)
@@ -225,6 +228,7 @@ curl -X POST "https://guesslock.paulkuehn.ch/api/agent/v1/categories" \
 - **POST Body:**
   ```json
   {
+    "entity": "hero",
     "type": "lore",
     "label": "The Baron's Court",
     "explanation": "Heroes affiliated with the Baronial courts.",

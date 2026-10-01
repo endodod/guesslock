@@ -1,8 +1,8 @@
 // Séance board generation (pure; unit-tested). Pick 4 categories and 4 heroes for each, then keep the
 // board only if the grouping has exactly one solution and a fair number of red herrings.
-import type { SeanceTable } from "@/locks.config";
+import type { SeanceBoxId, SeanceEntity, SeanceTable } from "@/locks.config";
 import type { Rng } from "../rng";
-import { TABLE_TYPES, type LibraryCategory, type Rank, type SeanceGroup, type SeanceHero, type SeancePayload } from "./types";
+import { tableTypes, type LibraryCategory, type Rank, type SeanceGroup, type SeanceHero, type SeancePayload } from "./types";
 
 export const BOARD = {
   groups: 4,
@@ -74,8 +74,8 @@ export function repeatWindow(poolSize: number, days = BOARD.repeatDays): number 
 }
 
 /** Categories a table may draw from: approved + complete (the caller's job), matching type, ≥ 4 members. */
-export function tablePool(table: SeanceTable, categories: LibraryCategory[]): LibraryCategory[] {
-  const types = TABLE_TYPES[table];
+export function tablePool(table: SeanceTable, categories: LibraryCategory[], entity: SeanceEntity = "hero"): LibraryCategory[] {
+  const types = tableTypes(entity, table);
   return categories.filter((c) => types.includes(c.type) && c.members.length >= BOARD.size);
 }
 
@@ -149,6 +149,7 @@ export function checkBoard(cats: LibraryCategory[], members: number[][]): BoardC
 
 export type BoardInput = {
   table: SeanceTable;
+  entity?: SeanceEntity;
   /** Approved, complete categories (members limited to active heroes). */
   categories: LibraryCategory[];
   hero: (id: number) => SeanceHero | undefined;
@@ -163,8 +164,8 @@ export type BoardResult = { ok: true; payload: SeancePayload; attempts: number }
  * Builds a board: fresh categories first, then (for the last third of the attempts) the whole pool.
  * Deterministic for a given rng seed and input.
  */
-export function generateBoard({ table, categories, hero, recent, rng }: BoardInput): BoardResult {
-  const pool = tablePool(table, categories).sort((a, b) => a.id - b.id);
+export function generateBoard({ table, entity = "hero", categories, hero, recent, rng }: BoardInput): BoardResult {
+  const pool = tablePool(table, categories, entity).sort((a, b) => a.id - b.id);
   const infeasible = tableFeasible(table, pool);
   if (infeasible) return { ok: false, reason: infeasible };
   const fresh = pool.filter((c) => !recent.has(c.id));
@@ -188,7 +189,7 @@ export function generateBoard({ table, categories, hero, recent, rng }: BoardInp
       return {
         ok: true,
         attempts: attempt + 1,
-        payload: { v: 1, mode: "seance", table, source: "daily", heroes, groups, redHerrings: check.redHerrings },
+        payload: { v: 1, mode: "seance", entity, table, source: "daily", heroes, groups, redHerrings: check.redHerrings },
       };
     }
   }
@@ -205,4 +206,10 @@ export function boardKey(p: SeancePayload): string {
 
 export function parseBoardKey(answerId: string): number[] {
   return answerId.split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+}
+
+/** The Séance-family box a table slug belongs to ("seance-lore" -> "seance"), or null. */
+export function boxOfSlug(slug: string): SeanceBoxId | null {
+  const id = slug.split("-")[0];
+  return id === "seance" || id === "bazaar" || id === "grimoire" ? id : null;
 }

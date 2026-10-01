@@ -4,7 +4,8 @@ import { patchSeanceCategory } from "@/lib/agent/ops";
 import { SeancePatch } from "@/lib/agent/schemas";
 import { HttpError } from "@/lib/agent/errors";
 import { db } from "@/lib/db";
-import { activeHeroes } from "@/lib/seance/library";
+import { activeEntities } from "@/lib/seance/library";
+import type { SeanceEntity } from "@/locks.config";
 import { completeness } from "@/lib/seance/rules";
 
 export const dynamic = "force-dynamic";
@@ -17,20 +18,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const numId = Number(id);
     if (!Number.isInteger(numId) || numId <= 0) return fail(400, "Category id must be a positive integer");
 
-    const [row, heroes] = await Promise.all([
-      db.seanceCategory.findUnique({
-        where: { id: numId },
-        include: { memberships: { select: { heroId: true, member: true, source: true } } },
-      }),
-      activeHeroes(),
-    ]);
-
+    const row = await db.seanceCategory.findUnique({
+      where: { id: numId },
+      include: { memberships: { select: { entityId: true, member: true, source: true } } },
+    });
     if (!row) return fail(404, `Séance category ${id} not found`);
+    const tiles = await activeEntities(row.entity as SeanceEntity);
+    const memberships = row.memberships.map((m) => ({ entityId: Number(m.entityId), member: m.member, source: m.source }));
 
-    const comp = completeness(row.memberships, heroes.map((h) => h.id));
+    const comp = completeness(memberships, tiles.map((h) => h.id));
     return json({
       id: row.id,
       key: row.key,
+      entity: row.entity,
       type: row.type,
       label: row.label,
       explanation: row.explanation,
@@ -42,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       completeness: comp,
-      memberships: row.memberships,
+      memberships,
     });
   } catch (e) {
     if (e instanceof HttpError) return fail(e.status, e.message, e.extra);

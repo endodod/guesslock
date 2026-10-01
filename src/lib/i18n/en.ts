@@ -3,7 +3,7 @@ export const en = {
   brand: "GUESSLOCK",
   tagline: "Pick today's lock.",
   nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault", hall: "The Hall (leaderboards)", account: "Your account", signIn: "Sign in" },
-  groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens", seance: "The Séance" },
+  groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens", seance: "The Sorting Tables" },
   seance: {
     tables: "Tables",
     submit: "Submit",
@@ -19,7 +19,7 @@ export const en = {
     won: "The spirits are sorted.",
     lost: "The table goes cold.",
     mistakes: (n: number) => `${n} ${n === 1 ? "mistake" : "mistakes"}`,
-    boxSouls: "Séance box",
+    boxSouls: "Box total",
     nextTable: "Next table",
     sealedTable: "This table is sealed today: there aren't enough approved categories for a fair board.",
     seal: { open: "Unfinished", won: "Solved", lost: "Lost", sealed: "Sealed" },

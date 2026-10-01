@@ -119,7 +119,7 @@ export default async function ReviewQueue() {
                 <div className="divide-y divide-neutral-100 rounded border border-neutral-200">
                   {sealedTables.map((r) => (
                     <div key={`s${r.id}`} className="flex items-center justify-between p-2.5 text-sm">
-                      <Link className="font-mono text-blue-700 hover:underline" href={`/admin/seance/preview?date=${r.date}&table=${r.mode.replace("seance-", "")}`}>
+                      <Link className="font-mono text-blue-700 hover:underline" href={`/admin/seance/preview?date=${r.date}&slug=${r.mode}`}>
                         {r.date} · {r.mode}
                       </Link>
                       <Pill tone="red">{r.sealedReason ?? "Sealed"}</Pill>

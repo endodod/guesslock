@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { mediaUrl } from "@/lib/media";
 import type { NormHero } from "@/lib/deadlock/types";
-import { categoryUsage } from "@/lib/seance/library";
+import type { SeanceEntity } from "@/locks.config";
+import { activeEntities, categoryUsage } from "@/lib/seance/library";
 import { completeness } from "@/lib/seance/rules";
-import { CATEGORY_TYPES } from "@/lib/seance/types";
+import { ENTITY_TYPES } from "@/lib/seance/types";
 import { ActionButton } from "../../ui";
 import { clearFlag, deleteCategory, fillUnknown, saveCategory } from "../actions";
 import { MembershipGrid } from "./MembershipGrid";
@@ -16,16 +16,17 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
   await requireAdminPage();
   const { id: raw } = await params;
   const id = Number(raw);
-  const [c, heroRows, usage] = await Promise.all([
-    Number.isInteger(id) ? db.seanceCategory.findUnique({ where: { id }, include: { memberships: true } }) : null,
-    db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, source: true } }),
+  const found = Number.isInteger(id) ? await db.seanceCategory.findUnique({ where: { id }, include: { memberships: true } }) : null;
+  if (!found) notFound();
+  const entity = found.entity as SeanceEntity;
+  const c = { ...found, memberships: found.memberships.map((m) => ({ entityId: Number(m.entityId), member: m.member, source: m.source })) };
+  const [tiles, loreRows, usage] = await Promise.all([
+    activeEntities(entity),
+    entity === "hero" ? db.hero.findMany({ where: { active: true }, select: { id: true, source: true } }) : [],
     categoryUsage(),
   ]);
-  if (!c) notFound();
-  const heroes = heroRows.map((h) => {
-    const src = h.source as unknown as NormHero;
-    return { id: h.id, name: h.name, image: mediaUrl(src.images.card) ?? mediaUrl(src.images.small), lore: src.lore?.slice(0, 600) ?? null };
-  });
+  const lore = new Map(loreRows.map((h) => [h.id, (h.source as unknown as NormHero).lore?.slice(0, 600) ?? null]));
+  const heroes = tiles.map((t) => ({ id: t.id, name: t.sub ? `${t.name} (${t.sub})` : t.name, image: t.image, lore: lore.get(t.id) ?? null }));
   const comp = completeness(c.memberships, heroes.map((h) => h.id));
   const used = usage.get(c.id);
   const diff = c.diff as { added?: number[]; removed?: number[]; at?: string } | null;
@@ -33,7 +34,7 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
-      <PageHeader title={c.label} subtitle={`${c.type} · ${c.source}${c.key ? ` (${c.key})` : ""}`} actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
+      <PageHeader title={c.label} subtitle={`${entity} · ${c.type} · ${c.source}${c.key ? ` (${c.key})` : ""}`} actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Members" value={comp.members.length} />
         <Stat label="Status" value={<Pill tone={c.status === "approved" ? "green" : c.status === "retired" ? "slate" : "amber"}>{c.status}</Pill>} />
@@ -78,13 +79,13 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
           {c.source === "curated" && (
             <label className="flex flex-col">Type
               <select name="type" defaultValue={c.type} className="rounded border border-neutral-400 px-1 py-0.5">
-                {CATEGORY_TYPES.map((t) => <option key={t}>{t}</option>)}
+                {ENTITY_TYPES[entity].map((t) => <option key={t}>{t}</option>)}
               </select>
             </label>
           )}
           <div className="flex items-end gap-2">
             <button className="rounded border border-neutral-400 bg-neutral-50 px-3 py-1 hover:bg-neutral-200">Save</button>
-            {c.status === "approved" && !comp.complete && <span className="text-xs text-red-700">Approved but incomplete: not used until every hero is classified.</span>}
+            {c.status === "approved" && !comp.complete && <span className="text-xs text-red-700">Approved but incomplete: not used until everything is classified.</span>}
           </div>
         </form>
       </Card>
@@ -101,7 +102,7 @@ export default async function CategoryEditor({ params }: { params: Promise<{ id:
           categoryId={c.id}
           type={c.type}
           heroes={heroes}
-          values={Object.fromEntries(c.memberships.map((m) => [m.heroId, { member: m.member, source: m.source }]))}
+          values={Object.fromEntries(c.memberships.map((m) => [m.entityId, { member: m.member, source: m.source }]))}
         />
       </Card>
 

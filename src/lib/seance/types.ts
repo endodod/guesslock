@@ -1,8 +1,14 @@
 // The Séance: shared types (server and client; no server imports here).
-import type { SeanceTable } from "@/locks.config";
+import type { SeanceEntity, SeanceTable } from "@/locks.config";
 
-export type CategoryType = "mechanics" | "visuals" | "lore";
-export const CATEGORY_TYPES: CategoryType[] = ["mechanics", "visuals", "lore"];
+/** Heroes: mechanics, visuals, lore. Items: stats, effects, visuals. Abilities: mechanics, effects, visuals. */
+export type CategoryType = "mechanics" | "visuals" | "lore" | "stats" | "effects";
+export const CATEGORY_TYPES: CategoryType[] = ["mechanics", "visuals", "lore", "stats", "effects"];
+export const ENTITY_TYPES: Record<SeanceEntity, CategoryType[]> = {
+  hero: ["mechanics", "visuals", "lore"],
+  item: ["stats", "effects", "visuals"],
+  ability: ["mechanics", "effects", "visuals"],
+};
 export type CategorySource = "api" | "derived" | "curated";
 export type CategoryStatus = "draft" | "approved" | "retired";
 
@@ -19,7 +25,8 @@ export type LibraryCategory = {
 /** Difficulty rank of a group on its board: 1 = easiest (brass) … 4 = hardest (cursed). */
 export type Rank = 1 | 2 | 3 | 4;
 
-export type SeanceHero = { id: number; name: string; image: string | null };
+/** One tile: a hero, an item or an ability (`sub` = the hero an ability belongs to, kept for the admin only). */
+export type SeanceHero = { id: number; name: string; image: string | null; sub?: string };
 
 export type SeanceGroup = {
   categoryId: number;
@@ -35,6 +42,8 @@ export type SeanceGroup = {
 export type SeancePayload = {
   v: 1;
   mode: "seance";
+  /** What the 16 tiles are. Missing in boards frozen before the Bazaar and the Grimoire: heroes. */
+  entity?: SeanceEntity;
   table: SeanceTable;
   /** Phase 2 (community boards) keeps the same shape; daily boards come from the category library. */
   source: "daily" | "community";
@@ -84,9 +93,7 @@ export type SeanceView = {
 /** Stored per submission in Play.guesses / LockRecord.g: "id,id,id,id", or HINT_ENTRY. */
 export const HINT_ENTRY = "hint";
 
-export const TABLE_TYPES: Record<SeanceTable, CategoryType[]> = {
-  mechanics: ["mechanics"],
-  visuals: ["visuals"],
-  lore: ["lore"],
-  mixed: ["mechanics", "visuals", "lore"],
-};
+/** The category types a table draws from: its own type, or all three of the entity's types for "mixed". */
+export function tableTypes(entity: SeanceEntity, table: SeanceTable): CategoryType[] {
+  return table === "mixed" ? ENTITY_TYPES[entity] : [table as CategoryType];
+}

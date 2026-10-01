@@ -1,6 +1,6 @@
 // Local player data (localStorage). Keyed by date and lock *slug* — never by numeral —
 // so renumbering locks can't corrupt saved progress. Pure helpers are unit-tested.
-import { isSeance, LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
+import { boxOf, LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
 import { foldPlays } from "../seance/scoring";
 
 export type LockRecord = {
@@ -182,8 +182,13 @@ export function lockStats(progress: StoreData["progress"], slug: string, today: 
 export function daySouls(day: Record<string, LockRecord> | undefined, ignore: ReadonlySet<string> = new Set(), pred: (r: LockRecord) => boolean = live): number {
   if (!day) return 0;
   const entries = Object.entries(day).filter(([slug, r]) => !ignore.has(slug) && pred(r));
-  const tables = Math.max(0, ...entries.filter(([slug]) => isSeance(slug)).map(([, r]) => r.tables ?? 4));
-  return foldPlays(entries.map(([lock, r]) => ({ date: "d", lock, souls: r.souls ?? 0, status: r.s })), isSeance, () => tables).souls;
+  // Tables in play per box, as each table's record remembers them (4 when unknown).
+  const tables: Record<string, number> = {};
+  for (const [slug, r] of entries) {
+    const box = boxOf(slug);
+    if (box) tables[box] = Math.max(tables[box] ?? 0, r.tables ?? 4);
+  }
+  return foldPlays(entries.map(([lock, r]) => ({ date: "d", lock, souls: r.souls ?? 0, status: r.s })), boxOf, (_d, box) => tables[box] ?? 0).souls;
 }
 
 function dayDiff(a: string, b: string) {

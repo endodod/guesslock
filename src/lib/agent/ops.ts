@@ -11,11 +11,11 @@ import { generateDay, overridePuzzle } from "../engine/generate";
 import { syncTexts } from "../sync/assets";
 import { saveCategoryValues, type Entity } from "../admin/categories";
 import { completeness } from "../seance/rules";
-import { activeHeroes, loadCategoryRows } from "../seance/library";
-import { CATEGORY_TYPES } from "../seance/types";
+import { activeEntities, loadCategoryRows } from "../seance/library";
+import { ENTITY_TYPES } from "../seance/types";
 import { HERO_COLUMNS, ITEM_COLUMNS } from "../engine/columns";
 import { todayDate, isDay } from "../day";
-import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
+import { LOCK_BY_SLUG, LOCKS, type SeanceEntity } from "@/locks.config";
 import { config } from "../config";
 import { HttpError } from "./errors";
 import type { EntityPatch, CategoryCreate, CategoryPatch, MemberEdit, SeanceCreate, SeancePatch, PuzzleAction } from "./schemas";
@@ -209,21 +209,23 @@ async function applyMemberOps(
   const remove = members.remove ?? [];
   const all = [...new Set([...add, ...notMem, ...remove])];
   const bad = all.filter((id) => !activeIds.has(id));
-  if (bad.length) throw new HttpError(422, `Unknown or inactive hero ids: ${bad.join(", ")}`);
+  if (bad.length) throw new HttpError(422, `Unknown or inactive ids for this category's entity: ${bad.join(", ")}`);
 
   if (!dryRun) {
-    if (remove.length) await db.seanceMembership.deleteMany({ where: { categoryId, heroId: { in: remove } } });
-    for (const heroId of add) {
+    if (remove.length) await db.seanceMembership.deleteMany({ where: { categoryId, entityId: { in: remove.map(BigInt) } } });
+    for (const n of add) {
+      const entityId = BigInt(n);
       await db.seanceMembership.upsert({
-        where: { categoryId_heroId: { categoryId, heroId } },
-        create: { categoryId, heroId, member: true, source: "agent" },
+        where: { categoryId_entityId: { categoryId, entityId } },
+        create: { categoryId, entityId, member: true, source: "agent" },
         update: { member: true, source: "agent" },
       });
     }
-    for (const heroId of notMem) {
+    for (const n of notMem) {
+      const entityId = BigInt(n);
       await db.seanceMembership.upsert({
-        where: { categoryId_heroId: { categoryId, heroId } },
-        create: { categoryId, heroId, member: false, source: "agent" },
+        where: { categoryId_entityId: { categoryId, entityId } },
+        create: { categoryId, entityId, member: false, source: "agent" },
         update: { member: false, source: "agent" },
       });
     }
@@ -233,41 +235,43 @@ async function applyMemberOps(
 }
 
 export async function createSeanceCategory(body: SeanceCreate, dryRun: boolean) {
-  if (!(CATEGORY_TYPES as readonly string[]).includes(body.type)) {
-    throw new HttpError(422, `Unknown type "${body.type}". Valid: ${CATEGORY_TYPES.join(", ")}`);
+  const entity = body.entity as SeanceEntity;
+  if (!(ENTITY_TYPES[entity] as readonly string[]).includes(body.type)) {
+    throw new HttpError(422, `Unknown type "${body.type}" for ${entity}. Valid: ${ENTITY_TYPES[entity].join(", ")}`);
   }
-  const heroes = await activeHeroes();
-  const activeIds = new Set(heroes.map((h) => h.id));
+  const tiles = await activeEntities(entity);
+  const activeIds = new Set(tiles.map((h) => h.id));
   let categoryId = -1;
   if (!dryRun) {
     const c = await db.seanceCategory.create({
-      data: { type: body.type, label: body.label, explanation: body.explanation ?? null, source: "curated", difficulty: body.difficulty ?? 2, status: "draft" },
+      data: { entity, type: body.type, label: body.label, explanation: body.explanation ?? null, source: "curated", difficulty: body.difficulty ?? 2, status: "draft" },
     });
     categoryId = c.id;
   }
   const memberOps = await applyMemberOps(categoryId, body.members, activeIds, dryRun);
   const rows = dryRun ? [] : await db.seanceMembership.findMany({ where: { categoryId } });
-  const comp = completeness(rows.map((r) => ({ heroId: r.heroId, member: r.member, source: r.source })), [...activeIds]);
-  return { created: true, dryRun, id: categoryId, type: body.type, label: body.label, status: "draft", memberOps, completeness: comp };
+  const comp = completeness(rows.map((r) => ({ entityId: Number(r.entityId), member: r.member, source: r.source })), [...activeIds]);
+  return { created: true, dryRun, id: categoryId, entity, type: body.type, label: body.label, status: "draft", memberOps, completeness: comp };
 }
 
 export async function patchSeanceCategory(id: number, body: SeancePatch, dryRun: boolean) {
   const row = await db.seanceCategory.findUnique({ where: { id }, include: { memberships: true } });
   if (!row) throw new HttpError(404, `Séance category ${id} not found`);
-  const heroes = await activeHeroes();
-  const activeIds = new Set(heroes.map((h) => h.id));
+  const tiles = await activeEntities(row.entity as SeanceEntity);
+  const activeIds = new Set(tiles.map((h) => h.id));
+  const rowMemberships = row.memberships.map((m) => ({ entityId: Number(m.entityId), member: m.member, source: m.source }));
   const before = { label: row.label, explanation: row.explanation, difficulty: row.difficulty, status: row.status };
 
   if (body.status === "approved") {
     if (!config.agentMayApprove) throw new HttpError(403, "Agents may not approve categories (AGENT_API_ALLOW_APPROVE is off)");
-    const comp = completeness(row.memberships.map((m) => ({ heroId: m.heroId, member: m.member, source: m.source })), [...activeIds]);
-    if (!comp.complete) throw new HttpError(422, `Category is not complete (${comp.unknown.length} heroes unknown); complete it before approving`);
+    const comp = completeness(rowMemberships, [...activeIds]);
+    if (!comp.complete) throw new HttpError(422, `Category is not complete (${comp.unknown.length} unknown); complete it before approving`);
   }
 
   let memberOps = null;
   let membersBody = body.members;
   if (membersBody?.completeRest) {
-    const have = new Set(row.memberships.map((m) => m.heroId));
+    const have = new Set(rowMemberships.map((m) => m.entityId));
     const unknown = [...activeIds].filter((hid) => !have.has(hid));
     membersBody = { ...membersBody, notMembers: [...(membersBody.notMembers ?? []), ...unknown] };
   }
@@ -290,8 +294,8 @@ export async function patchSeanceCategory(id: number, body: SeancePatch, dryRun:
   }
 
   const updatedRows = dryRun
-    ? row.memberships.map((m) => ({ heroId: m.heroId, member: m.member, source: m.source }))
-    : (await db.seanceMembership.findMany({ where: { categoryId: id } })).map((m) => ({ heroId: m.heroId, member: m.member, source: m.source }));
+    ? rowMemberships
+    : (await db.seanceMembership.findMany({ where: { categoryId: id } })).map((m) => ({ entityId: Number(m.entityId), member: m.member, source: m.source }));
   const comp = completeness(updatedRows, [...activeIds]);
 
   return { dryRun, id, before, after: updated, memberOps, completeness: comp };
@@ -306,7 +310,7 @@ export async function puzzleAction(slug: string, body: PuzzleAction, dryRun: boo
   if (!isDay(date)) throw new HttpError(422, "date must be YYYY-MM-DD");
   const today = todayDate();
   if (date <= today) throw new HttpError(422, `Agents may only act on future dates (after today ${today})`);
-  if ((lock.box === "seance" || lock.group === "omens") && action === "override") {
+  if ((!!lock.box || lock.group === "omens") && action === "override") {
     throw new HttpError(422, "Override is not available for Séance tables or Omens (no single answer id)");
   }
   const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });

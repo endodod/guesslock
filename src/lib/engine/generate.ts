@@ -115,7 +115,7 @@ export async function generateDay(
     try {
       const built =
         lock.group === "omens" ? await buildOmen(lock, date)
-        : lock.box === "seance" ? await buildSeance(lock, date)
+        : !!lock.box ? await buildSeance(lock, date)
         : await buildPuzzle(lock, date, data, analytics);
       if (!built) throw new SealedError("no eligible answers");
       const row = {

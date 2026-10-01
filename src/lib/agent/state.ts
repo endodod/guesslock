@@ -9,7 +9,8 @@ import { LOCKS, LOCK_BY_SLUG, type LockDef } from "@/locks.config";
 import { dayMeta } from "../server/puzzles";
 import { poolRows } from "@/app/admin/puzzles/pool";
 import { completeness } from "../seance/rules";
-import { activeHeroes, loadCategoryRows } from "../seance/library";
+import { activeEntities, loadCategoryRows } from "../seance/library";
+import type { SeanceEntity } from "@/locks.config";
 import { HttpError } from "./errors";
 
 export const ALL_MODES = [...new Set(LOCKS.map((l) => l.mode))];
@@ -50,15 +51,16 @@ export function attributeCategories(data: GameData) {
 }
 
 export async function seanceCategories(withMembers = false) {
-  const [rows, heroes] = await Promise.all([loadCategoryRows(), activeHeroes()]);
-  const ids = heroes.map((h) => h.id);
+  const entities: SeanceEntity[] = ["hero", "item", "ability"];
+  const [rows, ...tiles] = await Promise.all([loadCategoryRows(), ...entities.map(activeEntities)]);
+  const idsOf = Object.fromEntries(entities.map((e, i) => [e, tiles[i].map((h) => h.id)])) as Record<SeanceEntity, number[]>;
   return rows.map((c) => {
-    const comp = completeness(c.memberships, ids);
+    const comp = completeness(c.memberships, idsOf[c.entity as SeanceEntity] ?? []);
     return {
-      id: c.id, key: c.key, type: c.type, label: c.label, explanation: c.explanation, difficulty: c.difficulty, status: c.status,
+      id: c.id, key: c.key, entity: c.entity, type: c.type, label: c.label, explanation: c.explanation, difficulty: c.difficulty, status: c.status,
       source: c.source, flagged: c.flagged, flagReason: c.flagReason, memberCount: comp.members.length,
-      complete: comp.complete, unknownHeroIds: comp.unknown,
-      ...(withMembers ? { memberHeroIds: comp.members } : {}),
+      complete: comp.complete, unknownIds: comp.unknown,
+      ...(withMembers ? { memberIds: comp.members } : {}),
     };
   });
 }
@@ -136,7 +138,7 @@ export async function puzzleState(slug: string, dateIn: string | null) {
     editing: {
       tagEdits: "PATCH /api/agent/v1/entities/{heroes|abilities|items}/{id} (aliases, excludeFromModes, values, setup)",
       categories: lock.mode === "classic" || lock.mode === "item-classic" ? "POST/PATCH /api/agent/v1/categories (attribute columns of this lock)" : null,
-      seance: lock.box === "seance" ? "POST/PATCH /api/agent/v1/seance/categories (the groups this table is built from)" : null,
+      seance: !!lock.box ? "POST/PATCH /api/agent/v1/seance/categories (the groups this table is built from)" : null,
       puzzle: date > today ? "POST /api/agent/v1/puzzles/" + slug + " {date, action: regenerate | override}" : "Today's and past puzzles are read-only through the API.",
     },
   };

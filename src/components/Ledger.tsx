@@ -1,5 +1,5 @@
 "use client";
-import { LOCKS, SEANCE_BOX, SEANCE_LOCKS, type LockDef } from "@/locks.config";
+import { LOCKS, SEANCE_BOXES, seanceLocksOf, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockRecord, StoreData } from "@/lib/client/store";
 import { dayStreaks, daySouls, ignoredSlugs, lockStats } from "@/lib/client/store";
 import { t } from "@/lib/i18n/en";
@@ -37,7 +37,9 @@ function OmenCard({ l, progress }: { l: LockDef; progress: StoreData["progress"]
 }
 
 /** The Séance: per table, tables finished (live, not archive), win rate and average mistakes. */
-function SeanceCard({ progress }: { progress: StoreData["progress"] }) {
+function SeanceCard({ box, progress }: { box: SeanceBoxId; progress: StoreData["progress"] }) {
+  const SEANCE_BOX = SEANCE_BOXES[box];
+  const SEANCE_LOCKS = seanceLocksOf(box);
   return (
     <DecoFrame className="p-4" corners={false}>
       <h3 className="mb-3 font-display text-lg"><span className="mr-2 text-sm text-brass">{SEANCE_BOX.numeral}</span>{SEANCE_BOX.name}</h3>
@@ -113,7 +115,7 @@ export function Ledger() {
           <ul className="grid gap-4 md:grid-cols-2">
             {LOCKS.map((l) => {
               if (l.group === "omens") return <li key={l.slug}><OmenCard l={l} progress={p} /></li>;
-              if (l.box === "seance") return l === SEANCE_LOCKS[0] ? <li key="seance" className="md:col-span-2"><SeanceCard progress={p} /></li> : null;
+              if (l.box) return l === seanceLocksOf(l.box)[0] ? <li key={l.box} className="md:col-span-2"><SeanceCard box={l.box} progress={p} /></li> : null;
               const s = lockStats(p, l.slug, today);
               return (
                 <li key={l.slug}>

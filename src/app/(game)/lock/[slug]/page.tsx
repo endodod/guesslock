@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getLock, SEANCE_LOCKS } from "@/locks.config";
+import { getLock, SEANCE_BOXES, seanceLocksOf, type SeanceBoxId } from "@/locks.config";
 import { SeanceLock } from "@/components/seance/SeanceLock";
 import { evaluateSeance } from "@/lib/seance/play";
 import { LockGame } from "@/components/LockGame";
@@ -29,7 +29,7 @@ function omenCatalog(catalog: Catalog) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  if (slug === "seance") return { title: "The Séance — Sort 16 heroes into 4 hidden groups" };
+  if (slug in SEANCE_BOXES) return { title: `${SEANCE_BOXES[slug as SeanceBoxId].name} — ${SEANCE_BOXES[slug as SeanceBoxId].subtitle}` };
   const lock = getLock(slug);
   return lock ? { title: `${lock.name} — ${lock.subtitle}` } : {};
 }
@@ -37,8 +37,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function LockPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ d?: string }> }) {
   const { slug } = await params;
   const { d } = await searchParams;
-  if (slug === "seance") {
-    redirect(`/lock/seance-mechanics${d ? `?d=${d}` : ""}`);
+  if (slug in SEANCE_BOXES) {
+    redirect(`/lock/${seanceLocksOf(slug as SeanceBoxId)[0].slug}${d ? `?d=${d}` : ""}`);
   }
   const lock = getLock(slug);
   if (!lock) notFound();
@@ -52,8 +52,8 @@ export default async function LockPage({ params, searchParams }: { params: Promi
 
   const isOmen = lock.group === "omens";
   // The Séance: all four tables are rendered (as tabs); each starts from its empty view.
-  const seance = lock.box === "seance"
-    ? await Promise.all(SEANCE_LOCKS.map(async (l) => {
+  const seance = lock.box
+    ? await Promise.all(seanceLocksOf(lock.box).map(async (l) => {
         const r = l.slug === slug ? row : await getPuzzle(date, l.slug);
         const empty = { date, mode: l.slug, sealed: true, sealedReason: "not generated", payload: {} };
         return evaluateSeance(l, r ?? empty, number, []).view;

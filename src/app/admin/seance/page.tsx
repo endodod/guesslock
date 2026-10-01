@@ -1,24 +1,27 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { SEANCE_LOCKS } from "@/locks.config";
-import { activeHeroes, categoryUsage, loadCategoryRows } from "@/lib/seance/library";
+import { SEANCE_BOX_LIST, SEANCE_BOXES, SEANCE_LOCKS, type SeanceEntity } from "@/locks.config";
+import { activeEntities, categoryUsage, loadCategoryRows } from "@/lib/seance/library";
 import { completeness, usableCategories } from "@/lib/seance/rules";
 import { tableFeasible, tablePool } from "@/lib/seance/board";
-import { CATEGORY_TYPES } from "@/lib/seance/types";
+import { ENTITY_TYPES } from "@/lib/seance/types";
 import { ActionButton } from "../ui";
 import { clearFlag, createCategory, setStatus } from "./actions";
 import { Card, PageHeader, Pill, Stat } from "../kit";
 
 export const dynamic = "force-dynamic";
 
-type Search = { type?: string; status?: string };
+type Search = { entity?: string; type?: string; status?: string };
 
 const inputStyle = "rounded border border-neutral-300 bg-neutral-50/50 px-2.5 py-1.5 text-xs text-neutral-800 transition focus:border-blue-500 focus:bg-white focus:outline-none";
 
 export default async function CategoriesAdmin({ searchParams }: { searchParams: Promise<Search> }) {
   await requireAdminPage();
-  const { type, status } = await searchParams;
-  const [heroes, rows, usage] = await Promise.all([activeHeroes(), loadCategoryRows(), categoryUsage()]);
+  const sp = await searchParams;
+  const entity = (["hero", "item", "ability"].includes(sp.entity ?? "") ? sp.entity : "hero") as SeanceEntity;
+  const { type, status } = sp;
+  const box = SEANCE_BOX_LIST.find((b) => b.entity === entity)!;
+  const [heroes, rows, usage] = await Promise.all([activeEntities(entity), loadCategoryRows({ entity }), categoryUsage()]);
   const ids = heroes.map((h) => h.id);
   const name = new Map(heroes.map((h) => [h.id, h.name]));
   const usable = usableCategories(rows, ids);
@@ -28,7 +31,7 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
   const flagged = full.filter((c) => c.flagged);
 
   const filterLink = (p: Search, label: string) => {
-    const q = new URLSearchParams(Object.entries({ type, status, ...p }).filter(([, v]) => v) as [string, string][]).toString();
+    const q = new URLSearchParams(Object.entries({ entity, type, status, ...p }).filter(([, v]) => v) as [string, string][]).toString();
     const active = (p.type !== undefined ? p.type === (type ?? "") : true) && (p.status !== undefined ? p.status === (status ?? "") : true);
     return (
       <Link
@@ -46,8 +49,8 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="The Séance — Category Library"
-        subtitle="Manage 16-hero connection sets. Only complete, approved categories are used in daily puzzle generation."
+        title="Séance, Bazaar and Grimoire — Category Library"
+        subtitle="Manage the groups the 16-tile boards are built from. Only complete, approved categories are used in daily puzzle generation."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/admin/seance/preview" className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50">
@@ -60,17 +63,26 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
         }
       />
 
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs font-medium text-neutral-500">Library:</span>
+        {SEANCE_BOX_LIST.map((b) => (
+          <Link key={b.id} href={`/admin/seance?entity=${b.entity}`} className={`rounded px-2.5 py-1 text-xs ${b.entity === entity ? "bg-neutral-900 font-medium text-white" : "border border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100"}`}>
+            {b.name} ({b.noun})
+          </Link>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Usable Categories" value={usable.length} tone="green" sub="Approved & complete" />
-        <Stat label="Total Active Heroes" value={heroes.length} sub="Required for complete set" />
+        <Stat label={`Active ${box.noun}`} value={heroes.length} sub="Every one needs a yes or no" />
         <Stat label="Flagged by Sync" value={flagged.length} tone={flagged.length > 0 ? "amber" : "green"} sub="Require review" />
         <Stat label="Pending Drafts" value={derivedDrafts.length} tone={derivedDrafts.length > 0 ? "amber" : "slate"} sub="Derived from API" />
       </div>
 
       {/* Table Pools */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {SEANCE_LOCKS.map((l) => {
-          const pool = tablePool(l.table!.kind, usable);
+        {SEANCE_LOCKS.filter((l) => SEANCE_BOXES[l.box!].entity === entity).map((l) => {
+          const pool = tablePool(l.table!.kind, usable, entity);
           const problem = tableFeasible(l.table!.kind, pool);
           return (
             <div key={l.slug} className="rounded border border-neutral-200 bg-white p-3.5 shadow-sm">
@@ -90,10 +102,11 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
       {/* Create Category Form */}
       <Card title="New Curated Category" hint="Create a new draft group to categorize all active heroes">
         <form action={createCategory} className="flex flex-wrap items-end gap-3 text-xs">
+          <input type="hidden" name="entity" value={entity} />
           <label className="block">
             <span className="font-medium text-neutral-700">Type</span>
             <select name="type" className={`${inputStyle} mt-1 block`}>
-              {CATEGORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {ENTITY_TYPES[entity].map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
           <label className="block w-64">
@@ -165,7 +178,7 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-medium text-neutral-500">Type:</span>
             {filterLink({ type: "" }, "All Types")}
-            {CATEGORY_TYPES.map((t) => filterLink({ type: t }, t))}
+            {ENTITY_TYPES[entity].map((t) => filterLink({ type: t }, t))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-medium text-neutral-500">Status:</span>

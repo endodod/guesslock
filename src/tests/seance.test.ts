@@ -173,7 +173,7 @@ describe("board generation", () => {
 describe("category completeness", () => {
   const rows = (members: number[], heroes: number[], status = "approved"): CategoryRow => ({
     id: 1, type: "visuals", label: "Wears a hat", explanation: null, difficulty: 2, status,
-    memberships: heroes.map((h) => ({ heroId: h, member: members.includes(h), source: "admin" })),
+    memberships: heroes.map((h) => ({ entityId: h, member: members.includes(h), source: "admin" })),
   });
 
   it("a category with any unknown membership is never used", () => {
@@ -194,7 +194,7 @@ describe("category completeness", () => {
     expect(usableCategories(library, heroes)).toHaveLength(2);
     const afterSync = [...heroes, 99];
     expect(usableCategories(library, afterSync)).toEqual([]);
-    library[0].memberships.push({ heroId: 99, member: false, source: "admin" });
+    library[0].memberships.push({ entityId: 99, member: false, source: "admin" });
     expect(usableCategories(library, afterSync).map((c) => c.id)).toEqual([1]);
   });
 
@@ -246,13 +246,13 @@ describe("API-derived categories", () => {
 
   it("sync reconciliation: API rows follow the API, admin rows win, unknowns are deleted", () => {
     const existing = [
-      { heroId: 1, member: true, source: "derived" },
-      { heroId: 2, member: false, source: "derived" },
-      { heroId: 3, member: true, source: "admin" },
-      { heroId: 4, member: true, source: "derived" },
+      { entityId: 1, member: true, source: "derived" },
+      { entityId: 2, member: false, source: "derived" },
+      { entityId: 3, member: true, source: "admin" },
+      { entityId: 4, member: true, source: "derived" },
     ];
     const r = reconcileMemberships(existing, new Map([[1, true], [2, true], [3, false], [4, null], [5, true]]));
-    expect(r.upserts).toEqual([{ heroId: 2, member: true }, { heroId: 5, member: true }]);
+    expect(r.upserts).toEqual([{ entityId: 2, member: true }, { entityId: 5, member: true }]);
     expect(r.deletes).toEqual([4]);
     expect(r.added).toEqual([2, 5]);
     expect(r.removed).toEqual([4]);
@@ -435,6 +435,6 @@ describe("Séance share", () => {
       },
     });
     expect(text).toContain("Séance   ✨🔓🔒✨");
-    expect(text).toContain("1/20 locks · 65 souls"); // 20 Vault units with The Resonance
+    expect(text).toContain("1/22 locks · 65 souls"); // 22 Vault units with The Resonance
   });
 });

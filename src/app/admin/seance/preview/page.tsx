@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { SEANCE_LOCKS } from "@/locks.config";
+import { SEANCE_BOXES, SEANCE_LOCKS } from "@/locks.config";
 import { isDay, todayDate } from "@/lib/day";
 import { getPuzzle } from "@/lib/server/puzzles";
 import { buildSeanceBoard, loadLibrary } from "@/lib/seance/library";
@@ -34,27 +34,27 @@ function Board({ p, members }: { p: SeancePayload; members: Map<number, Set<numb
   );
 }
 
-export default async function BoardPreview({ searchParams }: { searchParams: Promise<{ date?: string; table?: string; reroll?: string }> }) {
+export default async function BoardPreview({ searchParams }: { searchParams: Promise<{ date?: string; slug?: string; table?: string; reroll?: string }> }) {
   await requireAdminPage();
   const sp = await searchParams;
   const today = todayDate();
   const date = isDay(sp.date) ? sp.date : today;
-  const lock = SEANCE_LOCKS.find((l) => l.table!.kind === sp.table) ?? SEANCE_LOCKS[0];
-  const table = lock.table!.kind;
+  const lock = SEANCE_LOCKS.find((l) => l.slug === sp.slug) ?? SEANCE_LOCKS.find((l) => l.slug === `seance-${sp.table}`) ?? SEANCE_LOCKS[0];
+  const slug = lock.slug;
   const reroll = Math.max(0, Number(sp.reroll) || 0);
-  const [built, current, lib] = await Promise.all([buildSeanceBoard(lock, date, reroll), getPuzzle(date, lock.slug), loadLibrary()]);
+  const [built, current, lib] = await Promise.all([buildSeanceBoard(lock, date, reroll), getPuzzle(date, lock.slug), loadLibrary(SEANCE_BOXES[lock.box!].entity)]);
   const members = new Map(lib.categories.map((c) => [c.id, new Set(c.members)]));
-  const link = (p: Record<string, string | number>) => `/admin/seance/preview?${new URLSearchParams({ date, table, reroll: String(reroll), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
+  const link = (p: Record<string, string | number>) => `/admin/seance/preview?${new URLSearchParams({ date, slug, reroll: String(reroll), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Séance board preview" subtitle="Inspect a generated board, compare rerolls, and freeze the chosen result." actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
+      <PageHeader title="Séance, Bazaar and Grimoire board preview" subtitle="Inspect a generated board, compare rerolls, and freeze the chosen result." actions={<Link className="text-sm text-blue-700 hover:underline" href="/admin/seance">← Séance categories</Link>} />
       <Card title="Preview controls">
         <form className="flex flex-wrap items-end gap-2 text-sm">
           <label className="flex flex-col">Date <input type="date" name="date" defaultValue={date} className="rounded border border-neutral-400 px-1" /></label>
           <label className="flex flex-col">Table
-            <select name="table" defaultValue={table} className="rounded border border-neutral-400 px-1 py-0.5">
-              {SEANCE_LOCKS.map((l) => <option key={l.slug} value={l.table!.kind}>{l.table!.label}</option>)}
+            <select name="slug" defaultValue={slug} className="rounded border border-neutral-400 px-1 py-0.5">
+              {SEANCE_LOCKS.map((l) => <option key={l.slug} value={l.slug}>{l.name} · {l.table!.label}</option>)}
             </select>
           </label>
           <button className="rounded border border-neutral-400 bg-neutral-50 px-3 py-1 hover:bg-neutral-200">Preview</button>
@@ -65,12 +65,12 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
         </p>
       </Card>
 
-      <Card title={`Frozen for ${date} (${lock.table!.label})`}>
+      <Card title={`Frozen for ${date} (${lock.name} · ${lock.table!.label})`}>
         {!current ? <p className="text-sm text-neutral-500">Not generated yet.</p>
           : current.sealed ? <p className="text-sm"><Pill tone="red">Sealed: {current.sealedReason}</Pill></p>
           : <>{current.overridden && <p className="text-xs text-blue-700">Override</p>}<Board p={current.payload as unknown as SeancePayload} members={members} /></>}
         {date > today && current && (
-          <div className="mt-2"><ActionButton action={resetBoard.bind(null, date, table)} label="Regenerate automatically" /></div>
+          <div className="mt-2"><ActionButton action={resetBoard.bind(null, date, slug)} label="Regenerate automatically" /></div>
         )}
       </Card>
 
@@ -86,7 +86,7 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
             <Board p={built.payload} members={members} />
             <div className="mt-3">
               <ActionButton
-                action={applyBoard.bind(null, date, table, reroll)}
+                action={applyBoard.bind(null, date, slug, reroll)}
                 label={`Use this board for ${date}`}
                 confirm={date <= today ? "This day is live. Players who already started this table will see a different board. Continue?" : undefined}
               />

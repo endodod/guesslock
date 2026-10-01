@@ -13,7 +13,7 @@ import { parseAnswer } from "../omens/serve";
 import { scoreOmen } from "../omens/scoring";
 import type { OmenAnswer, OmenPayload } from "../omens/types";
 import type { Prisma } from "@/generated/prisma/client";
-import { isSeance } from "@/locks.config";
+import { boxOf, isSeance } from "@/locks.config";
 import { evaluateSeance } from "../seance/play";
 import type { SeanceView } from "../seance/types";
 import { foldPlays } from "../seance/scoring";
@@ -200,7 +200,7 @@ export async function recomputeStats(userId: string) {
   // The Séance's four tables count as one box worth their average.
   const inPlay = await tablesInPlay();
   const data = {
-    totalSouls: foldPlays(plays, isSeance, inPlay).souls,
+    totalSouls: foldPlays(plays, boxOf, inPlay).souls,
     daysUnlocked: s.count,
     currentStreak: s.current,
     bestStreak: s.best,
@@ -235,7 +235,7 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
       if (omen ? rec.o === undefined : rec.g.length === 0) continue;
       const row = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
       if (!row || row.sealed) continue;
-      if (lock.box === "seance") {
+      if (!!lock.box) {
         // A Séance table from this device: re-evaluated against the frozen board, unranked.
         const { view: v, accepted } = evaluateSeance(lock, row, numberFor(date), rec.g.map(String).slice(0, 40));
         if (!accepted.length) continue;
@@ -295,7 +295,7 @@ export async function accountProgress(userId: string) {
   const seanceMistakes = new Map<string, number>();
   for (const p of plays) {
     const lock = getLock(p.lock);
-    const row = lock?.box === "seance" ? puzzles.find((x) => x.date === p.date && x.mode === p.lock) : undefined;
+    const row = lock?.box ? puzzles.find((x) => x.date === p.date && x.mode === p.lock) : undefined;
     if (lock && row) seanceMistakes.set(`${p.date}|${p.lock}`, evaluateSeance(lock, row, 0, p.guesses).view.mistakes);
   }
   // Omen payloads have no named answer (their `answer` is the prediction key).
@@ -318,7 +318,7 @@ export async function accountProgress(userId: string) {
       ranked: p.source === "live" && !p.archive,
       answer: a ? { name: a.name, image: a.image } : undefined,
       at: p.finishedAt?.getTime(),
-      ...(lock.box === "seance" ? { tables: inPlay(p.date) } : {}),
+      ...(lock.box ? { tables: inPlay(p.date, lock.box) } : {}),
     };
   }
   return out;

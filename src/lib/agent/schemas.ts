@@ -40,19 +40,22 @@ export const CategoryPatch = z.strictObject({
 export type CategoryPatch = z.infer<typeof CategoryPatch>;
 
 export const MemberEdit = z.strictObject({
-  /** Heroes that belong to the group. */
+  /** Entities (heroes, items or abilities, by the category's entity) that belong to the group. */
   add: z.array(id).max(60).optional(),
   /** Heroes that explicitly do NOT belong (a "no" answer). */
   notMembers: z.array(id).max(60).optional(),
   /** Back to "unknown" (removes the answer). */
   remove: z.array(id).max(60).optional(),
-  /** Every hero still unknown becomes "does not belong". Only do this when the member list is complete. */
+  /** Every entity still unknown becomes "does not belong". Only do this when the member list is complete. */
   completeRest: z.boolean().optional(),
 });
 export type MemberEdit = z.infer<typeof MemberEdit>;
 
 export const SeanceCreate = z.strictObject({
-  type: z.enum(["mechanics", "visuals", "lore"]),
+  /** What the group is about: heroes (The Séance), items (The Bazaar) or abilities (The Grimoire). */
+  entity: z.enum(["hero", "item", "ability"]).default("hero"),
+  /** Heroes: mechanics, visuals, lore. Items: stats, effects, visuals. Abilities: mechanics, effects, visuals. */
+  type: z.enum(["mechanics", "visuals", "lore", "stats", "effects"]),
   label: z.string().trim().min(2).max(60),
   explanation: z.string().trim().max(200).optional(),
   difficulty: z.number().int().min(1).max(4).default(2),

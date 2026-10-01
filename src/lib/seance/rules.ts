@@ -1,10 +1,11 @@
 // Category library rules (pure; unit-tested): completeness and how a sync updates derived memberships.
 import type { CategoryStatus, CategoryType, LibraryCategory } from "./types";
 
-export type MembershipRow = { heroId: number; member: boolean; source: string };
+export type MembershipRow = { entityId: number; member: boolean; source: string };
 
 export type CategoryRow = {
   id: number;
+  entity?: string;
   type: string;
   label: string;
   explanation: string | null;
@@ -14,22 +15,22 @@ export type CategoryRow = {
 };
 
 /**
- * A category is usable only when every active hero has an explicit yes/no. A missing row is an
- * "unknown" (e.g. a hero added by the sync after the category was written).
+ * A category is usable only when every active entity has an explicit yes/no. A missing row is an
+ * "unknown" (e.g. an entity added by the sync after the category was written).
  */
-export function completeness(rows: MembershipRow[], activeHeroIds: number[]): { complete: boolean; unknown: number[]; members: number[] } {
-  const by = new Map(rows.map((r) => [r.heroId, r.member]));
-  const unknown = activeHeroIds.filter((id) => !by.has(id));
-  const members = activeHeroIds.filter((id) => by.get(id) === true);
+export function completeness(rows: MembershipRow[], activeIds: number[]): { complete: boolean; unknown: number[]; members: number[] } {
+  const by = new Map(rows.map((r) => [r.entityId, r.member]));
+  const unknown = activeIds.filter((id) => !by.has(id));
+  const members = activeIds.filter((id) => by.get(id) === true);
   return { complete: unknown.length === 0, unknown, members };
 }
 
 /** The categories the board generator may use: approved, complete, members limited to active heroes. */
-export function usableCategories(rows: CategoryRow[], activeHeroIds: number[]): LibraryCategory[] {
+export function usableCategories(rows: CategoryRow[], activeIds: number[]): LibraryCategory[] {
   const out: LibraryCategory[] = [];
   for (const c of rows) {
     if (c.status !== "approved") continue;
-    const { complete, members } = completeness(c.memberships, activeHeroIds);
+    const { complete, members } = completeness(c.memberships, activeIds);
     if (!complete) continue;
     out.push({
       id: c.id, type: c.type as CategoryType, label: c.label, explanation: c.explanation,
@@ -41,7 +42,7 @@ export function usableCategories(rows: CategoryRow[], activeHeroIds: number[]): 
 
 export type Reconciled = {
   /** Rows to write (hero -> value) with the derivation source. */
-  upserts: { heroId: number; member: boolean }[];
+  upserts: { entityId: number; member: boolean }[];
   /** Rows to delete: the API can no longer say (back to "unknown"). */
   deletes: number[];
   added: number[];
@@ -53,22 +54,22 @@ export type Reconciled = {
  * classified that hero by hand); every other row follows the API.
  */
 export function reconcileMemberships(existing: MembershipRow[], derived: Map<number, boolean | null>): Reconciled {
-  const by = new Map(existing.map((r) => [r.heroId, r]));
+  const by = new Map(existing.map((r) => [r.entityId, r]));
   const out: Reconciled = { upserts: [], deletes: [], added: [], removed: [] };
-  for (const [heroId, value] of derived) {
-    const prev = by.get(heroId);
+  for (const [entityId, value] of derived) {
+    const prev = by.get(entityId);
     if (prev?.source === "admin") continue;
     if (value === null) {
       if (prev) {
-        out.deletes.push(heroId);
-        if (prev.member) out.removed.push(heroId);
+        out.deletes.push(entityId);
+        if (prev.member) out.removed.push(entityId);
       }
       continue;
     }
     if (prev && prev.member === value) continue;
-    out.upserts.push({ heroId, member: value });
-    if (value && !prev?.member) out.added.push(heroId);
-    if (!value && prev?.member) out.removed.push(heroId);
+    out.upserts.push({ entityId, member: value });
+    if (value && !prev?.member) out.added.push(entityId);
+    if (!value && prev?.member) out.removed.push(entityId);
   }
   return out;
 }

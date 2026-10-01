@@ -1,5 +1,5 @@
 // Souls and share text (pure; unit-tested). Share text never contains clue content.
-import { LOCK_BY_SLUG, LOCKS, OMEN_LOCKS, SEANCE_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, VAULT_UNITS, type LockDef } from "@/locks.config";
+import { boxOf, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import { omenSymbol } from "../omens/scoring";
 import { foldPlays, tableSymbol } from "../seance/scoring";
 import type { Tile } from "../engine/types";
@@ -47,23 +47,32 @@ export function symbolFor(r: LockResult | undefined, lock?: LockDef): string {
   return "▫️";
 }
 
+/** Unsealed tables of a day per box; a plain number counts for The Séance only. */
+export type BoxesInPlay = number | Partial<Record<SeanceBoxId, number>>;
+const inPlayOf = (b: BoxesInPlay | undefined, box: string) => (typeof b === "number" ? (box === "seance" ? b : 0) : b?.[box as SeanceBoxId] ?? 0);
+
 /**
- * Souls and opened locks of a day, with the Séance tables folded into one box (see foldPlays).
- * `seanceInPlay` = the day's unsealed Séance tables; `skip` = slugs the player skips (sound locks).
+ * Souls and opened locks of a day, with the tables folded into their boxes (see foldPlays).
+ * `seanceInPlay` = the day's unsealed tables per box; `skip` = slugs the player skips (sound locks).
  */
-export function dayTotals(results: Record<string, LockResult>, seanceInPlay: number, skip?: ReadonlySet<string>): { souls: number; opened: number } {
+export function dayTotals(results: Record<string, LockResult>, seanceInPlay: BoxesInPlay, skip?: ReadonlySet<string>): { souls: number; opened: number } {
   const plays = LOCKS.flatMap((l) => {
     const r = results[l.slug];
     if (skip?.has(l.slug)) return [];
     return r && r.status !== "none" && r.status !== "sealed" ? [{ date: "d", lock: l.slug, souls: r.souls, status: r.status }] : [];
   });
-  return foldPlays(plays, (s) => LOCK_BY_SLUG[s]?.box === "seance", () => seanceInPlay);
+  return foldPlays(plays, boxOf, (_date, box) => inPlayOf(seanceInPlay, box));
 }
 
 export function shareDay(opts: {
-  number: number; results: Record<string, LockResult>; streak: number; site: string; seanceInPlay?: number; skip?: ReadonlySet<string>;
+  number: number; results: Record<string, LockResult>; streak: number; site: string; seanceInPlay?: BoxesInPlay; skip?: ReadonlySet<string>;
 }): string {
   const { number, results, streak, site, seanceInPlay = 0, skip } = opts;
+  const tablesLine = (id: SeanceBoxId) =>
+    seanceLocksOf(id).map((l) => {
+      const r = results[l.slug];
+      return tableSymbol(r && (r.status === "won" || r.status === "lost") ? { status: r.status, mistakes: r.mistakes ?? 0 } : undefined);
+    }).join("");
   const { souls, opened } = dayTotals(results, seanceInPlay, skip);
   const counted = (ls: LockDef[]) => ls.filter((l) => !skip?.has(l.slug));
   const units = VAULT_UNITS.filter((u) => u.kind !== "lock" || !skip?.has(u.lock.slug)).length;
@@ -72,12 +81,7 @@ export function shareDay(opts: {
     `Spirits  ${counted(SPIRIT_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
     `Shop     ${counted(SHOP_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
     `Omens    ${counted(OMEN_LOCKS).map((l) => symbolFor(results[l.slug], l)).join("")}`,
-    ...(seanceInPlay > 0
-      ? [`Séance   ${SEANCE_LOCKS.map((l) => {
-          const r = results[l.slug];
-          return tableSymbol(r && (r.status === "won" || r.status === "lost") ? { status: r.status, mistakes: r.mistakes ?? 0 } : undefined);
-        }).join("")}`]
-      : []),
+    ...SEANCE_BOX_LIST.filter((b) => inPlayOf(seanceInPlay, b.id) > 0).map((b) => `${b.name.replace("The ", "").padEnd(8)} ${tablesLine(b.id)}`),
     `🔥 ${streak} ${streak === 1 ? "day" : "days"}`,
     site,
   ].join("\n");

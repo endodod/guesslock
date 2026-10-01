@@ -75,7 +75,7 @@ export default async function CalendarAdmin() {
                   </td>
                   {days.map((d) => {
                     const r = by.get(`${d}|${l.slug}`);
-                    if (l.box === "seance") {
+                    if (!!l.box) {
                       const p = r && !r.sealed ? (r.payload as unknown as SeancePayload) : null;
                       return (
                         <td key={d} className={`px-3 py-3 text-xs ${d === today ? "bg-blue-50/30" : ""}`}>
@@ -92,7 +92,7 @@ export default async function CalendarAdmin() {
                             </div>
                           )}
                           <div className="mt-1.5">
-                            <Link className="text-[11px] text-blue-700 hover:underline" href={`/admin/seance/preview?date=${d}&table=${l.table!.kind}`}>
+                            <Link className="text-[11px] text-blue-700 hover:underline" href={`/admin/seance/preview?date=${d}&slug=${l.slug}`}>
                               Preview / Override ↗
                             </Link>
                           </div>

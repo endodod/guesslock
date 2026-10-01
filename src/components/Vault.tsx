@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { countedLocks, LOCKS, OMEN_LOCKS, SEANCE_BOX, SEANCE_LOCKS, SHOP_LOCKS, SPIRIT_LOCKS, VAULT_UNITS, type LockDef } from "@/locks.config";
+import { countedLocks, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
 import { dayStreaks, ignoredSlugs, type LockRecord } from "@/lib/client/store";
 import { dayTotals, shareDay, type LockResult } from "@/lib/game/scoring";
@@ -125,11 +125,12 @@ export function VaultBox({
 }
 
 /**
- * The Séance box: one wide box for the four tables, with a wax seal per table on the door.
+ * A sorting box (the Séance, the Bazaar, the Grimoire): one wide box for its four tables, with a wax seal per table on the door.
  * Opened once every table in play is finished; sealed when all four are sealed.
  */
-export function SeanceBox({ metaBy, day, q }: { metaBy: Map<string, LockMeta>; day: Record<string, LockRecord>; q: string }) {
-  const tables = SEANCE_LOCKS.map((l) => {
+export function SeanceBox({ box: boxId, metaBy, day, q }: { box: SeanceBoxId; metaBy: Map<string, LockMeta>; day: Record<string, LockRecord>; q: string }) {
+  const SEANCE_BOX = SEANCE_BOXES[boxId];
+  const tables = seanceLocksOf(boxId).map((l) => {
     const rec = day[l.slug];
     const inPlay = metaBy.get(l.slug)?.state === "available";
     const seal: SealState = !inPlay ? "sealed" : rec?.s === "won" ? "won" : rec?.s === "lost" ? "lost" : "intact";
@@ -201,7 +202,9 @@ export function Vault({
   const ignored = ignoredSlugs({ skipSound });
   const counted = countedLocks(skipSound);
   const available = counted.filter((l) => metaBy.get(l.slug)?.state === "available");
-  const seanceInPlay = SEANCE_LOCKS.filter((l) => metaBy.get(l.slug)?.state === "available").length;
+  const seanceInPlay = Object.fromEntries(
+    SEANCE_BOX_LIST.map((b) => [b.id, seanceLocksOf(b.id).filter((l) => metaBy.get(l.slug)?.state === "available").length]),
+  ) as Record<SeanceBoxId, number>;
   const finished = available.filter((l) => ["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const complete = hydrated && available.length > 0 && finished.length === available.length;
   const streak = dayStreaks(store.progress, today, ignored).current;
@@ -303,7 +306,9 @@ export function Vault({
       {/* The Séance: four tables behind one wide box */}
       <section aria-labelledby="seance-h" className="mt-8">
         <h2 id="seance-h" className="smallcaps mb-3 text-brass">{t.groups.seance}</h2>
-        <SeanceBox metaBy={metaBy} day={day} q={q} />
+        <div className="space-y-4">
+          {SEANCE_BOX_LIST.map((b) => <SeanceBox key={b.id} box={b.id} metaBy={metaBy} day={day} q={q} />)}
+        </div>
       </section>
 
       {!isArchive && (

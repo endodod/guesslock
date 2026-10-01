@@ -341,7 +341,9 @@ model UserStats {
 model SeanceCategory {
   id          Int                @id @default(autoincrement())
   key         String?            @unique // stable id of API-derived categories, e.g. "api:hero_type:marksman"
-  type        String // "mechanics" | "visuals" | "lore"
+  /// Which entity the group is about: "hero" | "item" | "ability" (the Séance, the Bazaar, the Grimoire).
+  entity      String             @default("hero")
+  type        String // heroes: "mechanics" | "visuals" | "lore"; items: "stats" | "effects" | "visuals"; abilities: "mechanics" | "effects" | "visuals"
   label       String // shown once the group is solved
   explanation String?
   source      String // "api" | "derived" | "curated"
@@ -355,18 +357,20 @@ model SeanceCategory {
   memberships SeanceMembership[]
 
   @@index([type, status])
+  @@index([entity, type, status])
 }
 
 model SeanceMembership {
   categoryId Int
   category   SeanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  heroId     Int
+  /// Hero, item or ability id (ability and item ids exceed 32 bits).
+  entityId   BigInt
   member     Boolean
-  source     String // "api" | "derived" | "admin"
+  source     String // "api" | "derived" | "curated" | "admin" | "agent"
   updatedAt  DateTime       @updatedAt
 
-  @@id([categoryId, heroId])
-  @@index([heroId])
+  @@id([categoryId, entityId])
+  @@index([entityId])
 }
 
 // ───────────── The Echo family (select lines, ability cast lines, conversations) from the wiki ─────────────

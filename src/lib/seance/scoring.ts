@@ -21,30 +21,34 @@ export function boxSouls(tables: number[], inPlay: number): number {
 }
 
 /**
- * Souls and opened locks of a player's plays, with each day's Séance tables folded into one box
- * (worth their average; "opened" once every table in play is finished). Leaderboards, stats and
- * the Ledger all count this way. `inPlay(date)` = the day's unsealed tables.
+ * Souls and opened locks of a player's plays, with each day's tables folded into their box (the Séance, the
+ * Bazaar, the Grimoire: worth the average of their tables; "opened" once every table in play is finished).
+ * Leaderboards, stats and the Ledger all count this way. `boxOf(slug)` = the box of a table (a plain `true`
+ * means the Séance), `inPlay(date, box)` = the day's unsealed tables of that box.
  */
 export function foldPlays(
   plays: { date: string; lock: string; souls: number; status: string }[],
-  isTable: (slug: string) => boolean,
-  inPlay: (date: string) => number,
+  boxOf: (slug: string) => string | boolean | null,
+  inPlay: (date: string, box: string) => number,
 ): { souls: number; opened: number } {
   let souls = 0, opened = 0;
-  const tables = new Map<string, { souls: number[]; finished: number }>();
+  const tables = new Map<string, { date: string; box: string; souls: number[]; finished: number }>();
   for (const p of plays) {
-    if (!isTable(p.lock)) {
+    const b = boxOf(p.lock);
+    if (!b) {
       souls += p.souls;
       if (p.status === "won") opened++;
       continue;
     }
-    const t = tables.get(p.date) ?? { souls: [], finished: 0 };
+    const box = typeof b === "string" ? b : "seance";
+    const k = `${box}|${p.date}`;
+    const t = tables.get(k) ?? { date: p.date, box, souls: [], finished: 0 };
     t.souls.push(p.status === "won" || p.status === "lost" ? p.souls : 0);
     if (p.status === "won" || p.status === "lost") t.finished++;
-    tables.set(p.date, t);
+    tables.set(k, t);
   }
-  for (const [date, t] of tables) {
-    const n = inPlay(date);
+  for (const t of tables.values()) {
+    const n = inPlay(t.date, t.box);
     souls += boxSouls(t.souls, n);
     if (n > 0 && t.finished >= n) opened++;
   }
@@ -64,11 +68,13 @@ export const RANK_EMOJI: Record<Rank, string> = { 1: "🟨", 2: "🟩", 3: "🟦
 /** Per-table share, Connections style: one row per submission, each emoji the hero's true group color. */
 export function shareTable(opts: {
   number: number; table: string; rows: Rank[][]; won: boolean; mistakes: number; souls: number; site: string;
+  /** The box's name ("The Bazaar"); defaults to The Séance. */
+  box?: string;
 }): string {
   const grid = opts.rows.map((r) => r.map((k) => RANK_EMOJI[k]).join("")).join("\n");
   const m = `${opts.mistakes} ${opts.mistakes === 1 ? "mistake" : "mistakes"}`;
   return [
-    `GUESSLOCK #${opts.number} — The Séance · ${opts.table}`,
+    `GUESSLOCK #${opts.number} — ${opts.box ?? "The Séance"} · ${opts.table}`,
     ...(grid ? [grid] : []),
     `${opts.won ? m : `🔒 ${m}`} · ${opts.souls} souls`,
     opts.site,

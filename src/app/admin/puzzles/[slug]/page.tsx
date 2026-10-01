@@ -75,7 +75,7 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
   ]);
   const byDate = new Map(dayRows.map((r) => [r.date, r]));
   const isOmen = lock.group === "omens";
-  const isSeance = lock.box === "seance";
+  const isSeance = !!lock.box;
   const pool = isOmen || isSeance ? [] : poolRows(lock, data, today);
   const options = pool.filter((r) => r.inPool && r.answerId).sort((a, b) => a.name.localeCompare(b.name));
   const counts = { in: pool.filter((r) => r.inPool).length, off: pool.filter((r) => !r.on).length, missing: pool.filter((r) => r.on && !r.inPool).length };
