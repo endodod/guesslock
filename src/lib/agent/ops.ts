@@ -20,6 +20,7 @@ import { MODES } from "../engine/registry";
 import { config } from "../config";
 import { HttpError } from "./errors";
 import type { EntityPatch, CategoryCreate, CategoryPatch, MemberEdit, SeanceCreate, SeancePatch, PuzzleAction } from "./schemas";
+import { puzzlesChanged } from "@/lib/server/cache";
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -319,6 +320,7 @@ export async function puzzleAction(slug: string, body: PuzzleAction, dryRun: boo
   if (action === "regenerate") {
     if (!dryRun) {
       if (existing && !existing.overridden) await db.dailyPuzzle.delete({ where: { id: existing.id } });
+      puzzlesChanged();
       const [r] = await generateDay(date, { slugs: [slug], force: true });
       if (r?.status !== "created") throw new HttpError(500, r?.note ?? r?.status ?? "generation did not produce a row");
     }

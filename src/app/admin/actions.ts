@@ -10,6 +10,7 @@ import { currentUser } from "@/lib/auth/server";
 import { importAllVoiceLines, importHeroVoiceLines } from "@/lib/wiki/voicelines";
 import { redact } from "@/lib/text/redact";
 import { heroTerms } from "@/lib/text/entries";
+import { puzzlesChanged } from "@/lib/server/cache";
 
 const list = (v: FormDataEntryValue | null) =>
   String(v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -226,6 +227,7 @@ export async function regenerateDay(date: string, slug: string) {
   await requireAdmin();
   if (date <= todayDate()) throw new Error("Only future days can be regenerated; use an override for today.");
   await db.dailyPuzzle.deleteMany({ where: { date, mode: slug, overridden: false } });
+  puzzlesChanged();
   await generateDay(date, { slugs: [slug] });
   revalidatePath("/admin/calendar");
 }

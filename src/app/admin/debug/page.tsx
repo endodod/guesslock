@@ -5,7 +5,7 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import { LOCKS, getLock } from "@/locks.config";
 import { isDay, todayDate } from "@/lib/day";
 import { addDays } from "@/lib/time";
-import { getPuzzle } from "@/lib/server/puzzles";
+import { getPuzzleFresh } from "@/lib/server/puzzles";
 import { MODES } from "@/lib/engine/registry";
 import { checkLeaks } from "@/lib/engine/leaks";
 import type { BasePayload } from "@/lib/engine/mode";
@@ -25,7 +25,7 @@ export default async function DebugPage({ searchParams }: { searchParams: Promis
   const wrong = Math.max(0, Math.min(20, Number(q.w ?? 0) || 0));
   const hard = q.hard === "1";
   const done = q.done === "1";
-  const row = await getPuzzle(date, lock.slug);
+  const row = await getPuzzleFresh(date, lock.slug);
   const impl = MODES[lock.mode];
   const payload = row && !row.sealed ? (row.payload as unknown as BasePayload) : null;
   const engine = !!impl && !!payload && lock.group !== "omens" && !lock.box;

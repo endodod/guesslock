@@ -1,5 +1,7 @@
 // Server-side puzzle queries used by pages and API routes.
+import { unstable_cache } from "next/cache";
 import { db } from "../db";
+import { PUZZLES_TAG } from "./cache";
 import { LOCKS } from "@/locks.config";
 import type { BasePayload } from "../engine/mode";
 import type { AnswerView } from "../engine/types";
@@ -27,12 +29,24 @@ function omenOutcome(p: OmenPayload): AnswerView {
 
 export type LockMeta = { slug: string; state: "available" | "sealed" | "empty"; sealedReason?: string };
 
+const PUZZLE_FIELDS = { date: true, mode: true, answerId: true, payload: true, sealed: true, sealedReason: true, overridden: true } as const;
+
+/** The frozen puzzle straight from the database (admin pages, which must see edits at once). */
+export async function getPuzzleFresh(date: string, slug: string) {
+  return db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } }, select: PUZZLE_FIELDS });
+}
+
+// Frozen puzzles change only when a day is (re)generated, overridden or healed, all of which call puzzlesChanged().
+// Caching them for a minute takes the database read out of every guess (/api/play) and lock page view.
+const cachedPuzzle = unstable_cache(getPuzzleFresh, ["puzzle"], { revalidate: 60, tags: [PUZZLES_TAG] });
+const cachedMeta = unstable_cache((date: string) => db.dailyPuzzle.findMany({ where: { date }, select: { mode: true, sealed: true, sealedReason: true } }), ["day-meta"], { revalidate: 60, tags: [PUZZLES_TAG] });
+
 export async function getPuzzle(date: string, slug: string) {
-  return db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
+  return cachedPuzzle(date, slug);
 }
 
 export async function dayMeta(date: string): Promise<LockMeta[]> {
-  const rows = await db.dailyPuzzle.findMany({ where: { date }, select: { mode: true, sealed: true, sealedReason: true } });
+  const rows = await cachedMeta(date);
   const by = new Map(rows.map((r) => [r.mode, r]));
   return LOCKS.map((l) => {
     const r = by.get(l.slug);

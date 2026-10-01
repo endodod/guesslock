@@ -14,6 +14,7 @@ import { alert } from "../monitoring";
 import { assignOmen, harvest, unpackTimeline } from "../omens/harvest";
 import type { MatchTimeline } from "../omens/types";
 import { clueImages } from "../image/clue";
+import { puzzlesChanged } from "../server/cache";
 import { getMapMeta } from "../omens/map";
 import { buildSeanceBoard, loadLibrary } from "../seance/library";
 import { boardKey } from "../seance/board";
@@ -84,6 +85,7 @@ export async function regenerateOmen(date: string, slug: string): Promise<void> 
   const built = await buildOmen(lock, date, old ? [old] : []);
   const row = { answerId: built!.candidate.answerId, payload: built!.payload as unknown as Prisma.InputJsonValue, sealed: false, sealedReason: null, overridden: true };
   await db.dailyPuzzle.upsert({ where: { date_mode: { date, mode: slug } }, create: { date, mode: slug, ...row }, update: row });
+  puzzlesChanged();
 }
 
 /** Build a payload for one lock/day. Returns null when the pool is empty. */
@@ -171,6 +173,7 @@ export async function generateDay(
       }
     }
   }
+  if (results.some((r) => r.status === "created" || r.status === "sealed")) puzzlesChanged();
   return results;
 }
 
@@ -236,4 +239,5 @@ export async function overridePuzzle(date: string, slug: string, answerId: strin
     dataVersion: await latestDataVersion(), sealed: false, sealedReason: null, overridden: true,
   };
   await db.dailyPuzzle.upsert({ where: { date_mode: { date, mode: slug } }, create: { date, mode: slug, ...row }, update: row });
+  puzzlesChanged();
 }

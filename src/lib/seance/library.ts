@@ -2,6 +2,7 @@
 // and building/freezing a table's board for a day. One library per entity: heroes (The Séance), items (The Bazaar)
 // and abilities (The Grimoire); a category belongs to exactly one entity.
 import { db } from "../db";
+import { puzzlesChanged } from "../server/cache";
 import { config } from "../config";
 import { SEANCE_BOXES, SEANCE_LOCKS, type LockDef, type SeanceEntity, type SeanceTable } from "@/locks.config";
 import { makeRng, puzzleSeed } from "../rng";
@@ -177,4 +178,5 @@ export async function buildSeanceBoard(lock: LockDef, date: string, reroll = 0):
 export async function saveSeanceBoard(date: string, slug: string, payload: SeancePayload, overridden: boolean) {
   const row = { answerId: boardKey(payload), payload: payload as unknown as Prisma.InputJsonValue, sealed: false, sealedReason: null, overridden };
   await db.dailyPuzzle.upsert({ where: { date_mode: { date, mode: slug } }, create: { date, mode: slug, ...row }, update: row });
+  puzzlesChanged();
 }

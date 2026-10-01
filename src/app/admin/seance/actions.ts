@@ -8,6 +8,7 @@ import { todayDate } from "@/lib/day";
 import { activeEntities, buildSeanceBoard, saveSeanceBoard } from "@/lib/seance/library";
 import { generateDay } from "@/lib/engine/generate";
 import { ENTITY_TYPES, type CategoryType } from "@/lib/seance/types";
+import { puzzlesChanged } from "@/lib/server/cache";
 
 const STATUSES = ["draft", "approved", "retired"];
 const clampDifficulty = (v: FormDataEntryValue | null) => Math.min(4, Math.max(1, Number(v) || 2));
@@ -129,6 +130,7 @@ export async function resetBoard(date: string, slug: string) {
   const lock = SEANCE_LOCKS.find((l) => l.slug === slug);
   if (!lock) throw new Error("unknown table");
   await db.dailyPuzzle.deleteMany({ where: { date, mode: lock.slug } });
+  puzzlesChanged();
 
   await generateDay(date, { slugs: [lock.slug] });
   revalidatePath("/admin/calendar");

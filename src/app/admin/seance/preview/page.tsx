@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/auth";
 import { SEANCE_BOXES, SEANCE_LOCKS } from "@/locks.config";
 import { isDay, todayDate } from "@/lib/day";
-import { getPuzzle } from "@/lib/server/puzzles";
+import { getPuzzleFresh } from "@/lib/server/puzzles";
 import { buildSeanceBoard, loadLibrary } from "@/lib/seance/library";
 import type { SeancePayload } from "@/lib/seance/types";
 import { ActionButton } from "../../ui";
@@ -42,7 +42,7 @@ export default async function BoardPreview({ searchParams }: { searchParams: Pro
   const lock = SEANCE_LOCKS.find((l) => l.slug === sp.slug) ?? SEANCE_LOCKS.find((l) => l.slug === `seance-${sp.table}`) ?? SEANCE_LOCKS[0];
   const slug = lock.slug;
   const reroll = Math.max(0, Number(sp.reroll) || 0);
-  const [built, current, lib] = await Promise.all([buildSeanceBoard(lock, date, reroll), getPuzzle(date, lock.slug), loadLibrary(SEANCE_BOXES[lock.box!].entity)]);
+  const [built, current, lib] = await Promise.all([buildSeanceBoard(lock, date, reroll), getPuzzleFresh(date, lock.slug), loadLibrary(SEANCE_BOXES[lock.box!].entity)]);
   const members = new Map(lib.categories.map((c) => [c.id, new Set(c.members)]));
   const link = (p: Record<string, string | number>) => `/admin/seance/preview?${new URLSearchParams({ date, slug, reroll: String(reroll), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
 

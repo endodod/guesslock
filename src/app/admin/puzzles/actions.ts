@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { generateDay, overridePuzzle } from "@/lib/engine/generate";
 import { todayDate } from "@/lib/day";
 import { LOCK_BY_SLUG } from "@/locks.config";
+import { puzzlesChanged } from "@/lib/server/cache";
 
 function done() {
   updateTag("catalog");
@@ -43,6 +44,7 @@ export async function buildDay(slug: string, date: string) {
   const row = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
   if (date === today && row && !row.sealed) throw new Error("Today's puzzle is live; use an override to replace it.");
   if (date > today && row && !row.overridden) await db.dailyPuzzle.delete({ where: { id: row.id } });
+  puzzlesChanged();
   const [r] = await generateDay(date, { slugs: [slug], force: date > today });
   done();
   if (r?.status !== "created") throw new Error(r?.note ?? r?.status ?? "not built");
