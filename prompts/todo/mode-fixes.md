@@ -70,3 +70,9 @@ The Testament, The Incantation, The Ascension, The Relic: only hard-mode notes, 
 - [x] A bonus question for every puzzle that can have one: heroes "Which of these is X's ultimate?", The Ascension "Which slot is X?", items "How much does X cost?". The Sigil, Incantation, Utterance and Resonance keep "Name the ability". The Measure, the Omens and the Séance have none.
 - [x] Guess the hero from the printed select lines: this is The Echo (IX), no audio.
 - [x] The Colloquy reveals in bites (a question and its answer, each hero speaking once), at the start and after every wrong guess.
+
+## Third round: sorting puzzles for items and abilities
+
+- [x] The Séance generalised: The Bazaar (16 items) and The Grimoire (16 abilities), each with 4 tables (3 category types + Mixed). Heroes: mechanics, visuals, lore. Items: stats, effects, looks. Abilities: mechanics, effects, looks.
+- [x] At least 16 usable groups per category type (36 / 21 / 19 heroes, 31 / 18 / 24 items, 35 / 22 / 21 abilities); every table generates fair boards (`src/tests/seance-data.test.ts`). The list is in `docs/seance-groups.md`.
+- [ ] Review the hand-written groups (hero looks and lore, item and ability looks) in `/admin/seance`; they were written from the portraits, icons and lore texts and can be edited or retired there.

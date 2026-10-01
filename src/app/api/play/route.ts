@@ -12,7 +12,7 @@ import { evaluateSeance } from "@/lib/seance/play";
 const Body = z.object({
   date: z.string().refine(isDay),
   slug: z.string(),
-  guesses: z.array(z.string().max(40)).max(200),
+  guesses: z.array(z.string().max(64)).max(200),
   bonus: z.string().max(40).optional(),
   noHints: z.boolean().optional(),
   hard: z.boolean().optional(),

@@ -18,7 +18,7 @@ import { seanceLeaks } from "../src/lib/seance/play";
   for (const r of rows) {
     const lock = getLock(r.mode);
     // The Séance: no label or membership of an unsolved group may reach the browser.
-    if (lock?.box === "seance") {
+    if (lock?.box) {
       const leaks = seanceLeaks(lock, r);
       if (leaks.length) {
         bad++;

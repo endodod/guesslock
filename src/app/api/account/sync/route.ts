@@ -4,7 +4,7 @@ import { z } from "zod";
 import { currentUser } from "@/lib/auth/server";
 import { syncProgress } from "@/lib/accounts/service";
 
-const Rec = z.object({ g: z.array(z.string().max(40)).max(200), b: z.string().max(40).optional(), archive: z.boolean().optional(), o: z.unknown().optional() });
+const Rec = z.object({ g: z.array(z.string().max(64)).max(200), b: z.string().max(40).optional(), archive: z.boolean().optional(), o: z.unknown().optional() });
 const Body = z.object({ progress: z.record(z.string(), z.record(z.string(), Rec)).default({}) });
 
 export async function POST(req: Request) {
