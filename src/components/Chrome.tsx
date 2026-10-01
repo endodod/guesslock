@@ -7,6 +7,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
+import { backupFile, readBackup } from "@/lib/client/store";
 import { Button, Countdown, DecoFrame, Icon, Logo } from "./ui";
 
 export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset: number }) {
@@ -129,7 +130,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
 }
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { store, setSettings, resetAll, toast } = useGame();
+  const { store, setSettings, resetAll, importStore, toast, user } = useGame();
   const s = store.settings;
   return (
     <Modal open={open} onClose={onClose} title={t.settings.title}>
@@ -158,6 +159,42 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         </label>
         <Toggle label={t.settings.skipSound} desc={t.settings.skipSoundDesc} checked={s.skipSound} onChange={(v) => setSettings({ skipSound: v })} />
         <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
+        <Toggle label="Hard mode by default" desc="Locks with a hard variant start in hard mode (switchable per lock before the first guess). 1.5× souls." checked={s.hardMode} onChange={(v) => setSettings({ hardMode: v })} />
+        <div className="space-y-2 py-3">
+          <p className="text-sm text-paper">Your progress</p>
+          <p className="text-xs text-ash">
+            {user ? "Signed in: your plays are saved to your account and synced across devices." : "Saved in this browser only. Download a backup to keep it safe or move it to another device (or sign in to sync automatically)."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => {
+              let endless: unknown = null;
+              try { endless = JSON.parse(localStorage.getItem("guesslock:endless") ?? "null"); } catch { /* none */ }
+              const blob = new Blob([backupFile(store, endless)], { type: "application/json" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `guesslock-backup-${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            }}>Download backup</Button>
+            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-[3px] border border-brass/40 px-4 text-sm text-paper hover:border-brass">
+              Restore from backup
+              <input type="file" accept="application/json,.json" className="sr-only" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file || file.size > 5_000_000) return;
+                const backup = readBackup(await file.text());
+                if (!backup) { toast("That file isn't a GUESSLOCK backup."); return; }
+                importStore(backup.store);
+                if (backup.endless && typeof backup.endless === "object") {
+                  try { if (!localStorage.getItem("guesslock:endless")) localStorage.setItem("guesslock:endless", JSON.stringify(backup.endless)); } catch { /* ignore */ }
+                }
+                // Signed in: the next page load brings the restored plays into the account (unranked, like any import).
+                if (user) try { sessionStorage.removeItem(`guesslock:synced:${user.id}`); } catch { /* ignore */ }
+                toast(`Restored ${Object.keys(backup.store.progress).length} days of progress.`);
+              }} />
+            </label>
+          </div>
+        </div>
         <div className="pt-4">
           <Button
             variant="ghost"

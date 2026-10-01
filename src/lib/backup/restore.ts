@@ -3,6 +3,7 @@
 // Heroes must already exist (run a sync first); curation for unknown heroes is skipped and counted.
 import { db } from "../db";
 import type { Prisma } from "@/generated/prisma/client";
+import { approveClip } from "../sounds/import";
 
 type Json = Prisma.InputJsonValue;
 type Row = Record<string, unknown>;
@@ -20,7 +21,11 @@ const big = (v: unknown) => (v === null || v === undefined ? null : BigInt(Strin
 const date = (v: unknown) => (v ? new Date(String(v)) : null);
 const json = (v: unknown) => (v === null || v === undefined ? undefined : (v as Json));
 
-export async function restoreCuration(b: CurationBackup): Promise<RestoreCounts> {
+/**
+ * `audio`: approved clips whose mirrored audio is missing are downloaded again from their source (approveClip), so they
+ * stay approved. Without it they come back as suggestions to re-approve in /admin/sounds.
+ */
+export async function restoreCuration(b: CurationBackup, opts: { audio?: boolean } = {}): Promise<RestoreCounts> {
   const counts: RestoreCounts = {};
   const tally = (k: string, ok: boolean) => {
     counts[k] ??= { restored: 0, skipped: 0 };
@@ -75,7 +80,8 @@ export async function restoreCuration(b: CurationBackup): Promise<RestoreCounts>
   }
 
   // Clip metadata only: the audio itself lives in MirroredAsset. A clip whose mirror is missing is restored without
-  // its asset, so it is not used until it is re-approved (which mirrors it again).
+  // its asset, so it is not used until it is re-approved (which mirrors it again), or re-mirrored right here with `audio`.
+  const reapprove: number[] = [];
   const assetIds = new Set((await db.mirroredAsset.findMany({ select: { id: true } })).map((a) => a.id));
   for (const c of b.soundClips ?? []) {
     const assetId = s(c.assetId);
@@ -86,9 +92,13 @@ export async function restoreCuration(b: CurationBackup): Promise<RestoreCounts>
       peakDb: c.peakDb === null ? null : Number(c.peakDb), loudnessDb: c.loudnessDb === null ? null : Number(c.loudnessDb),
       gainDb: c.gainDb === null ? null : Number(c.gainDb), assetId: assetId && assetIds.has(assetId) ? assetId : null, sourceHash: s(c.sourceHash),
     };
-    await db.soundClip.upsert({ where: { sourceUrl: String(c.sourceUrl) }, create: { sourceUrl: String(c.sourceUrl), ...data }, update: data });
-    tally("soundClips", !!data.assetId);
+    const saved = await db.soundClip.upsert({ where: { sourceUrl: String(c.sourceUrl) }, create: { sourceUrl: String(c.sourceUrl), ...data }, update: data });
+    if (!data.assetId && c.status === "approved" && opts.audio) reapprove.push(saved.id);
+    else tally("soundClips", !!data.assetId);
   }
+  // Four downloads at a time; a clip that fails stays a suggestion.
+  for (let i = 0; i < reapprove.length; i += 4)
+    await Promise.all(reapprove.slice(i, i + 4).map((id) => approveClip(id).then(() => tally("soundClips", true), () => tally("soundClips", false))));
 
   for (const t of b.texts ?? []) {
     const key = { entityType: String(t.entityType), entityId: BigInt(String(t.entityId)) };

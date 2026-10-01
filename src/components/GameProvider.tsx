@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useHydrated, useMediaQuery } from "@/lib/client/hooks";
 import { MotionConfig } from "motion/react";
-import { adoptServerProgress, emptyStore, loadStore, saveStore, type LockRecord, type Settings, type StoreData } from "@/lib/client/store";
+import { adoptServerProgress, emptyStore, loadStore, mergeStores, saveStore, type LockRecord, type Settings, type StoreData } from "@/lib/client/store";
 import { sfx } from "@/lib/client/sound";
 
 type Toast = { id: number; text: string };
@@ -19,6 +19,8 @@ type Ctx = {
   setSettings(patch: Partial<Settings>): void;
   setOnboarded(): void;
   resetAll(): void;
+  /** Merges an imported backup into this device's progress. */
+  importStore(incoming: StoreData): void;
   play(sound: keyof typeof sfx): void;
   toast(text: string): void;
   reducedMotion: boolean;
@@ -68,7 +70,22 @@ export function GameProvider({ children, today, user = null }: { children: React
   }, []);
 
   // Signed in: once per browser session, bring this device's history into the account and
-  // adopt the account's progress (so locks played on other devices show up here).
+  // adopt the account's progress (so locks played on other devices show up here). Coming back to the tab after a
+  // while syncs again, so a lock finished on the phone shows up on the open laptop.
+  const [syncTick, setSyncTick] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 5 * 60_000) {
+        try { sessionStorage.removeItem(`guesslock:synced:${user.id}`); } catch { /* ignore */ }
+        setSyncTick((n) => n + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [user]);
   useEffect(() => {
     if (!hydrated || !user) return;
     const key = `guesslock:synced:${user.id}`;
@@ -85,7 +102,7 @@ export function GameProvider({ children, today, user = null }: { children: React
         if (res.imported > 0) toast(`Brought ${res.imported} ${res.imported === 1 ? "lock" : "locks"} from this device into your account.`);
       })
       .catch(() => { /* offline or signed out meanwhile: the game keeps working locally */ });
-  }, [hydrated, user, toast]);
+  }, [hydrated, user, toast, syncTick]);
 
   const value = useMemo<Ctx>(() => ({
     store, hydrated, today, reducedMotion, user,
@@ -102,6 +119,9 @@ export function GameProvider({ children, today, user = null }: { children: React
     },
     resetAll() {
       write(emptyStore());
+    },
+    importStore(incoming) {
+      write(mergeStores(getSnapshot(), incoming));
     },
     play(sound) {
       if (getSnapshot().settings.sound) sfx[sound]();

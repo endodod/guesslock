@@ -193,3 +193,40 @@ function dayDiff(a: string, b: string) {
 function shiftDay(d: string, n: number) {
   return new Date(Date.parse(d + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 }
+
+// ───────────── backup file (export / import of this device's progress) ─────────────
+
+/** How far a record got: finished beats in progress, more guesses beat fewer. */
+const progressRank = (r: LockRecord) => (r.s === "playing" ? 0 : 1000) + r.g.length + (r.o !== undefined ? 1000 : 0);
+
+/**
+ * Merges an imported backup into this device's data: per day and lock the record that got further wins (a device's own
+ * finished lock is never replaced by an older, unfinished copy). Settings stay this device's.
+ */
+export function mergeStores(local: StoreData, incoming: StoreData): StoreData {
+  const progress: StoreData["progress"] = {};
+  for (const [d, locks] of Object.entries(local.progress)) progress[d] = { ...locks };
+  for (const [d, locks] of Object.entries(incoming.progress))
+    for (const [slug, rec] of Object.entries(locks)) {
+      const mine = progress[d]?.[slug];
+      if (!mine || progressRank(rec) > progressRank(mine)) (progress[d] ??= {})[slug] = rec;
+    }
+  return { ...local, progress, onboarded: local.onboarded || incoming.onboarded };
+}
+
+/** The backup file: the store plus Endless practice data, versioned. */
+export function backupFile(data: StoreData, endless: unknown): string {
+  return JSON.stringify({ app: "guesslock", kind: "progress-backup", exportedAt: new Date().toISOString(), store: data, endless }, null, 1);
+}
+
+/** Reads a backup file (or a bare store export); null when it isn't one. */
+export function readBackup(text: string): { store: StoreData; endless: unknown } | null {
+  try {
+    const raw = JSON.parse(text);
+    if (raw?.app === "guesslock" && raw.kind === "progress-backup") return { store: migrateStore(raw.store), endless: raw.endless ?? null };
+    if (raw?.progress && typeof raw.progress === "object") return { store: migrateStore(raw), endless: null };
+    return null;
+  } catch {
+    return null;
+  }
+}

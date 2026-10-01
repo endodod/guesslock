@@ -1,6 +1,7 @@
-// Usage: npm run restore:curation [-- <file.json.gz | snapshot key>]
+// Usage: npm run restore:curation [-- <file.json.gz | snapshot key>] [--audio]
 // Restores a curation backup into the database (additive upserts; see src/lib/backup/restore.ts).
 // Default: the newest file in data/curation-backup/. A key such as "curation-latest" reads the ApiSnapshot row instead.
+// --audio downloads approved clips whose audio isn't mirrored here (e.g. a fresh database) so they stay approved.
 import "dotenv/config";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -21,8 +22,9 @@ async function load(arg: string | undefined): Promise<{ data: CurationBackup; fr
 }
 
 (async () => {
-  const { data, from } = await load(process.argv[2]);
+  const args = process.argv.slice(2);
+  const { data, from } = await load(args.find((a) => !a.startsWith("--")));
   console.log(`restoring ${from} (taken ${data.takenAt ?? "?"})`);
-  console.log(JSON.stringify(await restoreCuration(data), null, 1));
+  console.log(JSON.stringify(await restoreCuration(data, { audio: args.includes("--audio") }), null, 1));
   await db.$disconnect();
 })().catch(async (e) => { console.error(e); await db.$disconnect(); process.exit(1); });

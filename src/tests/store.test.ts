@@ -79,3 +79,26 @@ describe("streaks and stats", () => {
     expect(m.dist.X).toBe(2);
   });
 });
+
+describe("progress backup", async () => {
+  const { backupFile, emptyStore, mergeStores, readBackup } = await import("@/lib/client/store");
+  const rec = (s: "playing" | "won" | "lost", g: number) => ({ g: Array.from({ length: g }, (_, i) => String(i)), s, w: 0, h: 0, souls: s === "won" ? 50 : 0 });
+
+  it("round-trips through the backup file and rejects other files", () => {
+    const store = { ...emptyStore(), progress: { "2026-10-01": { reckoning: rec("won", 3) } } };
+    const back = readBackup(backupFile(store, { stats: {} }))!;
+    expect(back.store.progress["2026-10-01"].reckoning.s).toBe("won");
+    expect(back.endless).toEqual({ stats: {} });
+    expect(readBackup("{\"hello\":1}")).toBeNull();
+    expect(readBackup("not json")).toBeNull();
+  });
+
+  it("merging keeps whichever record got further, never downgrading a finished lock", () => {
+    const local = { ...emptyStore(), progress: { "2026-10-01": { reckoning: rec("won", 3), visage: rec("playing", 1) } } };
+    const incoming = { ...emptyStore(), progress: { "2026-10-01": { reckoning: rec("playing", 5), visage: rec("lost", 6) }, "2026-10-02": { sigil: rec("won", 1) } } };
+    const m = mergeStores(local, incoming);
+    expect(m.progress["2026-10-01"].reckoning.s).toBe("won");
+    expect(m.progress["2026-10-01"].visage.s).toBe("lost");
+    expect(m.progress["2026-10-02"].sigil.s).toBe("won");
+  });
+});
