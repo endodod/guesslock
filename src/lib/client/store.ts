@@ -15,7 +15,7 @@ export type LockRecord = {
   bonusCorrect?: boolean;
   archive?: boolean; // replay of a past day: excluded from stats and streaks
   ranked?: boolean; // signed in: counts for leaderboards (set from the server)
-  answer?: { name: string; image: string | null };
+  answer?: { name: string; image: string | null; images?: string[] };
   at?: number; // finished at (ms)
   tables?: number; // The Séance: tables in play that day (the box is worth their average)
   hard?: boolean; // played in hard mode (fixed by the first guess)

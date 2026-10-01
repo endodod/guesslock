@@ -96,7 +96,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         bonusCorrect,
         hard: v.hard || undefined,
         archive: rec?.archive ?? isArchive,
-        answer: v.answer ? { name: v.answer.name, image: v.answer.image } : undefined,
+        answer: v.answer ? { name: v.answer.name, image: v.answer.image, images: v.answer.images } : undefined,
         at: done ? (rec?.at ?? Date.now()) : undefined,
       };
       if (endless) endless.onRecord(next, v.answerKey);

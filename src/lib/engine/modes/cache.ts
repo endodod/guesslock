@@ -91,7 +91,9 @@ export const cache: ModeImpl<CacheClue> = {
     const carry = richest ? data.hero(richest.heroId) : undefined;
     return {
       v: 1, mode: "cache", key,
-      answer: { id: key, name: `${label}, match ${tl.matchId}`, image: carry?.card ?? carry?.icon ?? null },
+      answer: { id: key, name: `${label}, match ${tl.matchId}`, image: carry?.card ?? carry?.icon ?? null,
+        // The solution as a picture: the whole team, in inventory order.
+        images: inventories.flatMap((i) => { const u = data.hero(i.heroId)?.icon; return u ? [u] : []; }) },
       correctIds: [inventories.map((i) => String(i.heroId)).join(",")],
       leakTerms: [],
       hints: {},

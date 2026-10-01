@@ -38,31 +38,50 @@ function SoundWaveGlyph() {
   );
 }
 
+/** The compact card of the Omens and the extra modes: a row (numeral, name, status) instead of a tall door. */
+const stripBase = "relative flex min-h-[5.75rem] items-center gap-3 overflow-hidden rounded-[3px] border px-3 py-3 shadow-[0_6px_18px_rgba(0,0,0,0.5)]";
+const plate = "flex h-9 min-w-11 shrink-0 items-center justify-center rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]";
+
+export function VaultStrip({ lock, state, rec, href }: { lock: LockDef; state: BoxState; rec?: LockRecord; href: string | null }) {
+  const omen = lock.group === "omens";
+  const open = state === "opened" || state === "jammed";
+  const status =
+    state === "locked" ? <span className="text-ash">{t.vault.states.locked}</span>
+    : state === "progress" ? <span className="text-ecto">{t.vault.states.progress(rec!.g.length)}</span>
+    : state === "opened" ? <span className="text-ecto">{omen ? `${rec!.souls} / 100` : `${rec!.g.length} · ${rec!.souls} souls`}</span>
+    : state === "jammed" ? <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>
+    : state === "sealed" ? <span className="text-ash">{t.vault.sealed}</span>
+    : <span className="text-ash">{t.vault.states.skipped}</span>;
+  const inner = (
+    <div className={`group ${stripBase} ${omen ? "border-cursed/60 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)]" : "border-brass/50 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"} ${state === "opened" ? "shadow-[inset_0_0_30px_rgba(127,227,194,0.25)]" : ""} ${href ? "hover:border-ecto/70" : "opacity-75"}`}>
+      <div className={plate}>{lock.numeral}</div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-display text-base leading-tight text-paper">{lock.name}</div>
+        <div className="line-clamp-2 text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 text-right font-mono text-[0.72rem] leading-tight">
+        {open && rec?.answer?.image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={rec.answer.image} alt="" loading="lazy" className={`h-10 w-10 rounded-sm object-cover object-top ${state === "jammed" ? "grayscale" : ""}`} />
+        )}
+        {status}
+      </div>
+    </div>
+  );
+  const label = `${lock.numeral}. ${lock.name}: ${lock.subtitle}. ${state === "sealed" ? t.vault.sealed : state}`;
+  return href ? <Link href={href} aria-label={label} className="block rounded-[3px]">{inner}</Link> : <div aria-label={label}>{inner}</div>;
+}
+
 /** A mode that is announced but has no daily puzzle, route or answers yet (The Wayfinder). Never counted, never a link. */
-function ComingSoonBox({ name, subtitle, state = "Under construction" }: { name: string; subtitle: string; state?: string }) {
+function ComingSoonStrip({ name, subtitle, state = "Under construction" }: { name: string; subtitle: string; state?: string }) {
   return (
-    <div
-      aria-label={`${name}: ${subtitle}. ${state}; not playable.`}
-      className="relative flex h-[17.7rem] w-full flex-col overflow-hidden rounded-[3px] border border-brass/35 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#30291f,#141210)]" />
-      <div className="relative flex h-full flex-col items-center justify-between border border-brass/20 px-3 pt-3 pb-11">
-        <div className="flex h-8 min-w-10 items-center justify-center rounded-[2px] border border-brass/50 bg-[linear-gradient(180deg,#5b4b31,#332919)] px-2.5 font-display text-sm tracking-widest text-brass">
-          ...
-        </div>
-        <div className="flex h-20 w-full flex-none items-center justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-brass/35 bg-ink/60 text-brass/60">
-            <Keyhole className="h-7 w-5" />
-          </div>
-        </div>
-        <div className="mt-2 min-h-[4.25rem] text-center">
-          <div className="font-display text-base leading-tight text-paper">{name}</div>
-          <div className="mt-0.5 line-clamp-2 min-h-[2.75em] text-[0.8rem] leading-snug text-ash">{subtitle}</div>
-        </div>
+    <div aria-label={`${name}: ${subtitle}. ${state}; not playable.`} className={`${stripBase} border-brass/35 bg-[radial-gradient(ellipse_at_center,#30291f,#141210)]`}>
+      <div className="flex h-9 min-w-11 shrink-0 items-center justify-center rounded-[2px] border border-brass/50 bg-[linear-gradient(180deg,#5b4b31,#332919)] px-2 font-display text-sm tracking-widest text-brass">...</div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-display text-base leading-tight text-paper">{name}</div>
+        <div className="line-clamp-2 text-[0.8rem] leading-snug text-ash">{subtitle}</div>
       </div>
-      <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-brass">
-        {state}
-      </div>
+      <span className="shrink-0 text-right font-mono text-[0.72rem] text-ash">{state}</span>
     </div>
   );
 }
@@ -85,10 +104,17 @@ export function VaultBox({
             <span className="text-xs text-ash">of 100</span>
           </div>
         )}
-        {open && rec?.answer?.image && (
+        {open && rec?.answer?.images?.length ? (
+          <div className={`grid h-full w-full grid-cols-2 grid-rows-3 opacity-90 ${state === "jammed" ? "grayscale" : ""}`} aria-label={rec.answer.name}>
+            {rec.answer.images.slice(0, 6).map((u, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={u} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+            ))}
+          </div>
+        ) : open && rec?.answer?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`${answerImageClass(lock.guess)} opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
-        )}
+        ) : null}
         {state === "opened" && <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(127,227,194,0.45)]" />}
         {state === "jammed" && (
           <svg className="absolute inset-0 h-full w-full text-[#d08a8a]/70" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
@@ -259,6 +285,16 @@ export function Vault({
   const { souls, opened: openCount } = dayTotals(results, seanceInPlay, ignored);
   const best = counted.filter((l) => !l.box && day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
 
+  const strip = (l: LockDef) => {
+    const m = metaBy.get(l.slug);
+    const state = boxState(m, day[l.slug], ignored.has(l.slug));
+    return (
+      <li key={l.slug}>
+        <VaultStrip lock={l} state={state} rec={day[l.slug]} href={state === "sealed" || state === "skipped" ? null : `/lock/${l.slug}${q}`} />
+      </li>
+    );
+  };
+
   const box = (l: LockDef) => {
     const m = metaBy.get(l.slug);
     const state = boxState(m, day[l.slug], ignored.has(l.slug));
@@ -338,8 +374,8 @@ export function Vault({
       {/* The Omens: predictions from real matches (a different kind of puzzle, hence the cursed glow) */}
       <section aria-labelledby="omens-h" className="mt-8">
         <h2 id="omens-h" className="smallcaps mb-3 text-cursed">{t.groups.omens}</h2>
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
-          {OMEN_LOCKS.map((l) => box(l))}
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-4">
+          {OMEN_LOCKS.map((l) => strip(l))}
         </ul>
       </section>
 
@@ -353,9 +389,9 @@ export function Vault({
 
       <section aria-labelledby="more-h" className="mt-8">
         <h2 id="more-h" className="smallcaps mb-3 text-brass">More Modes</h2>
-        <ul className="mx-auto grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
-          {STAR_LOCKS.map((l) => box(l))}
-          <li><ComingSoonBox name="The Wayfinder" subtitle="Find your place in the world" /></li>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
+          {STAR_LOCKS.map((l) => strip(l))}
+          <li><ComingSoonStrip name="The Wayfinder" subtitle="Find your place in the world" /></li>
         </ul>
       </section>
 

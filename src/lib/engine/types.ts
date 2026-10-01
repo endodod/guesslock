@@ -98,6 +98,8 @@ export type AnswerView = {
   id: string;
   name: string;
   image: string | null;
+  /** The answer is a group (The Cache's team): one picture each, shown as a mosaic where a single picture would go. */
+  images?: string[];
   sub?: string;
   /** Extra reveal content, e.g. all valid Lineage answers, The Measure exact value, Echo lines. */
   extra?: {

@@ -21,8 +21,17 @@ export default async function YesterdayPage() {
           <li key={lock.slug}>
             <DecoFrame className="flex items-center gap-3 p-3" corners={false}>
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-sm bg-velvet">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {answer?.image && <img src={answer.image} alt="" loading="lazy" className={answerImageClass(lock.guess)} />}
+                {answer?.images?.length ? (
+                  <div className="grid h-full w-full grid-cols-3 grid-rows-2">
+                    {answer.images.slice(0, 6).map((u, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={u} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
+                    ))}
+                  </div>
+                ) : answer?.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={answer.image} alt="" loading="lazy" className={answerImageClass(lock.guess)} />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="smallcaps text-xs text-brass">{lock.numeral} · {lock.name}{lock.table ? ` · ${lock.table.label}` : ""}</p>

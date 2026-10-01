@@ -112,10 +112,9 @@ export function Ledger() {
       ) : (
         <section>
           <h2 className="sr-only">Per lock</h2>
-          <ul className="grid gap-4 md:grid-cols-2">
-            {LOCKS.map((l) => {
-              if (l.group === "omens") return <li key={l.slug}><OmenCard l={l} progress={p} /></li>;
-              if (l.box) return l === seanceLocksOf(l.box)[0] ? <li key={l.box} className="md:col-span-2"><SeanceCard box={l.box} progress={p} /></li> : null;
+          {/* Cards differ in height (the guess spread only shows once played): columns flow them without gaps. */}
+          <ul className="gap-4 md:columns-2 [&>li]:mb-4 [&>li]:break-inside-avoid">
+            {LOCKS.filter((l) => l.group !== "omens" && !l.box).map((l) => {
               const s = lockStats(p, l.slug, today);
               return (
                 <li key={l.slug}>
@@ -134,6 +133,14 @@ export function Ledger() {
                 </li>
               );
             })}
+          </ul>
+          <h3 className="smallcaps mb-3 mt-4 text-cursed">{t.groups.omens}</h3>
+          <ul className="grid gap-4 sm:grid-cols-3">
+            {LOCKS.filter((l) => l.group === "omens").map((l) => <li key={l.slug}><OmenCard l={l} progress={p} /></li>)}
+          </ul>
+          <h3 className="smallcaps mb-3 mt-8 text-brass">{t.groups.seance}</h3>
+          <ul className="grid gap-4">
+            {LOCKS.filter((l) => l.box && l === seanceLocksOf(l.box)[0]).map((l) => <li key={l.box}><SeanceCard box={l.box!} progress={p} /></li>)}
           </ul>
         </section>
       )}
