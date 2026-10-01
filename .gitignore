@@ -45,5 +45,7 @@ next-env.d.ts
 /src/generated
 
 todo.md
+my_findings.md
+
 # Agent worktrees (local only)
 .claude/worktrees/
