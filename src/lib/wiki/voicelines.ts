@@ -15,7 +15,7 @@ const GENERIC_OVERLAP = 0.3; // share of a hero's lines found in a generic set
 
 export class WikiBlockedError extends Error {}
 
-async function wikiGet(params: Record<string, string>, attempt = 0): Promise<unknown> {
+export async function wikiGet(params: Record<string, string>, attempt = 0): Promise<unknown> {
   const url = `${config.wikiApi}?${new URLSearchParams({ format: "json", formatversion: "2", ...params })}`;
   const res = await fetch(url, { headers: { "user-agent": config.wikiUserAgent, accept: "application/json" }, signal: AbortSignal.timeout(30000) });
   const text = await res.text();
