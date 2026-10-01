@@ -9,7 +9,7 @@ import { poolRows } from "./pool";
 
 export const dynamic = "force-dynamic";
 
-const GROUPS = [["spirits", "The Spirits"], ["shop", "The Shop"], ["omens", "The Omens"]] as const;
+const GROUPS = [["spirits", "The Spirits"], ["shop", "The Shop"], ["omens", "The Omens"], ["seance", "The Séance"]] as const;
 
 export default async function PuzzlesAdmin() {
   await requireAdminPage();
@@ -35,16 +35,22 @@ export default async function PuzzlesAdmin() {
               {LOCKS.filter((l) => l.group === g).map((l) => {
                 const t = by.get(`${today}|${l.slug}`);
                 const ahead = days.slice(1).filter((d) => { const r = by.get(`${d}|${l.slug}`); return r && !r.sealed; }).length;
-                const pool = g === "omens" ? null : poolRows(l, data, today);
+                const pool = g === "omens" || l.box === "seance" ? null : poolRows(l, data, today);
                 return (
                   <tr key={l.slug} className="border-t border-neutral-200">
-                    <td className="py-1.5 pr-4"><Link href={`/admin/puzzles/${l.slug}`} className="text-blue-700 hover:underline">{l.numeral}. {l.name}</Link></td>
+                    <td className="py-1.5 pr-4"><Link href={`/admin/puzzles/${l.slug}`} className="text-blue-700 hover:underline">{l.numeral}. {l.name}{l.table ? ` · ${l.table.label}` : ""}</Link></td>
                     <td className="pr-4">
                       {t && !t.sealed ? <span className="text-green-700">ready</span> : t ? <span className="text-red-700">sealed: {t.sealedReason}</span> : <span className="text-amber-700">not generated</span>}
                     </td>
                     <td className={`pr-4 ${ahead < 7 ? "text-amber-700" : ""}`}>{ahead}/7 ready</td>
                     <td>
-                      {pool ? <>{pool.filter((r) => r.inPool).length} in pool{pool.some((r) => r.on && !r.inPool) ? <span className="text-amber-700"> · {pool.filter((r) => r.on && !r.inPool).length} missing data</span> : null}</> : <Link href="/admin/omens" className="text-blue-700 hover:underline">scenarios</Link>}
+                      {l.box === "seance" ? (
+                        <Link href="/admin/seance" className="text-blue-700 hover:underline">Séance categories</Link>
+                      ) : pool ? (
+                        <>{pool.filter((r) => r.inPool).length} in pool{pool.some((r) => r.on && !r.inPool) ? <span className="text-amber-700"> · {pool.filter((r) => r.on && !r.inPool).length} missing data</span> : null}</>
+                      ) : (
+                        <Link href="/admin/omens" className="text-blue-700 hover:underline">scenarios</Link>
+                      )}
                     </td>
                   </tr>
                 );

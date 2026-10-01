@@ -74,7 +74,8 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
   ]);
   const byDate = new Map(dayRows.map((r) => [r.date, r]));
   const isOmen = lock.group === "omens";
-  const pool = isOmen ? [] : poolRows(lock, data, today);
+  const isSeance = lock.box === "seance";
+  const pool = isOmen || isSeance ? [] : poolRows(lock, data, today);
   const options = pool.filter((r) => r.inPool && r.answerId).sort((a, b) => a.name.localeCompare(b.name));
   const counts = { in: pool.filter((r) => r.inPool).length, off: pool.filter((r) => !r.on).length, missing: pool.filter((r) => r.on && !r.inPool).length };
   const answerName = (p: unknown) => {
@@ -114,11 +115,19 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
                       : <span className="text-amber-700">not generated</span>}
                   </td>
                   <td className="pr-4">
-                    {live ? (isOmen ? <Link className="text-blue-700 hover:underline" href={`/admin/omens/${r.answerId}`}>{answerName(r.payload)}</Link> : answerName(r.payload)) : ""}
+                    {live ? (
+                      isOmen ? (
+                        <Link className="text-blue-700 hover:underline" href={`/admin/omens/${r.answerId}`}>{answerName(r.payload)}</Link>
+                      ) : isSeance ? (
+                        <span>Table: {lock.table?.label}</span>
+                      ) : (
+                        answerName(r.payload)
+                      )
+                    ) : ""}
                   </td>
                   <td className="whitespace-nowrap">
                     {d >= today && (!live || d > today) && <ActionButton action={buildDay.bind(null, slug, d)} label={live ? "Rebuild" : "Build now"} confirm={live ? "Pick a new answer for this day?" : undefined} />}
-                    {!isOmen && d >= today && options.length > 0 && (
+                    {!isOmen && !isSeance && d >= today && options.length > 0 && (
                       <form action={overrideAnswer.bind(null, slug, d)} className="ml-2 inline-flex gap-1">
                         <select name="answerId" defaultValue="" className="rounded border border-neutral-400 px-1 py-0.5 text-xs">
                           <option value="">Set answer…</option>
@@ -143,6 +152,12 @@ export default async function PuzzleAdmin({ params }: { params: Promise<{ slug: 
           <h2 className="mb-2 font-semibold">Scenarios</h2>
           <p className="text-sm">Matches are harvested daily and each day freezes one scenario; if none is ready, a bundled seed scenario is used.
             Harvest queue, candidate pool, approvals and detection tuning: <Link href="/admin/omens" className="text-blue-700 hover:underline">Omens admin</Link>.</p>
+        </section>
+      ) : isSeance ? (
+        <section className={box}>
+          <h2 className="mb-2 font-semibold">Séance Table ({lock.table?.label})</h2>
+          <p className="text-sm">This table draws from approved, complete Séance categories.
+            Manage categories, curate memberships, and preview boards: <Link href="/admin/seance" className="text-blue-700 hover:underline">Séance admin</Link>.</p>
         </section>
       ) : (
         <section className={box}>

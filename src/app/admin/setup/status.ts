@@ -5,7 +5,7 @@ import { activeColumns } from "@/lib/engine/columns";
 import { ECHO_MIN_LINES, EMOJI_SET_SIZE } from "@/lib/engine/modes/hero";
 import { MODE_OPTIONS } from "../shared";
 
-export const HERO_MODES = MODE_OPTIONS.slice(0, 9);
+export const HERO_MODES = MODE_OPTIONS.slice(0, 10);
 
 export type ModeStatus = { on: boolean; inPool: boolean; note: string };
 
@@ -24,6 +24,7 @@ function reason(data: GameData, h: HeroData, mode: string): string {
     case "upgrades": return abilities.length ? "No ability with all 3 upgrade texts" : "All abilities turned off";
     case "emoji": return `${h.emojis.length}/${EMOJI_SET_SIZE} emojis`;
     case "quote": return h.genericVoice ? "Generic voice" : `${data.voiceLines(h.id).length}/${ECHO_MIN_LINES} voice lines`;
+    case "hero-sound": return "Needs 1 cast + 2 approved clips";
     default: return "Not eligible";
   }
 }

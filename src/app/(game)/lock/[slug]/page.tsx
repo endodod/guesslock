@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getLock, SEANCE_LOCKS } from "@/locks.config";
 import { SeanceLock } from "@/components/seance/SeanceLock";
 import { evaluateSeance } from "@/lib/seance/play";
@@ -29,6 +29,7 @@ function omenCatalog(catalog: Catalog) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  if (slug === "seance") return { title: "The Séance — Sort 16 heroes into 4 hidden groups" };
   const lock = getLock(slug);
   return lock ? { title: `${lock.name} — ${lock.subtitle}` } : {};
 }
@@ -36,6 +37,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function LockPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ d?: string }> }) {
   const { slug } = await params;
   const { d } = await searchParams;
+  if (slug === "seance") {
+    redirect(`/lock/seance-mechanics${d ? `?d=${d}` : ""}`);
+  }
   const lock = getLock(slug);
   if (!lock) notFound();
   const today = todayDate();

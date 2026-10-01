@@ -54,7 +54,7 @@ export default async function CalendarAdmin() {
           </thead>
           <tbody>
             {/* The Omens have their own calendar in /admin/omens (no engine mode here). */}
-            {LOCKS.filter((l) => MODES[l.mode]).map((l) => (
+            {LOCKS.filter((l) => l.group !== "omens").map((l) => (
               <tr key={l.slug} className="border-t border-neutral-200 align-top">
                 <td className="p-2 font-medium">{l.numeral} {l.name}{l.table ? ` · ${l.table.label}` : ""}</td>
                 {days.map((d) => {

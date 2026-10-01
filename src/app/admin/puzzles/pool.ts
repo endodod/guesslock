@@ -21,6 +21,7 @@ export type PoolRow = {
 
 export function poolRows(lock: LockDef, data: GameData, date: string): PoolRow[] {
   const mode = lock.mode;
+  if (!MODES[mode]) return [];
   const cands = MODES[mode].candidates(data, { dayIndex: dayIndex(date) });
   const byRef = new Map(cands.map((c) => [String(c.ref), c.answerId]));
 
@@ -38,7 +39,7 @@ export function poolRows(lock: LockDef, data: GameData, date: string): PoolRow[]
   if (lock.guess === "hero") {
     const status = heroStatuses(data);
     return data.heroes.map((h) => {
-      const s = status.get(h.id)![mode];
+      const s = status.get(h.id)?.[mode] ?? { on: !h.exclude.includes(mode), inPool: false, note: "Not eligible" };
       return { kind: "hero", id: String(h.id), answerId: byRef.get(String(h.id)) ?? null, name: h.name, icon: h.icon, heroId: h.id, on: s.on, inPool: s.inPool, note: s.note };
     });
   }
