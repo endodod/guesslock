@@ -390,7 +390,7 @@ function MeasureStage({ clue, rows }: { clue: Extract<Clue, { kind: "measure" }>
       <div className="flex-1">
         <div className={`mb-3 flex items-center gap-3 rounded-sm bg-ink/60 p-2 slot-edge-${clue.item.slot}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={clue.item.image ?? ""} alt="" className="h-14 w-14 object-contain" />
+          <img src={clue.item.image ?? ""} alt="" className="h-16 w-16 object-contain" />
           <div>
             <div className="text-lg">{clue.item.name}</div>
             <div className="flex items-center gap-1.5 font-mono text-xs capitalize text-ash"><SlotDot slot={clue.item.slot} />{clue.item.slot}</div>

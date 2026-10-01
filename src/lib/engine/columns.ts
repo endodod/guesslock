@@ -79,6 +79,7 @@ export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "complexity", label: "Complexity", info: "In-game complexity rating (1-4 stars).", type: "exact", get: (h) => h.src.complexity, format: (v) => (v == null ? "?" : "★".repeat(Number(v))) },
   { key: "weapon", label: "Weapon", info: "Weapon type as listed in the hero picker.", type: "exact", get: (h) => h.weaponType },
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
+  { key: "stamina", label: "Stamina", info: "Starting stamina for dashes. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.stamina },
   { key: "damage", label: "Bullet damage", info: "Base damage per bullet. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.bulletDamage },
   { key: "firerate", label: "Fire rate", info: "Base shots per second. Arrows point toward the answer.", type: "numeric", curated: true, get: (h) => h.src.fireRate ?? null, format: (v) => (v == null ? "?" : `${v}/s`) },
   { key: "release", label: "Released", info: "When the hero became playable. Arrows point toward the answer.", type: "date", curated: true, get: (h) => h.releaseDate, format: fmtDate },

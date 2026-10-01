@@ -18,6 +18,7 @@ export type NormHero = {
   images: { card: string | null; small: string | null; vertical: string | null };
   maxHealth: number | null;
   bulletDamage: number | null;
+  stamina: number | null;
   dps: number | null;
   /** Shots per second (1 / cycle time). Missing in data synced before The Reckoning split DPS. */
   fireRate?: number | null;

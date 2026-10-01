@@ -39,12 +39,12 @@ function SoundWaveGlyph() {
 }
 
 export function VaultBox({
-  lock, state, rec, href, large = false,
-}: { lock: LockDef; state: BoxState; rec?: LockRecord; href: string | null; large?: boolean }) {
+  lock, state, rec, href,
+}: { lock: LockDef; state: BoxState; rec?: LockRecord; href: string | null }) {
   const open = state === "opened" || state === "jammed";
   const omen = lock.group === "omens";
   const inner = (
-    <div className={`group relative flex h-full flex-col overflow-hidden rounded-[3px] border bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${omen ? "border-cursed/60" : "border-brass/50"} ${large ? "min-h-52" : "min-h-44"}`}>
+    <div className={`group relative flex h-[17.7rem] flex-col overflow-hidden rounded-[3px] border bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${omen ? "border-cursed/60" : "border-brass/50"}`}>
       {/* Box interior (visible when the door swings open) */}
       <div className={`absolute inset-0 ${omen ? "bg-[radial-gradient(ellipse_at_center,#3b2a63,#140f22)]" : "bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]"}`}>
         {open && omen && rec && (
@@ -82,10 +82,10 @@ export function VaultBox({
           style={{ transformStyle: "preserve-3d" }}
         >
           {/* numeral plate */}
-          <div className="rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2.5 py-0.5 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
+          <div className="flex h-8 min-w-10 items-center justify-center rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2.5 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
             {lock.numeral}
           </div>
-          <div className={`flex flex-1 items-center justify-center py-2 ${state === "skipped" ? "opacity-40" : ""}`}>
+          <div className={`mt-2 flex h-20 w-full flex-none items-center justify-center ${state === "skipped" ? "opacity-40" : ""}`}>
             {state === "sealed" ? (
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_35%,#c24a44,#6e1d1a)] text-[#f0c7c3] shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
                 <Icon name="seal" className="h-7 w-7" />
@@ -97,8 +97,8 @@ export function VaultBox({
               </div>
             )}
           </div>
-          <div className="text-center">
-            <div className={`font-display leading-tight text-paper ${large ? "text-lg" : "text-base"}`}>{lock.name}</div>
+          <div className="mt-2 min-h-[4.25rem] text-center">
+            <div className="font-display text-base leading-tight text-paper">{lock.name}</div>
             <div className="mt-0.5 line-clamp-2 min-h-[2.75em] text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
           </div>
         </motion.div>
@@ -227,12 +227,12 @@ export function Vault({
   const { souls, opened: openCount } = dayTotals(results, seanceInPlay, ignored);
   const best = counted.filter((l) => !l.box && day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
 
-  const box = (l: LockDef, large = false) => {
+  const box = (l: LockDef) => {
     const m = metaBy.get(l.slug);
     const state = boxState(m, day[l.slug], ignored.has(l.slug));
     return (
       <li key={l.slug} className="h-full">
-        <VaultBox lock={l} state={state} rec={day[l.slug]} href={state === "sealed" || state === "skipped" ? null : `/lock/${l.slug}${q}`} large={large} />
+        <VaultBox lock={l} state={state} rec={day[l.slug]} href={state === "sealed" || state === "skipped" ? null : `/lock/${l.slug}${q}`} />
       </li>
     );
   };
@@ -250,6 +250,11 @@ export function Vault({
           <p className="font-mono text-3xl text-paper" suppressHydrationWarning>{hydrated ? souls : 0} <span className="text-base text-ash">souls</span></p>
           <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, unitCount)}</p>
         </div>
+        {!isArchive && (
+          <p className="max-w-md flex-1 text-center text-sm leading-relaxed text-paper/85">
+            Each puzzle is a lock in the Vault. Choose a lock, use the clues to find its answer, and open it for souls.
+          </p>
+        )}
         {next && (
           <Link
             href={`/lock/${next.slug}${q}`}
@@ -290,7 +295,7 @@ export function Vault({
         <section aria-labelledby="shop-h">
           <h2 id="shop-h" className="smallcaps mb-3 text-brass">{t.groups.shop}</h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:gap-4 lg:grid-cols-2">
-            {SHOP_LOCKS.map((l) => box(l, true))}
+            {SHOP_LOCKS.map((l) => box(l))}
           </ul>
         </section>
       </div>

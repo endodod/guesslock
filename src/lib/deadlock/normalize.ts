@@ -127,6 +127,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
         vertical: h.images?.top_bar_vertical_image ?? null,
       },
       maxHealth: h.starting_stats?.max_health?.value ?? null,
+      stamina: h.starting_stats?.stamina?.value ?? null,
       bulletDamage: w?.bullet_damage ?? null,
       fireRate: w?.cycle_time ? Math.round(10 / w.cycle_time) / 10 : null,
       dps: w?.damage_per_second != null ? Math.round(w.damage_per_second * 10) / 10 : null,

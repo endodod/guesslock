@@ -48,6 +48,7 @@ describe("Séance family: group library from the API data", () => {
   it("curated tables only name heroes, items and abilities that exist", () => {
     const heroes = new Set(norm.heroes.map((h) => h.name));
     const heroName = new Map(norm.heroes.map((h) => [h.id, h.name]));
+    expect(norm.heroes.every((h) => typeof h.stamina === "number")).toBe(true);
     expect(unknownKeys(HERO_LOOKS, heroes)).toEqual([]);
     expect(unknownKeys(LORE_TAGS, heroes)).toEqual([]);
     expect([...heroes].filter((h) => !(h in HERO_RELEASE))).toEqual([]);

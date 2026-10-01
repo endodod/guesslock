@@ -7,7 +7,7 @@ export function hero(id: number, name: string, over: Partial<HeroData> = {}): He
   const src: NormHero = {
     id, className: `hero_${name.toLowerCase()}`, name, gender: id % 2 ? "male" : "female", heroType: "marksman",
     complexity: 2, gunTag: "Pistol", tags: [], lore: null, role: null, playstyle: null,
-    images: { card: `https://x/${id}.png`, small: null, vertical: null }, maxHealth: 700 + id, bulletDamage: 10, dps: 50 + id,
+    images: { card: `https://x/${id}.png`, small: null, vertical: null }, maxHealth: 700 + id, stamina: 3, bulletDamage: 10, dps: 50 + id,
     abilityClassNames: [],
   };
   return {
