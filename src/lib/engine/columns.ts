@@ -81,7 +81,6 @@ export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
   { key: "damage", label: "Bullet damage", info: "Base damage per bullet. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.bulletDamage },
   { key: "firerate", label: "Fire rate", info: "Base shots per second. Arrows point toward the answer.", type: "numeric", curated: true, get: (h) => h.src.fireRate ?? null, format: (v) => (v == null ? "?" : `${v}/s`) },
-  { key: "damagetype", label: "Damage type", info: "Whether the hero's damage comes mostly from Spirit abilities, the gun, or a mix of both.", type: "exact", curated: true, get: (h) => h.damageType },
   { key: "release", label: "Released", info: "When the hero became playable. Arrows point toward the answer.", type: "date", curated: true, get: (h) => h.releaseDate, format: fmtDate },
 ];
 

@@ -3,7 +3,7 @@
 import { LOCK_BY_SLUG } from "@/locks.config";
 
 const BASE: Record<string, string> = {
-  reckoning: "Guess any hero. Each guess shows how its attributes (gender, archetype, species, complexity, weapon, health, bullet damage, fire rate, damage type, release date and more) compare to the answer. Green is a match, orange is a partial match, red is no match. Arrows show whether the answer's number or date is higher or lower. Unlimited guesses.",
+  reckoning: "Guess any hero. Each guess shows how its attributes (gender, archetype, species, complexity, weapon, health, bullet damage, fire rate, release date and more) compare to the answer. Green is a match, orange is a partial match, red is no match. Arrows show whether the answer's number or date is higher or lower. Unlimited guesses.",
   visage: "A heavily zoomed-in piece of a hero's portrait is shown. Each wrong guess zooms out one step. Unlimited guesses.",
   sigil: "An ability icon is hidden under tiles. Each wrong guess removes a tile. Guess which hero owns the ability. After you win, a bonus round asks you to name the ability.",
   testament: "A hero's lore is shown with names blacked out, one part at a time. Each wrong guess reveals the next part.",

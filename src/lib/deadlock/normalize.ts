@@ -106,7 +106,6 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
         description: renderTemplate(d.desc ?? "", vars),
         quip: d.quip ? renderTemplate(d.quip, vars) : null,
         tiers: [tierText(0), tierText(1), tierText(2)],
-        spiritDamage: Object.values(a.data.properties ?? {}).some((p) => p.css_class === "tech_damage" && (num(p.value) ?? 0) > 0),
       });
     });
 

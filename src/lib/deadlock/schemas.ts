@@ -42,7 +42,6 @@ export const PropertySchema = z.object({
   usage_flags: z.array(z.string()).nullish(),
   conditional: z.unknown().optional(),
   scale_function: z.unknown().optional(),
-  css_class: optStr,
   provided_property_type: optStr,
   negative_attribute: optBool,
 });

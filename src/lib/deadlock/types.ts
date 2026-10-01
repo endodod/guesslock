@@ -34,8 +34,6 @@ export type NormAbility = {
   description: string; // rendered, unredacted
   quip: string | null;
   tiers: [string | null, string | null, string | null]; // rendered T1..T3 upgrade texts
-  /** Deals damage that scales with Spirit Power. Missing in data synced before the damage-type category. */
-  spiritDamage?: boolean;
 };
 
 export type StatBonus = {

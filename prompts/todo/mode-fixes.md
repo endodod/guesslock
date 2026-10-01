@@ -15,7 +15,7 @@
 
 - [x] Add a release date category. Already a column (`release`) but curated: it only shows once every hero has a release date, so fill them in /admin/categories.
 - [x] Split the DPS category into two: damage and fire rate. Bullet damage + Fire rate (shots/s); fire rate needs a sync.
-- [x] Add a damage type category derived from game data: spirit, gun, mixed, or either. Derived from how many of the 4 abilities deal Spirit-scaling damage (3-4 Spirit, 2 Mixed, 0-1 Gun); "either" has no data source, set it per hero in /admin/categories. Needs a sync to fill in.
+- [-] Add a damage type category. Removed again: the game data has no reliable spirit/gun signal (nearly every ability scales with Spirit). Needs a curated source if wanted.
 
 ## The Visage
 

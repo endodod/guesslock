@@ -21,8 +21,6 @@ export type HeroData = {
   species: string | null;
   weaponType: string | null;
   releaseDate: string | null;
-  /** Spirit / Mixed / Gun, from how many of the hero's abilities deal Spirit-scaling damage (null until synced). */
-  damageType: string | null;
   emojis: string[];
   emojisReviewed: boolean;
   genericVoice: boolean;
@@ -94,13 +92,6 @@ export function parseAttrs(raw: unknown): Attrs {
   ) as Attrs;
 }
 
-/** 3-4 Spirit-damage abilities: Spirit, 2: Mixed, 0-1: Gun. Null while any ability lacks the flag (data not re-synced). */
-export function damageTypeOf(flags: (boolean | undefined)[]): string | null {
-  if (!flags.length || flags.some((f) => f === undefined)) return null;
-  const n = flags.filter(Boolean).length;
-  return n >= 3 ? "Spirit" : n === 2 ? "Mixed" : "Gun";
-}
-
 export async function loadGameData(): Promise<GameData> {
   const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -130,7 +121,6 @@ export async function loadGameData(): Promise<GameData> {
       species: h.species,
       weaponType: h.weaponTypeOverride || src.gunTag,
       releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null,
-      damageType: damageTypeOf(abilityRows.filter((a) => a.heroId === h.id).map((a) => (a.source as unknown as NormAbility).spiritDamage)),
       // The Cipher needs 10: a hero without a complete set uses the default one (the sync also stores it).
       emojis: h.emojis.length >= 10 ? h.emojis : DEFAULT_EMOJIS[h.name] ?? h.emojis,
       emojisReviewed: h.emojisReviewed,
