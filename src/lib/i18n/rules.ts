@@ -29,6 +29,12 @@ const BASE: Record<string, string> = {
   seance: seanceRules("heroes", "Mechanics, Visuals, Lore and Mixed", "The Séance"),
   bazaar: seanceRules("items", "Stats, Effects, Looks and Mixed", "The Bazaar"),
   grimoire: seanceRules("abilities", "Mechanics, Effects, Looks and Mixed", "The Grimoire"),
+  shadow: "A hero's silhouette is shown, zoomed in. Each wrong guess zooms out one step until the whole shape is visible; the portrait itself only appears once the lock is finished. Hard mode stays zoomed in. Unlimited guesses.",
+  arsenal: "The silhouette of one hero's weapon is shown, zoomed in. Each wrong guess zooms out; after 4 wrong guesses the weapon is shown in colour. Hard mode stays zoomed in and never shows the colour. Unlimited guesses.",
+  calculus: "An ability's numbers are shown: the stats on its in-game card, with cooldown, cast range, duration and charges where it has them. Guess the ability; the list is grouped by hero. After 3 wrong guesses the ability's slot is shown. Hard mode leaves one stat and the slot out. Unlimited guesses.",
+  decoy: "Eight items from one hero's core build, but one of them is a fake: an item that hero almost never buys (under 1% of their matches) although it is common on other heroes. Tap the fake. You have 3 picks: 100 souls on the first, 50 on the second, 25 on the third. Hard mode doesn't say whose build it is.",
+  cache: "One team of a real high-rank match and the six inventories they ended the match with, with each player's net worth. Give every inventory a hero and submit; matched inventories lock in and stay. You have 4 submissions: 100 souls on the first, then 75, 50 and 25. Hard mode leaves some items blank and hides the net worth.",
+  constellation: "A 3 by 3 grid: every row and every column is a category. Fill each cell with a hero who fits both its row and its column. Type the hero's name yourself (there are no suggestions); each hero can be used once. A wrong hero snaps one of your 4 lockpicks; a filled cell is final. 10 souls per filled cell, plus 10 for a full grid, also when the lock jams.",
   measure: "An item's stat card is shown with one value hidden. Guess the number: each guess tells you whether the real value is higher or lower. You have 5 tries. Guesses within 10% of the value (at least 1 unit) count as correct.",
 };
 

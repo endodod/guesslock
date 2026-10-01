@@ -1,9 +1,9 @@
 // Item modes: Relic, Appraisal, Lineage, Measure.
 import { activeColumns, formatCell, type CellValue } from "../columns";
-import { compareCell } from "../compare";
 import type { GameData, ItemData } from "../context";
-import { cap, type BasePayload, type Candidate, type ModeImpl } from "../mode";
-import type { ColumnMeta, Tile } from "../types";
+import { cap, SkipCandidate, type BasePayload, type Candidate, type ModeImpl } from "../mode";
+import type { ColumnMeta } from "../types";
+import { gridClue, gridTiles } from "./hero";
 import type { StatBonus } from "../../deadlock/types";
 
 const itemAnswer = (i: ItemData) => ({ id: String(i.id), name: i.name, image: i.image, sub: cap(i.src.slot) });
@@ -17,21 +17,36 @@ function itemPool(data: GameData, mode: string, extra: (i: ItemData) => boolean 
 
 const BLUR_STEPS = [20, 14, 10, 7, 4.5, 2.5, 1.2, 0];
 
-export const relic: ModeImpl<{ image: string }> = {
+/** `steps`: one server-blurred copy per step (puzzles built since); the plain image is the guess list's icon. */
+type RelicClue = { image: string; steps?: string[] };
+
+export const relic: ModeImpl<RelicClue> = {
   mode: "item-picture",
+  hard: true,
   candidates: (data) => itemPool(data, "item-picture", (i) => !!i.image),
-  build(c, { data }) {
+  async build(c, { data, images, date }) {
     const i = data.item(c.ref as number)!;
+    const clue: RelicClue = { image: i.image! };
+    if (images) {
+      const steps = await images.blurs(i.image!, BLUR_STEPS, `${date}|item-picture`);
+      if (!steps) throw new SkipCandidate(`image of ${i.name} can't be blurred`);
+      clue.image = steps[0];
+      clue.steps = steps;
+    }
     return {
       v: 1, mode: "item-picture", answer: itemAnswer(i), correctIds: [String(i.id)], leakTerms: itemLeak(i),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
-      clue: { image: i.image! },
+      clue,
     };
   },
-  clue: (p, wrong, done) => ({
-    kind: "relic", image: p.clue.image,
-    blur: done ? 0 : BLUR_STEPS[Math.min(wrong, BLUR_STEPS.length - 1)],
-  }),
+  clue: (p, wrong, done, opts = {}) => {
+    const i = done ? BLUR_STEPS.length - 1 : Math.min(wrong, BLUR_STEPS.length - 1);
+    // Hard mode: turned and darkened (both fixed per puzzle, gone once finished).
+    const hard = opts.hard && !done ? { rotate: 90 * (1 + (p.clue.image.charCodeAt(p.clue.image.length - 1) % 3)), dark: true } : {};
+    return p.clue.steps
+      ? { kind: "relic", image: p.clue.steps[i], blur: 0, ...hard }
+      : { kind: "relic", image: p.clue.image, blur: BLUR_STEPS[i], ...hard };
+  },
   displayed: () => [],
 };
 
@@ -44,6 +59,7 @@ type GridClue = {
 
 export const appraisal: ModeImpl<GridClue> = {
   mode: "item-classic",
+  hard: true,
   candidates: (data) => itemPool(data, "item-classic"),
   build(c, { data }) {
     const i = data.item(c.ref as number)!;
@@ -64,18 +80,8 @@ export const appraisal: ModeImpl<GridClue> = {
       },
     };
   },
-  clue: (p) => ({ kind: "grid", columns: p.clue.columns.map(({ key, label, info, numeric }) => ({ key, label, info, numeric })) }),
-  tiles(p, guessId): Tile[] | null {
-    const row = p.clue.table[guessId];
-    const answer = p.clue.table[p.correctIds[0]];
-    if (!answer) return null;
-    return p.clue.columns.map((c, idx) => {
-      const g = row?.[idx];
-      if (!g) return { key: c.key, display: "?", result: "miss" as const };
-      const r = compareCell(c.type as never, g.v, answer[idx].v);
-      return { key: c.key, display: g.d, result: r.result, arrow: r.arrow };
-    });
-  },
+  clue: (p, _w, _d, opts) => gridClue(p, opts),
+  tiles: gridTiles,
   displayed: () => [],
 };
 
@@ -144,6 +150,7 @@ export function isCleanStat(s: StatBonus): boolean {
 
 export const measure: ModeImpl<MeasureClue> = {
   mode: "stat-bonus",
+  hard: true,
   // At least two stats, so the item card gives context beyond the hidden value.
   candidates: (data) => itemPool(data, "stat-bonus", (i) => i.src.statBonuses.length >= 2 && i.src.statBonuses.some(isCleanStat)),
   build(c, { data, rng }) {
@@ -164,11 +171,13 @@ export const measure: ModeImpl<MeasureClue> = {
       },
     };
   },
-  clue: (p, _wrong, done) => ({
+  // Hard mode: the item's other stat values are hidden too (labels stay) until the lock is finished.
+  clue: (p, _wrong, done, opts = {}) => ({
     kind: "measure",
     item: { name: p.clue.item.name, image: p.clue.item.image, slot: p.clue.item.slot },
     stats: p.clue.stats.map((s, idx) =>
-      idx === p.clue.hiddenIndex ? { label: s.label, display: done ? s.display : null, hidden: true, postfix: s.postfix } : s,
+      idx === p.clue.hiddenIndex ? { label: s.label, display: done ? s.display : null, hidden: true, postfix: s.postfix }
+      : opts.hard && !done ? { label: s.label, display: "??", postfix: s.postfix } : s,
     ),
     hiddenLabel: p.clue.stats[p.clue.hiddenIndex].label,
     postfix: p.clue.stats[p.clue.hiddenIndex].postfix,

@@ -9,8 +9,8 @@ import { SoundPlayer } from "./SoundPlayer";
 import { t } from "@/lib/i18n/en";
 
 function TileCell({ tile, index, animate }: { tile: Tile; index: number; animate: boolean }) {
-  const icon = tile.arrow ?? (tile.result === "match" ? "check" : tile.result === "partial" ? "approx" : "cross");
-  const label = `${tile.display}: ${tile.result === "match" ? "match" : tile.result === "partial" ? "partial match" : "no match"}${tile.arrow ? `, answer is ${tile.arrow === "up" ? "higher" : "lower"}` : ""}`;
+  const icon = tile.arrow ?? (tile.result === "match" ? "check" : tile.result === "partial" ? "approx" : tile.result === "hidden" ? "question" : "cross");
+  const label = `${tile.display}: ${tile.result === "match" ? "match" : tile.result === "partial" ? "partial match" : tile.result === "hidden" ? "hidden in hard mode" : "no match"}${tile.arrow ? `, answer is ${tile.arrow === "up" ? "higher" : "lower"}` : ""}`;
   return (
     <motion.td
       initial={animate ? { rotateY: 90, opacity: 0 } : false}

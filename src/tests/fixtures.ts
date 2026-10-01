@@ -13,7 +13,7 @@ export function hero(id: number, name: string, over: Partial<HeroData> = {}): He
   return {
     id, name, className: src.className, aliases: [], exclude: [], eligible: true, src,
     gender: src.gender, species: "Human", weaponType: "Pistol", releaseDate: "2024-08-01",
-    emojis: [], emojisReviewed: false, genericVoice: false, setup: {}, attrs: {}, card: `/media/${id}`, splash: `/media/${id}`, icon: null, ...over,
+    emojis: [], emojisReviewed: false, genericVoice: false, setup: {}, attrs: {}, card: `/media/${id}`, splash: `/media/${id}`, shadow: `/media/${id}`, weapon: null, icon: null, ...over,
   };
 }
 

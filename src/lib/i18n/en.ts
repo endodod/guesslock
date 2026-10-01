@@ -1,4 +1,5 @@
 // All UI strings (English). German may follow: add de.ts with the same shape.
+import { OMEN_LOCKS, SEANCE_BOX_LIST, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS } from "@/locks.config";
 export const en = {
   brand: "GUESSLOCK",
   tagline: "Pick today's lock.",
@@ -37,8 +38,15 @@ export const en = {
     states: { skipped: "Skipped", locked: "Locked", progress: (n: number) => `${n} ${n === 1 ? "guess" : "guesses"}`, opened: (n: number, s: number) => `Opened in ${n} ${n === 1 ? "try" : "tries"} · ${s} souls`, jammed: "Jammed", sealed: "Sealed" },
   },
   lock: {
-    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "" },
+    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "", match: "", grid: "Type a hero’s name…" },
     submit: "Pick",
+    /** What hard mode changes, per lock (shown next to the toggle). */
+    hardInfo: {
+      reckoning: "two categories hidden", appraisal: "two categories hidden", visage: "dark portrait", sigil: "turned icon",
+      belongings: "no ability path", relic: "turned and darkened", measure: "every stat value hidden",
+      shadow: "tighter silhouette", arsenal: "tighter silhouette, no colour", calculus: "one stat and the slot hidden",
+      decoy: "the hero isn't named", cache: "items and net worth partly hidden",
+    } as Record<string, string>,
     hintRevealed: "Hint revealed",
     hintLocked: (n: number) => `Unlocks after ${n} wrong ${n === 1 ? "guess" : "guesses"}`,
     empty: "Nothing in this box today.",
@@ -92,7 +100,7 @@ export const en = {
     close: "Close",
   },
   onboarding: [
-    { title: "The Vault", body: "Every day, 18 locks wait: 10 about Deadlock's heroes, 4 about its shop items, 3 Omens, where you predict what happens next in a real match, and The Séance, where you sort heroes into hidden groups. Everyone gets the same locks. They reset at midnight, Zurich time." },
+    { title: "The Vault", body: `Every day, ${VAULT_UNITS.length} locks wait: ${SPIRIT_LOCKS.length} about Deadlock's heroes, ${SHOP_LOCKS.length} about its shop items, ${OMEN_LOCKS.length} Omens, where you predict what happens next in a real match, ${SEANCE_BOX_LIST.length} sorting tables, where you sort heroes, items or abilities into hidden groups, and ${STAR_LOCKS.length === 1 ? "The Constellation, a hero grid" : `${STAR_LOCKS.length} grids`}. Everyone gets the same locks. They reset at midnight, Zurich time.` },
     { title: "Picking a lock", body: "Each lock is a guessing game. Guess wrong and you get a better clue. Guess right and the box swings open." },
     { title: "Picks and souls", body: "Every wrong guess snaps a lockpick. Some picks hold hints. Solve fast for more souls, and keep your streak alive by opening at least one lock a day." },
   ],

@@ -435,6 +435,6 @@ describe("Séance share", () => {
       },
     });
     expect(text).toContain("Séance   ✨🔓🔒✨");
-    expect(text).toContain("1/22 locks · 65 souls"); // 22 Vault units with The Resonance
+    expect(text).toContain("1/28 locks · 65 souls"); // 28 Vault units with The Resonance
   });
 });

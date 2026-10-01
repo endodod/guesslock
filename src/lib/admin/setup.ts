@@ -4,6 +4,8 @@
 export type HeroSetup = {
   /** The Visage: portrait URL used instead of the API card. */
   splash?: string;
+  /** The Arsenal: picture of the hero's weapon (a transparent PNG cut-out). No weapon art in the API, so it is curated. */
+  weapon?: string;
   /** The Belongings: item class names always shown (as the most telling items). */
   buildPin?: string[];
   /** The Belongings: item class names never shown. */
@@ -17,6 +19,7 @@ export function parseSetup(raw: unknown): HeroSetup {
   const r = raw as Record<string, unknown>;
   const out: HeroSetup = {};
   if (typeof r.splash === "string" && r.splash.trim()) out.splash = r.splash.trim();
+  if (typeof r.weapon === "string" && /^https?:\/\//.test(r.weapon.trim())) out.weapon = r.weapon.trim();
   const pin = strings(r.buildPin), ban = strings(r.buildBan);
   if (pin?.length) out.buildPin = pin;
   if (ban?.length) out.buildBan = ban;

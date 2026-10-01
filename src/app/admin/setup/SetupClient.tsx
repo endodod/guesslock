@@ -152,12 +152,14 @@ export function BuildItems({ pin, ban, options, max, save }: {
   );
 }
 
-export function SplashForm({ current, action }: { current: string; action: (form: FormData) => Promise<string | null> }) {
+export function SplashForm({ current, action, name = "splash", placeholder = "Image URL (empty = API card)", button = "Save portrait" }: {
+  current: string; action: (form: FormData) => Promise<string | null>; name?: string; placeholder?: string; button?: string;
+}) {
   const [err, submit, pending] = useActionState(async (_: string | null | undefined, form: FormData) => action(form), undefined);
   return (
     <form action={submit} className="flex flex-wrap items-center gap-2">
-      <input name="splash" defaultValue={current} placeholder="Image URL (empty = API card)" className="min-w-0 flex-1 rounded border border-neutral-400 px-2 py-1 text-sm" />
-      <button className={`${btn} bg-neutral-900 text-white hover:bg-neutral-700`} disabled={pending}>{pending ? "Saving…" : "Save portrait"}</button>
+      <input name={name} defaultValue={current} placeholder={placeholder} className="min-w-0 flex-1 rounded border border-neutral-400 px-2 py-1 text-sm" />
+      <button className={`${btn} bg-neutral-900 text-white hover:bg-neutral-700`} disabled={pending}>{pending ? "Saving…" : button}</button>
       {err === null && <span className="text-xs text-neutral-600">Saved</span>}
       {err && <span className="text-xs text-red-700">{err}</span>}
     </form>

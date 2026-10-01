@@ -6,7 +6,7 @@ import type { GuessKind } from "@/locks.config";
 
 /** Plain, bounded search text from labels and a description. */
 const keywords = (...parts: (string | null | undefined)[]) =>
-  parts.filter(Boolean).join(" ").replace(/s+/g, " ").slice(0, 600) || undefined;
+  parts.filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 600) || undefined;
 
 export async function buildCatalog(): Promise<Catalog> {
   const data = await loadGameData();
@@ -25,7 +25,7 @@ export async function buildCatalog(): Promise<Catalog> {
 export const getCatalog = unstable_cache(buildCatalog, ["catalog"], { revalidate: 600, tags: ["catalog"] });
 
 export function lookupFor(catalog: Catalog, kind: GuessKind) {
-  if (kind === "number" || kind === "omen" || kind === "seance") return () => undefined;
+  if (kind !== "hero" && kind !== "ability" && kind !== "item") return () => undefined;
   const map = new Map<string, CatalogEntry>(catalog[kind].map((e) => [e.id, e]));
   return (id: string) => map.get(id);
 }

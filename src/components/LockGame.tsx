@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
 import { ignoredSlugs, lockStats, type LockRecord } from "@/lib/client/store";
-import { shareLock, soulsFor } from "@/lib/game/scoring";
+import { HARD_MULTIPLIER, shareLock } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { ClueStage } from "./ClueStage";
@@ -28,7 +28,7 @@ type Props = {
 /** Signed-in responses carry the account's authoritative guess list. */
 type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean } };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean }): Promise<PlayResponse> {
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean; hard?: boolean }): Promise<PlayResponse> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -55,6 +55,10 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
+  // Hard mode: picked before the first guess (default from Settings), then fixed for this lock.
+  const [hardPick, setHardPick] = useState<boolean | null>(null);
+  const started = (rec?.g.length ?? 0) > 0 || view.rows.length > 0;
+  const hard = !!lock.hard && (started ? !!(rec?.hard ?? view.hard) : hardPick ?? store.settings.hardMode);
 
   const persist = useCallback(
     (v: PlayResponse, guessesIn: string[], bonusIn?: string, giveUp?: boolean) => {
@@ -74,8 +78,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         s: v.status === "won" ? "won" : v.status === "lost" ? "lost" : "playing",
         w: v.wrong,
         h: hintsUsed,
-        souls: done ? soulsFor({ won: v.status === "won", guesses: v.rows.length, hintsUsed, bonusCorrect }) : 0,
+        souls: done ? v.souls : 0,
         bonusCorrect,
+        hard: v.hard || undefined,
         archive: rec?.archive ?? isArchive,
         answer: v.answer ? { name: v.answer.name, image: v.answer.image } : undefined,
         at: done ? (rec?.at ?? Date.now()) : undefined,
@@ -91,7 +96,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (!hydrated || restored.current) return;
     restored.current = true;
     if (user || (rec && (rec.g.length || rec.b))) {
-      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, giveUp: rec?.gu })
+      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, giveUp: rec?.gu, hard: rec?.hard })
         .then((v) => { setView(v); persist(v, rec?.g ?? [], rec?.b); })
         .catch(() => toast(t.lock.error))
         .finally(() => setRestoreDone(true));
@@ -116,12 +121,17 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setRestoreDone(true);
     const guesses = [...view.rows.map((r) => r.id), id];
     try {
-      const v = await evaluateRemote({ date, slug, guesses });
+      const v = await evaluateRemote({ date, slug, guesses, hard });
+      // A refused move (board locks: a duplicate hero, an unknown name) changes nothing and costs nothing.
+      if (v.notice && v.rows.length === view.rows.length) {
+        toast(v.notice);
+        return false;
+      }
       setView(v);
       persist(v, guesses);
       if (v.status === "won") {
         play("click");
-        setPopup({ tries: v.rows.length, souls: soulsFor({ won: true, guesses: v.rows.length, hintsUsed: v.hintsUsed }) });
+        setPopup({ tries: v.rows.length, souls: v.souls });
         const dayRecs = { ...(store.progress[date] ?? {}), [slug]: { s: "won" } };
         if (available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
@@ -145,7 +155,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setBusy(true);
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, giveUp: true });
+      const v = await evaluateRemote({ date, slug, guesses, giveUp: true, hard });
       setView(v);
       persist(v, guesses, undefined, true);
       play("tick");
@@ -160,7 +170,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (view.bonus?.picked) return;
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, bonus: id, giveUp: rec?.gu });
+      const v = await evaluateRemote({ date, slug, guesses, bonus: id, giveUp: rec?.gu, hard });
       setView(v);
       persist(v, guesses, id, rec?.gu);
       play(v.bonus?.correct ? "click" : "tick");
@@ -180,13 +190,15 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   }, [store.progress, date, slug, available, isArchive, ignored]);
 
   const stats = useMemo(() => lockStats(store.progress, slug, today), [store.progress, slug, today]);
-  const souls = rec?.souls ?? soulsFor({ won: view.status === "won", guesses: view.rows.length, hintsUsed: view.hintsUsed });
+  const souls = rec?.souls ?? view.souls;
   const shareText = shareLock({ lock, number, result: { status: view.status === "won" ? "won" : "lost", guesses: view.rows.length, souls }, site });
   const shareGridText = lock.attributeGrid && view.status === "won"
     ? shareLock({ lock, number, result: { status: "won", guesses: view.rows.length, souls }, site, grid: view.rows.map((r) => r.tiles ?? []) })
     : undefined;
 
   const placeholder = t.lock.placeholder[lock.guess];
+  // The Decoy, The Cache and The Constellation take their guesses in the clue stage itself.
+  const boardInput = lock.input === "choice" || lock.guess === "match" || lock.guess === "grid";
   const hintAt = lock.hints.map((h) => h.after);
   // Unlimited-guess locks can be given up once at least one guess is in.
   const canGiveUp = !done && !lock.maxTries && view.rows.length > 0 && !restoring;
@@ -254,8 +266,27 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         </p>
       )}
 
+      {lock.hard && !done && (
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+          {started ? (
+            <span className={hard ? "text-cursed" : "text-ash"}>{hard ? `Hard mode · ${HARD_MULTIPLIER}× souls` : "Normal mode"}</span>
+          ) : (
+            <label className="flex min-h-11 cursor-pointer flex-wrap items-center justify-center gap-x-2 text-center">
+              <input type="checkbox" checked={hard} onChange={(e) => setHardPick(e.target.checked)} disabled={restoring} className="h-5 w-5 shrink-0 accent-[var(--cursed)]" />
+              <span className={hard ? "text-cursed" : "text-paper/90"}>Hard mode</span>
+              <span className="text-ash">({t.lock.hardInfo[slug] ?? "a tougher clue"}, {HARD_MULTIPLIER}× souls)</span>
+            </label>
+          )}
+        </div>
+      )}
+
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-        {view.clue && <ClueStage clue={view.clue} rows={view.rows} done={done} subject={lock.guess === "item" ? "item" : "hero"} />}
+        {view.clue && (
+          <ClueStage
+            clue={view.clue} rows={view.rows} done={done} subject={lock.guess === "item" ? "item" : "hero"}
+            onGuess={boardInput ? onGuess : undefined} busy={busy} disabled={!hydrated || restoring}
+          />
+        )}
       </motion.div>
 
       {restoring && <KeyholeLoader />}
@@ -283,7 +314,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
       {done ? (
         <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={shareGridText} dist={stats.dist} nextHref={nextHref} onBonus={onBonus} />
-      ) : lock.guess === "number" ? (
+      ) : boardInput ? null : lock.guess === "number" ? (
         <NumberInput placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (
         <GuessInput entries={entries} guessed={guessed} placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} grouped={lock.guess === "ability"} onGuess={onGuess} autoFocus />

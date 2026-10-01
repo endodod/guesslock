@@ -1,8 +1,9 @@
 // Single source of truth for lock numbering, names, order and per-mode rules.
 // Local player data is keyed by `slug`, never by numeral, so renumbering is safe.
 
-export type LockGroup = "spirits" | "shop" | "omens" | "seance";
-export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance";
+export type LockGroup = "spirits" | "shop" | "omens" | "seance" | "stars";
+/** `match`: a full assignment (The Cache); `grid`: a cell and a typed name (The Constellation). */
+export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance" | "match" | "grid";
 /** The Séance family: sort 16 entities into 4 hidden groups. One box per entity, four tables a day each. */
 export type SeanceBoxId = "seance" | "bazaar" | "grimoire";
 export type SeanceEntity = "hero" | "item" | "ability";
@@ -54,6 +55,10 @@ export type LockDef = {
   box?: SeanceBoxId;
   /** The Séance: this lock's table. */
   table?: { kind: SeanceTable; label: string };
+  /** How guesses are entered when it isn't the search box: one of the clue's items (The Decoy). */
+  input?: "choice";
+  /** Has a hard variant (the player picks it before the first guess; worth 1.5x souls). */
+  hard?: boolean;
 };
 
 export type SeanceBoxDef = {
@@ -82,18 +87,18 @@ export const SEANCE_BOXES: Record<SeanceBoxId, SeanceBoxDef> = Object.fromEntrie
 export const LOCKS: LockDef[] = [
   {
     slug: "reckoning", mode: "classic", numeral: "I", name: "The Reckoning",
-    subtitle: "Guess the hero by attributes", group: "spirits", guess: "hero", picks: 6,
+    subtitle: "Guess the hero by attributes", group: "spirits", guess: "hero", picks: 6, hard: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "visage", mode: "splash", numeral: "II", name: "The Visage",
-    subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6,
+    subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: [],
   },
   {
     slug: "sigil", mode: "ability-icon", numeral: "III", name: "The Sigil",
-    subtitle: "Guess the hero from an ability icon", group: "spirits", guess: "hero", picks: 6,
+    subtitle: "Guess the hero from an ability icon", group: "spirits", guess: "hero", picks: 6, hard: true,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
@@ -110,7 +115,7 @@ export const LOCKS: LockDef[] = [
   },
   {
     slug: "belongings", mode: "whose-build", numeral: "VI", name: "The Belongings",
-    subtitle: "Guess the hero from their build", group: "spirits", guess: "hero", picks: 7,
+    subtitle: "Guess the hero from their build", group: "spirits", guess: "hero", picks: 7, hard: true,
     hints: LETTER_HINTS(5, 7),
   },
   {
@@ -148,15 +153,31 @@ export const LOCKS: LockDef[] = [
     // Wrong guesses unlock more sound (clear clip, then more cast variants; see the mode). Hints are the shared letter hints.
     hints: LETTER_HINTS(4, 6),
   },
+  // Added after the Séance family (numerals XXIII+ so the existing ones never change), shown with their groups.
+  {
+    slug: "shadow", mode: "silhouette", numeral: "XXIII", name: "The Shadow",
+    subtitle: "Guess the hero from their silhouette", group: "spirits", guess: "hero", picks: 6, hard: true,
+    hints: LETTER_HINTS(4, 6),
+  },
+  {
+    slug: "arsenal", mode: "weapon", numeral: "XXIV", name: "The Arsenal",
+    subtitle: "Guess the hero from their weapon", group: "spirits", guess: "hero", picks: 6, hard: true,
+    hints: LETTER_HINTS(4, 6),
+  },
+  {
+    slug: "calculus", mode: "ability-stats", numeral: "XXV", name: "The Calculus",
+    subtitle: "Guess the ability from its stats", group: "spirits", guess: "ability", picks: 6, hard: true,
+    hints: LETTER_HINTS(4, 6),
+  },
   {
     slug: "relic", mode: "item-picture", numeral: "XIII", name: "The Relic",
-    subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6,
+    subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6, hard: true,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "appraisal", mode: "item-classic", numeral: "XIV", name: "The Appraisal",
-    subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6,
+    subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6, hard: true,
     bonusRound: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
@@ -170,9 +191,19 @@ export const LOCKS: LockDef[] = [
   },
   {
     slug: "measure", mode: "stat-bonus", numeral: "XVI", name: "The Measure",
-    subtitle: "Guess the item's hidden stat value", group: "shop", guess: "number", picks: 5,
+    subtitle: "Guess the item's hidden stat value", group: "shop", guess: "number", picks: 5, hard: true,
     maxTries: 5,
     hints: [],
+  },
+  {
+    slug: "decoy", mode: "decoy", numeral: "XXVI", name: "The Decoy",
+    subtitle: "Spot the fake item in a hero's build", group: "shop", guess: "item", picks: 3, maxTries: 3,
+    input: "choice", hard: true, noRepeatDays: 20, hints: [],
+  },
+  {
+    slug: "cache", mode: "cache", numeral: "XXVII", name: "The Cache",
+    subtitle: "Match a team to their inventories", group: "shop", guess: "match", picks: 4, maxTries: 4,
+    hard: true, noRepeatDays: 60, hints: [],
   },
   // The Omens: predict what happens next from a frozen moment of a real high-rank match.
   // No guesses or win/loss: one lock-in, scored out of 100 souls (src/lib/omens/scoring.ts).
@@ -187,6 +218,11 @@ export const LOCKS: LockDef[] = [
   {
     slug: "rift", mode: "omen-rift", numeral: "XIX", name: "The Rift",
     subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
+  },
+  {
+    slug: "constellation", mode: "constellation", numeral: "XXVIII", name: "The Constellation",
+    subtitle: "Fill the 3x3 hero category grid", group: "stars", guess: "grid", picks: 4, maxTries: 4,
+    noRepeatDays: 30, hints: [],
   },
   // The Séance family: 16 entities, 4 hidden groups of 4. Four tables a day per box, each its own frozen puzzle,
   // sharing one Vault box. 4 mistakes lose a table (src/lib/seance/play.ts).
@@ -217,6 +253,7 @@ export function countedLocks(skipSound: boolean): LockDef[] {
 export const SPIRIT_LOCKS = LOCKS.filter((l) => l.group === "spirits");
 export const SHOP_LOCKS = LOCKS.filter((l) => l.group === "shop");
 export const OMEN_LOCKS = LOCKS.filter((l) => l.group === "omens");
+export const STAR_LOCKS = LOCKS.filter((l) => l.group === "stars");
 /** Every Séance-family table (all boxes). */
 export const SEANCE_LOCKS = LOCKS.filter((l) => !!l.box);
 export const seanceLocksOf = (box: SeanceBoxId) => LOCKS.filter((l) => l.box === box);

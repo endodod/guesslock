@@ -11,8 +11,10 @@ import { MODES } from "./registry";
 import { SealedError, SkipCandidate, type BasePayload, type Candidate } from "./mode";
 import { noRepeatWindow, orderCandidates } from "./select";
 import { alert } from "../monitoring";
-import { assignOmen, harvest } from "../omens/harvest";
-import { buildSeanceBoard } from "../seance/library";
+import { assignOmen, harvest, unpackTimeline } from "../omens/harvest";
+import type { MatchTimeline } from "../omens/types";
+import { clueImages } from "../image/clue";
+import { buildSeanceBoard, loadLibrary } from "../seance/library";
 import { boardKey } from "../seance/board";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -23,6 +25,23 @@ export { todayDate, dayIndex };
 function memoAnalytics(): () => Promise<HeroItemStats> {
   let p: Promise<HeroItemStats> | null = null;
   return () => (p ??= fetchHeroItemStats());
+}
+
+/** Harvested match timelines still on file (The Cache), loaded once per run. */
+function memoMatches(): () => Promise<MatchTimeline[]> {
+  let p: Promise<MatchTimeline[]> | null = null;
+  return () => (p ??= db.omenMatch
+    .findMany({ where: { status: "ready", timelineGz: { not: null } }, select: { timelineGz: true }, orderBy: { matchId: "asc" } })
+    .then((rows) => rows.flatMap((r) => {
+      try { return [unpackTimeline(r.timelineGz!)]; } catch { return []; }
+    })));
+}
+const matchesMemo = { current: memoMatches() };
+
+/** Approved Séance hero groups as Constellation categories. */
+async function heroCategories() {
+  const lib = await loadLibrary("hero");
+  return lib.categories.map((c) => ({ key: String(c.id), label: c.label, info: c.explanation ?? "", members: c.members }));
 }
 
 async function latestDataVersion(): Promise<number | null> {
@@ -75,15 +94,18 @@ export async function buildPuzzle(
   const seed = puzzleSeed(date, lock.slug, config.salt);
   const pool = impl.candidates(data, { dayIndex: idx });
   let order: Candidate[];
+  // Modes that pick their own answer in build() (one candidate) get a window sized by their own default.
+  const window = noRepeatWindow(pool.length > 1 ? pool.length : 100, config.maxNoRepeatDays, lock.noRepeatDays);
+  const recent = forced ? [] : await recentAnswers(lock.slug, date, window);
   if (forced) order = [forced];
-  else {
-    const window = noRepeatWindow(pool.length, config.maxNoRepeatDays, lock.noRepeatDays);
-    order = orderCandidates(pool, await recentAnswers(lock.slug, date, window), seed);
-  }
+  else order = orderCandidates(pool, recent, seed);
   for (const candidate of order.slice(0, 8)) {
     try {
-      const payload = await impl.build(candidate, { data, rng: makeRng(`${seed}|build`), date, dayIndex: idx, analytics, abilityOrder: fetchAbilityOrder });
-      return { candidate, payload };
+      const payload = await impl.build(candidate, {
+        data, rng: makeRng(`${seed}|build`), date, dayIndex: idx, analytics, abilityOrder: fetchAbilityOrder,
+        images: clueImages, matches: matchesMemo.current, heroCategories, recent,
+      });
+      return { candidate: payload.key ? { answerId: payload.key, ref: payload.key } : candidate, payload };
     } catch (e) {
       if (e instanceof SkipCandidate) continue;
       throw e;
@@ -166,6 +188,7 @@ export async function generateAhead(
   }
   const data = await loadGameData();
   const analytics = memoAnalytics();
+  matchesMemo.current = memoMatches();
   const all: GenResult[] = [];
   try {
     for (let i = 0; i <= days; i++) all.push(...(await generateDay(addDays(start, i), { data, analytics })));

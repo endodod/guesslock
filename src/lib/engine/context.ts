@@ -31,6 +31,10 @@ export type HeroData = {
   card: string | null;
   /** The Visage portrait: the admin override, else the card. */
   splash: string | null;
+  /** The Shadow: the second transparent portrait, else the card. */
+  shadow: string | null;
+  /** The Arsenal: curated weapon cut-out (admin setup), null when none is set. */
+  weapon: string | null;
   icon: string | null;
 };
 
@@ -146,6 +150,8 @@ export async function loadGameData(): Promise<GameData> {
       attrs: parseAttrs(h.attrs),
       card: mediaUrl(src.images.card),
       splash: mediaUrl(setup.splash ?? src.images.card),
+      shadow: mediaUrl(src.images.gloat ?? src.images.card),
+      weapon: mediaUrl(setup.weapon),
       icon: mediaUrl(src.images.small),
     };
   });

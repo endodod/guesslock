@@ -50,7 +50,7 @@ export async function runAssetSync(): Promise<{ id: number; status: string; diff
     });
 
     const imageUrls = [
-      ...norm.heroes.flatMap((h) => [h.images.card, h.images.small, h.images.vertical]),
+      ...norm.heroes.flatMap((h) => [h.images.card, h.images.small, h.images.vertical, h.images.gloat ?? null]),
       ...norm.abilities.map((a) => a.image),
       ...items.flatMap((i) => [i.image, i.glyph]),
     ].filter((u): u is string => !!u);

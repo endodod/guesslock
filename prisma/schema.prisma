@@ -309,6 +309,7 @@ model Play {
   noHints      Boolean   @default(false)
   souls        Int       @default(0)
   bonusCorrect Boolean   @default(false)
+  hard         Boolean   @default(false) // played in hard mode (fixed by the first guess)
   omen         Json? // The Omens: the locked-in answers (souls = the Omen score)
   archive      Boolean   @default(false) // replay of a past day
   // "live": played guess by guess while signed in (counts for leaderboards)

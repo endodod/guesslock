@@ -15,12 +15,13 @@ const Body = z.object({
   guesses: z.array(z.string().max(64)).max(200),
   bonus: z.string().max(40).optional(),
   giveUp: z.boolean().optional(),
+  hard: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  const { date, slug, guesses, bonus, giveUp = false } = parsed.data;
+  const { date, slug, guesses, bonus, giveUp = false, hard = false } = parsed.data;
   const lock = getLock(slug);
   if (!lock) return NextResponse.json({ error: "unknown lock" }, { status: 404 });
   // No peeking at future puzzles.
@@ -41,10 +42,10 @@ export async function POST(req: Request) {
   }
   if (user) {
     // Signed in: the server records the play and its guess list is authoritative.
-    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp);
+    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp, hard);
     return NextResponse.json({ ...r.view, account: { guesses: r.guesses, bonus: r.bonus, ranked: r.ranked } }, { headers });
   }
   const catalog = await getCatalog();
-  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), { giveUp });
+  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), { giveUp, hard });
   return NextResponse.json(view, { headers });
 }

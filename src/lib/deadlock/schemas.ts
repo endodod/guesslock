@@ -75,6 +75,19 @@ export const AbilitySchema = ItemBaseSchema.extend({
     })
     .nullish(),
   upgrades: z.array(z.object({ property_upgrades: z.array(PropertyUpgradeSchema).nullish() })).nullish(),
+  /** The in-game tooltip layout: which properties it lists (The Calculus uses them). */
+  tooltip_details: z
+    .object({
+      info_sections: z
+        .array(
+          z.object({
+            basic_properties: z.array(z.string()).nullish(),
+            properties_block: z.array(z.object({ properties: z.array(z.object({ important_property: optStr }).passthrough()).nullish() })).nullish(),
+          }),
+        )
+        .nullish(),
+    })
+    .nullish(),
 });
 export type AbilityRaw = z.infer<typeof AbilitySchema>;
 

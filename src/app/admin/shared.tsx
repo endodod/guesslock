@@ -1,9 +1,17 @@
 // Server-safe admin helpers (no hooks).
-export const MODE_OPTIONS = [
+/** Modes whose answer (or subject) is a hero, in Vault order. */
+export const HERO_MODE_OPTIONS = [
   ["classic", "Reckoning"], ["splash", "Visage"], ["ability-icon", "Sigil"], ["lore", "Testament"],
   ["ability-desc", "Incantation"], ["whose-build", "Belongings"], ["upgrades", "Ascension"], ["emoji", "Cipher"],
-  ["quote", "Echo"], ["quote-cast", "Utterance"], ["quote-convo", "Colloquy"], ["hero-sound", "Resonance"], ["item-picture", "Relic"], ["item-classic", "Appraisal"], ["build-path", "Lineage"], ["stat-bonus", "Measure"],
+  ["quote", "Echo"], ["quote-cast", "Utterance"], ["quote-convo", "Colloquy"], ["hero-sound", "Resonance"],
+  ["silhouette", "Shadow"], ["weapon", "Arsenal"], ["ability-stats", "Calculus"], ["decoy", "Decoy"], ["constellation", "Constellation"],
 ] as const;
+/** Modes whose answer is an item. The Decoy's fake can be any item: excluding one here keeps it out. */
+export const ITEM_MODE_OPTIONS = [
+  ["item-picture", "Relic"], ["item-classic", "Appraisal"], ["build-path", "Lineage"], ["stat-bonus", "Measure"], ["decoy", "Decoy"],
+] as const;
+/** Every mode that can be switched off per hero, ability or item. */
+export const MODE_OPTIONS = [...HERO_MODE_OPTIONS, ...ITEM_MODE_OPTIONS.filter(([m]) => m !== "decoy")] as const;
 
 export function ExcludeBoxes({ selected, modes }: { selected: string[]; modes: readonly (readonly [string, string])[] }) {
   return (

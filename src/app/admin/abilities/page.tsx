@@ -10,7 +10,7 @@ import { Card, PageHeader, Pill, Stat } from "../kit";
 
 export const dynamic = "force-dynamic";
 
-const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades"].includes(m));
+const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound", "ability-stats"].includes(m));
 const TEXTS = [["ability_desc", "Description"], ["ability_t1", "T1"], ["ability_t2", "T2"], ["ability_t3", "T3"]] as const;
 
 export default async function AbilitiesAdmin() {

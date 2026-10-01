@@ -3,7 +3,7 @@ import {
   AbilitySchema, HeroRawSchema, UpgradeSchema, WeaponSchema,
   type AbilityRaw, type PropertyRaw,
 } from "./schemas";
-import type { NormAbility, NormHero, NormItem, StatBonus } from "./types";
+import type { AbilityStat, NormAbility, NormHero, NormItem, StatBonus } from "./types";
 import { formatValue, renderTemplate } from "../text/render";
 
 export type SyncIssue = { entity: string; id: string; reason: string };
@@ -106,6 +106,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
         description: renderTemplate(d.desc ?? "", vars),
         quip: d.quip ? renderTemplate(d.quip, vars) : null,
         tiers: [tierText(0), tierText(1), tierText(2)],
+        stats: abilityStats(a.data),
       });
     });
 
@@ -125,6 +126,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
         card: h.images?.icon_hero_card ?? null,
         small: h.images?.icon_image_small ?? null,
         vertical: h.images?.top_bar_vertical_image ?? null,
+        gloat: h.images?.hero_card_gloat ?? null,
       },
       maxHealth: h.starting_stats?.max_health?.value ?? null,
       stamina: h.starting_stats?.stamina?.value ?? null,
@@ -198,6 +200,33 @@ function extractStatBonuses(
           scales: !!p.scale_function,
         });
       }
+  return out;
+}
+
+/** Always part of The Calculus when set: the stats every ability card shows. */
+const BASE_ABILITY_STATS = ["AbilityCooldown", "AbilityCastRange", "AbilityDuration", "AbilityCharges"];
+
+/**
+ * An ability's numeric stats: the properties its in-game tooltip lists, then cooldown, cast range, duration and charges.
+ * Only labelled, finite, non-zero values; one entry per label (the first wins), conditional values included as shown in game.
+ */
+export function abilityStats(a: Pick<AbilityRaw, "properties" | "tooltip_details">): AbilityStat[] {
+  const keys: string[] = [];
+  for (const s of a.tooltip_details?.info_sections ?? []) {
+    keys.push(...(s.basic_properties ?? []));
+    for (const b of s.properties_block ?? []) for (const p of b.properties ?? []) if (p.important_property) keys.push(p.important_property);
+  }
+  keys.push(...BASE_ABILITY_STATS);
+  const out: AbilityStat[] = [];
+  const labels = new Set<string>();
+  for (const key of new Set(keys)) {
+    const p = a.properties?.[key];
+    const value = num(p?.value);
+    const label = p?.label?.trim();
+    if (!p || !label || value === null || value === 0 || labels.has(label.toLowerCase())) continue;
+    labels.add(label.toLowerCase());
+    out.push({ key, label, value, display: formatValue(value, { prefix: p.prefix ?? "", postfix: p.postfix ?? "", units: p.display_units ?? undefined }) });
+  }
   return out;
 }
 

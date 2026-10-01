@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { countedLocks, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, type LockDef, type SeanceBoxId } from "@/locks.config";
+import { countedLocks, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
 import { dayStreaks, ignoredSlugs, type LockRecord } from "@/lib/client/store";
 import { dayTotals, shareDay, type LockResult } from "@/lib/game/scoring";
@@ -38,21 +38,14 @@ function SoundWaveGlyph() {
   );
 }
 
-const SPIRIT_COMING_SOON_MODES = [
-  { name: "The Shadow", subtitle: "Guess the hero from their silhouette" },
-  { name: "The Arsenal", subtitle: "Guess the hero from their weapon" },
-  { name: "The Calculus", subtitle: "Guess the ability from its stats" },
-] as const;
+/** Shop locks added later get their own row under the original four. */
+const SHOP_EXTRA = new Set(["decoy", "cache"]);
 
-const SHOP_COMING_SOON_MODES = [
-  { name: "The Decoy", subtitle: "Spot the fake item in a hero build" },
-  { name: "The Cache", subtitle: "Match a team to their inventories" },
-] as const;
-
-function ComingSoonBox({ name, subtitle, wide = false }: { name: string; subtitle: string; wide?: boolean }) {
+/** A mode that is announced but has no daily puzzle, route or answers yet (The Wayfinder). Never counted, never a link. */
+function ComingSoonBox({ name, subtitle, wide = false, state = "Coming soon" }: { name: string; subtitle: string; wide?: boolean; state?: "Coming soon" | "Under construction" }) {
   return (
     <div
-      aria-label={`${name}: ${subtitle}. Coming soon; not playable.`}
+      aria-label={`${name}: ${subtitle}. ${state}; not playable.`}
       className={`group relative flex h-[17.7rem] flex-col overflow-hidden rounded-[3px] border border-brass/35 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${wide ? "mx-auto w-full max-w-md" : "w-full"}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#30291f,#141210)]" />
@@ -71,7 +64,7 @@ function ComingSoonBox({ name, subtitle, wide = false }: { name: string; subtitl
         </div>
       </div>
       <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-brass">
-        Coming soon
+        {state}
       </div>
     </div>
   );
@@ -247,7 +240,8 @@ export function Vault({
   const finished = available.filter((l) => ["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const complete = hydrated && available.length > 0 && finished.length === available.length;
   const streak = dayStreaks(store.progress, today, ignored).current;
-  const displayedUnitCount = 30;
+  // Every Vault unit (a lock, or a sorting box of four tables), minus the ones this player skips.
+  const displayedUnitCount = VAULT_UNITS.filter((u) => u.kind !== "lock" || !ignored.has(u.lock.slug)).length;
   const q = isArchive ? `?d=${date}` : "";
   const next = available.find((l) => !["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const nothingPlayed = hydrated && Object.keys(day).length === 0;
@@ -325,23 +319,18 @@ export function Vault({
       <div className={`grid gap-8 lg:grid-cols-[5fr_2fr] ${complete ? "rounded-md shadow-[0_0_80px_rgba(127,227,194,0.12)]" : ""}`}>
         <section aria-labelledby="spirits-h">
           <h2 id="spirits-h" className="smallcaps mb-3 text-brass">{t.groups.spirits}</h2>
-          {/* 10 boxes: 2 columns on phones (5 rows, no orphan), 5 × 2 from tablet up */}
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5 md:gap-4">
+          {/* 15 boxes: 5 × 3 from tablet up; on phones 2 columns with the last one centred */}
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5 md:gap-4 [&>li:last-child:nth-child(odd)]:col-span-2 [&>li:last-child:nth-child(odd)]:mx-auto [&>li:last-child:nth-child(odd)]:w-[calc(50%-0.375rem)] sm:[&>li:last-child:nth-child(odd)]:col-span-1 sm:[&>li:last-child:nth-child(odd)]:mx-0 sm:[&>li:last-child:nth-child(odd)]:w-auto">
             {SPIRIT_LOCKS.map((l) => box(l))}
-            {SPIRIT_COMING_SOON_MODES.map((mode) => (
-              <li key={mode.name}><ComingSoonBox {...mode} /></li>
-            ))}
           </ul>
         </section>
         <section aria-labelledby="shop-h">
           <h2 id="shop-h" className="smallcaps mb-3 text-brass">{t.groups.shop}</h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:gap-4 lg:grid-cols-2">
-            {SHOP_LOCKS.map((l) => box(l))}
+            {SHOP_LOCKS.filter((l) => !SHOP_EXTRA.has(l.slug)).map((l) => box(l))}
           </ul>
           <ul className="mt-4 grid grid-cols-2 gap-3 md:gap-4">
-            {SHOP_COMING_SOON_MODES.map((mode) => (
-              <li key={mode.name}><ComingSoonBox {...mode} /></li>
-            ))}
+            {SHOP_LOCKS.filter((l) => SHOP_EXTRA.has(l.slug)).map((l) => box(l))}
           </ul>
         </section>
       </div>
@@ -365,8 +354,8 @@ export function Vault({
       <section aria-labelledby="wayfinder-h" className="mt-8">
         <h2 id="wayfinder-h" className="smallcaps mb-3 text-brass">More Modes</h2>
         <ul className="mx-auto grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
-          <li><ComingSoonBox name="The Constellation" subtitle="Fill the 3x3 hero category grid" /></li>
-          <li><ComingSoonBox name="The Wayfinder" subtitle="Find your place in the world" /></li>
+          {STAR_LOCKS.map((l) => box(l))}
+          <li><ComingSoonBox name="The Wayfinder" subtitle="Find your place in the world" state="Under construction" /></li>
         </ul>
       </section>
 

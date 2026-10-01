@@ -4,6 +4,7 @@
 import type { LockDef } from "@/locks.config";
 import { checkMeasure } from "./compare";
 import type { BasePayload, HintValue } from "./mode";
+import { hardSouls, soulsFor } from "../game/scoring";
 import { MODES } from "./registry";
 import type { CatalogEntry, GuessRow, HintView, PlayView } from "./types";
 
@@ -24,24 +25,38 @@ export function evaluate(
   guessesIn: string[],
   bonusPick: string | undefined,
   lookup: (id: string) => CatalogEntry | undefined,
-  opts: { giveUp?: boolean } = {},
+  opts: { giveUp?: boolean; hard?: boolean } = {},
 ): PlayView {
-  const base = { slug: lock.slug, date: row.date, number, maxTries: lock.maxTries };
+  const base = { slug: lock.slug, date: row.date, number, maxTries: lock.maxTries, souls: 0 };
   if (row.sealed) {
     return { ...base, status: "sealed", sealedReason: row.sealedReason ?? undefined, rows: [], wrong: 0, hints: [], hintsUsed: 0, clue: null };
   }
   const payload = row.payload as BasePayload;
   const impl = MODES[lock.mode];
+  // Hard mode only exists where the mode has a hard variant.
+  const hard = !!opts.hard && !!impl.hard;
   const rows: GuessRow[] = [];
   const seen = new Set<string>();
   let won = false;
   let wrong = 0;
+  let notice: string | undefined;
 
   for (const raw of guessesIn.slice(0, 200)) {
     const g = String(raw).trim();
     if (!g || seen.has(g)) continue;
     if (lock.maxTries && wrong >= lock.maxTries) break;
     seen.add(g);
+
+    if (impl.judge) {
+      // Board modes: the mode decides what a guess is worth; a refused move costs nothing.
+      const j = impl.judge(payload, g, rows, { hard });
+      if ("rejected" in j) { notice = j.rejected; continue; }
+      notice = undefined;
+      rows.push(j.row);
+      if (j.wrong) wrong++;
+      if (impl.solved?.(payload, rows)) { won = true; break; }
+      continue;
+    }
 
     if (lock.guess === "number") {
       const n = Number(g.replace(",", "."));
@@ -59,7 +74,7 @@ export function evaluate(
     const correct = payload.correctIds.includes(g);
     rows.push({
       id: g, name: entry.name, icon: entry.icon, sub: entry.group, correct,
-      tiles: impl.tiles?.(payload, g) ?? undefined,
+      tiles: impl.tiles?.(payload, g, { hard }) ?? undefined,
     });
     if (correct) { won = true; break; }
     wrong++;
@@ -85,8 +100,10 @@ export function evaluate(
     ...base,
     status: won ? "won" : lost ? "lost" : "playing",
     ...(gaveUp ? { gaveUp: true } : {}),
+    ...(hard ? { hard: true } : {}),
+    ...(notice ? { notice } : {}),
     rows, wrong, hints, hintsUsed,
-    clue: impl.clue(payload, wrong, done),
+    clue: impl.clue(payload, wrong, done, { hard }, rows),
   };
   if (done) view.answer = payload.answer;
   // A jammed lock has no bonus round, so a bonus-protected reveal (The Resonance's ability) joins the answer.
@@ -102,6 +119,11 @@ export function evaluate(
       picked,
       ...(picked ? { correct: picked === payload.bonus.answerId, answerId: payload.bonus.answerId, reveal: payload.bonus.reveal } : {}),
     };
+  }
+  if (done) {
+    const r = { won, rows, wrong, hintsUsed };
+    const souls = impl.souls ? impl.souls(payload, r) : soulsFor({ won, guesses: rows.length, hintsUsed, bonusCorrect: !!view.bonus?.correct });
+    view.souls = hard ? hardSouls(souls) : souls;
   }
   return view;
 }

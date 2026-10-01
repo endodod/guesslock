@@ -6,13 +6,13 @@ import { config } from "@/lib/config";
 import type { NormHero } from "@/lib/deadlock/types";
 import { mediaUrl } from "@/lib/media";
 import { saveAbility, saveHero } from "../../actions";
-import { ExcludeBoxes, MODE_OPTIONS } from "../../shared";
+import { ExcludeBoxes, HERO_MODE_OPTIONS, MODE_OPTIONS } from "../../shared";
 import { EmojiEditor } from "./EmojiEditor";
 import { VoiceLineManager } from "./VoiceLineManager";
 import { Card, PageHeader, Pill } from "../../kit";
 
-const HERO_MODES = MODE_OPTIONS.slice(0, 10);
-const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound"].includes(m));
+const HERO_MODES = HERO_MODE_OPTIONS;
+const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound", "ability-stats"].includes(m));
 
 export default async function HeroAdmin({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();

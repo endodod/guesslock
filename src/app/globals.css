@@ -182,6 +182,9 @@
   box-shadow: inset 0 0 0 1px var(--fb-miss-border);
 }
 
+/* Hard mode: a category that isn't shown */
+.tile-hidden { background: repeating-linear-gradient(135deg, #24201b 0 6px, #1b1814 6px 12px); color: var(--ash); box-shadow: inset 0 0 0 1px rgb(201 164 92 / 0.25); }
+
 /* ───────────── The Séance ───────────── */
 .seance-band-1 { background: var(--seance-pattern), var(--seance-1); color: var(--seance-1-ink); }
 .seance-band-2 { background: var(--seance-pattern), var(--seance-2); color: var(--seance-2-ink); }

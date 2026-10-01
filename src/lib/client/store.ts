@@ -18,6 +18,7 @@ export type LockRecord = {
   answer?: { name: string; image: string | null };
   at?: number; // finished at (ms)
   tables?: number; // The Séance: tables in play that day (the box is worth their average)
+  hard?: boolean; // played in hard mode (fixed by the first guess)
 };
 
 export type Settings = {
@@ -29,6 +30,8 @@ export type Settings = {
   skipSound: boolean;
   /** Sound locks volume, 0…1 (separate from the SFX toggle). */
   soundVolume: number;
+  /** Start locks that have a hard variant in hard mode (can still be switched per lock before the first guess). */
+  hardMode: boolean;
 };
 
 export type StoreData = {
@@ -40,7 +43,7 @@ export type StoreData = {
 
 export const DEFAULT_SETTINGS: Settings = {
   colorblind: false, motion: "auto", sound: false, colorEmoji: false,
-  skipSound: false, soundVolume: 0.8,
+  skipSound: false, soundVolume: 0.8, hardMode: false,
 };
 
 /** Slugs to leave out of counts, shares and streaks for these settings. */

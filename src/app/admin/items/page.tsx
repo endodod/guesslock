@@ -4,12 +4,12 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import type { NormItem } from "@/lib/deadlock/types";
 import { mediaUrl } from "@/lib/media";
 import { saveItem } from "../actions";
-import { ExcludeBoxes, MODE_OPTIONS } from "../shared";
+import { ExcludeBoxes, ITEM_MODE_OPTIONS } from "../shared";
 import { Card, PageHeader, Pill, Stat } from "../kit";
 
 export const dynamic = "force-dynamic";
 
-const ITEM_MODES = MODE_OPTIONS.slice(10);
+const ITEM_MODES = ITEM_MODE_OPTIONS;
 
 export default async function ItemsAdmin() {
   await requireAdminPage();

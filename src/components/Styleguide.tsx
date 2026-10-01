@@ -67,7 +67,7 @@ export function Styleguide() {
   const { toast } = useGame();
   const [demoTarget] = useState(() => Date.now() + 3723000);
   const winView: PlayView = {
-    slug: "sigil", date: "2026-10-01", number: 1, status: "won", rows: rows.slice(0, 2), wrong: 1, hints, hintsUsed: 1,
+    slug: "sigil", date: "2026-10-01", number: 1, status: "won", rows: rows.slice(0, 2), wrong: 1, hints, hintsUsed: 1, souls: 75,
     clue: null, answer: { id: "13", name: "Haze", image: IMG },
     bonus: { prompt: "Name the ability", options: [{ id: "a", name: "Sleep Dagger" }, { id: "b", name: "Smoke Bomb" }, { id: "c", name: "Fixation" }, { id: "d", name: "Bullet Dance" }] },
   };

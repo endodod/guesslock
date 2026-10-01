@@ -15,7 +15,9 @@ export type NormHero = {
   lore: string | null;
   role: string | null;
   playstyle: string | null;
-  images: { card: string | null; small: string | null; vertical: string | null };
+  images: { card: string | null; small: string | null; vertical: string | null;
+    /** Second transparent portrait (The Shadow). Missing in data synced before it existed. */
+    gloat?: string | null };
   maxHealth: number | null;
   bulletDamage: number | null;
   stamina: number | null;
@@ -35,7 +37,11 @@ export type NormAbility = {
   description: string; // rendered, unredacted
   quip: string | null;
   tiers: [string | null, string | null, string | null]; // rendered T1..T3 upgrade texts
+  /** Numeric stats as the in-game tooltip lists them, plus cooldown, cast range, duration and charges (The Calculus). Missing before it existed. */
+  stats?: AbilityStat[];
 };
+
+export type AbilityStat = { key: string; label: string; value: number; display: string };
 
 export type StatBonus = {
   key: string;

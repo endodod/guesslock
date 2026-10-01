@@ -3,7 +3,6 @@ import { db } from "../db";
 import { getLock, LOCKS } from "@/locks.config";
 import { evaluate, type PuzzleRow } from "../engine/play";
 import type { PlayView } from "../engine/types";
-import { soulsFor } from "../game/scoring";
 import { todayDate, numberFor, isDay } from "../day";
 import { getCatalog, lookupFor } from "../engine/catalog";
 import type { SessionUser } from "../auth/server";
@@ -70,6 +69,7 @@ export async function playAsUser(
   incoming: string[],
   bonusIn: string | undefined,
   giveUpIn = false,
+  hardIn = false,
 ): Promise<RecordedPlay> {
   const lock = getLock(slug)!;
   await ensureProfile(user);
@@ -83,7 +83,9 @@ export async function playAsUser(
   const bonus = existing?.bonus ?? bonusIn;
   // A finished "lost" play on a lock without a try limit can only be a give-up: keep it given up.
   const giveUp = giveUpIn || (!!finished && existing.status === "lost" && !lock.maxTries);
-  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp });
+  // Hard mode is fixed by the first recorded guess: a started play keeps its mode.
+  const hard = existing && existing.guesses.length > 0 ? existing.hard : hardIn;
+  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp, hard });
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
 
@@ -100,8 +102,9 @@ export async function playAsUser(
       status: view.status === "won" ? "won" : view.status === "lost" ? "lost" : "playing",
       hintsUsed: view.hintsUsed,
       noHints: false,
-      souls: done ? soulsFor({ won: view.status === "won", guesses: view.rows.length, hintsUsed: view.hintsUsed, bonusCorrect: !!view.bonus?.correct }) : 0,
+      souls: done ? view.souls : 0,
       bonusCorrect: !!view.bonus?.correct,
+      hard: !!view.hard,
       source,
       finishedAt: done ? (existing?.finishedAt ?? new Date()) : null,
     };
@@ -207,7 +210,7 @@ export async function recomputeStats(userId: string) {
 
 // ───────────── sync with a device's local history ─────────────
 
-type LocalRecord = { g: string[]; b?: string; archive?: boolean; o?: unknown };
+type LocalRecord = { g: string[]; b?: string; archive?: boolean; o?: unknown; hard?: boolean };
 
 /**
  * Imports a device's local progress into the account (records the server doesn't have yet),
@@ -260,15 +263,15 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
         continue;
       }
       const guesses = rec.g.map(String).slice(0, 200);
-      const view = evaluate(lock, row, numberFor(date), guesses, rec.b, lookupFor(catalog, lock.guess));
+      const view = evaluate(lock, row, numberFor(date), guesses, rec.b, lookupFor(catalog, lock.guess), { hard: !!rec.hard });
       const done = view.status === "won" || view.status === "lost";
       await db.play.create({
         data: {
           userId: user.id, date, lock: slug, guesses: view.rows.map((r) => r.id), bonus: view.bonus?.picked ?? null,
           status: view.status === "won" ? "won" : view.status === "lost" ? "lost" : "playing",
           hintsUsed: view.hintsUsed,
-          souls: done ? soulsFor({ won: view.status === "won", guesses: view.rows.length, hintsUsed: view.hintsUsed, bonusCorrect: !!view.bonus?.correct }) : 0,
-          bonusCorrect: !!view.bonus?.correct, archive: !!rec.archive, source: "import",
+          souls: done ? view.souls : 0,
+          bonusCorrect: !!view.bonus?.correct, hard: !!view.hard, archive: !!rec.archive, source: "import",
           finishedAt: done ? new Date() : null,
         },
       }).catch(() => undefined); // raced with a live play: the live one wins
@@ -301,7 +304,7 @@ export async function accountProgress(userId: string) {
   }));
   const out: Record<string, Record<string, {
     g: string[]; b?: string; o?: unknown; s: string; w: number; h: number; souls: number; bonusCorrect: boolean; archive: boolean;
-    ranked: boolean; answer?: { name: string; image: string | null }; at?: number; tables?: number;
+    ranked: boolean; answer?: { name: string; image: string | null }; at?: number; tables?: number; hard?: boolean;
   }>> = {};
   for (const p of plays) {
     const lock = LOCKS.find((l) => l.slug === p.lock);
@@ -314,6 +317,7 @@ export async function accountProgress(userId: string) {
       ranked: p.source === "live" && !p.archive,
       answer: a ? { name: a.name, image: a.image } : undefined,
       at: p.finishedAt?.getTime(),
+      ...(p.hard ? { hard: true } : {}),
       ...(lock.box ? { tables: inPlay(p.date, lock.box) } : {}),
     };
   }

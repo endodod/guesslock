@@ -15,7 +15,7 @@ import { Card, PageHeader, Pill } from "../../kit";
 import { cellSource } from "@/lib/admin/categories";
 import {
   addVoiceLine, editVoiceLine, rebuildDay, removeVoiceLine, restoreVoiceLine, saveAttributes, saveBuildItems,
-  saveClueText, saveEmojiList, saveSplash, setAbilityMode, setEchoVoice, setHeroMode,
+  saveClueText, saveEmojiList, saveSplash, saveWeapon, setAbilityMode, setEchoVoice, setHeroMode,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -152,6 +152,20 @@ export default async function HeroSetup({ params }: { params: Promise<{ id: stri
           <div className="min-w-72 flex-1 space-y-2 text-sm">
             <p className="text-neutral-600">{setup.splash ? "Using a custom portrait." : "Using the API hero card."} Puzzles zoom into a random spot and pull back with each wrong guess.</p>
             <SplashForm current={setup.splash ?? ""} action={saveSplash.bind(null, heroId)} />
+          </div>
+        </div>
+      </Section>
+
+      <Section heroId={heroId} mode="weapon" label={label.weapon} status={status.weapon}>
+        <div className="flex flex-wrap items-start gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {h.weapon && <img src={h.weapon} alt="" className="h-32 w-auto rounded bg-neutral-200 object-contain" />}
+          <div className="min-w-72 flex-1 space-y-2 text-sm">
+            <p className="text-neutral-600">
+              The API has no weapon art, so The Arsenal only uses heroes with a picture here (it stays sealed while none has one).
+              Use a PNG cut-out with a transparent background: the puzzle shows its silhouette, zoomed in, then the picture in colour after 4 wrong guesses.
+            </p>
+            <SplashForm current={setup.weapon ?? ""} action={saveWeapon.bind(null, heroId)} name="weapon" placeholder="Weapon PNG URL (empty = none)" button="Save weapon" />
           </div>
         </div>
       </Section>

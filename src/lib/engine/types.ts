@@ -1,6 +1,7 @@
 // View types shared by server (play evaluation) and client (rendering). No server imports here.
 
-export type TileResult = "match" | "partial" | "miss";
+/** `hidden`: a category hard mode doesn't show ("?", no colour). */
+export type TileResult = "match" | "partial" | "miss" | "hidden";
 export type Arrow = "up" | "down";
 
 export type Tile = { key: string; display: string; result: TileResult; arrow?: Arrow };
@@ -31,19 +32,52 @@ export type HintView = {
 /** One playable clip of The Resonance. Labels are neutral ("Sound 1"). */
 export type SoundClipView = { url: string; gainDb: number; label: string };
 
-export type ColumnMeta = { key: string; label: string; info: string; numeric?: boolean };
+export type ColumnMeta = { key: string; label: string; info: string; numeric?: boolean; /** Hard mode: this category is shown as "?". */ hidden?: boolean };
 
 export type Clue =
   | { kind: "grid"; columns: ColumnMeta[] }
-  | { kind: "splash"; image: string; zoom: number; originX: number; originY: number }
-  | { kind: "sigil"; image: string; grid: number; covered: number[] }
+  | {
+      kind: "splash"; image: string; zoom: number; originX: number; originY: number;
+      /** A silhouette on a light ground (The Shadow, The Arsenal). */
+      silhouette?: boolean;
+      /** Hard mode's dark rendering. */
+      dark?: boolean;
+      /** Reveal steps shown / in total (silhouette modes). */
+      step?: number; steps?: number;
+    }
+  | { kind: "sigil"; image: string; grid: number; covered: number[]; /** Hard mode: degrees the icon is turned. */ rotate?: number }
   | { kind: "text"; sections: { label?: string; text: string }[]; total: number; image?: string | null }
   | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number; /** Ability slots (1-4) in the order the points are spent. */ path?: number[] }
   | { kind: "emoji"; slots: (string | null)[] }
   | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number; note?: string }
   | { kind: "convo"; lines: { mine: boolean; text: string }[]; /** Bites (a question and its answer) shown / in total. */ shown: number; total: number; other: { name: string; image: string | null } | null }
   | { kind: "sound"; clips: SoundClipView[]; total: number; slot?: number | null }
-  | { kind: "relic"; image: string; blur: number }
+  | { kind: "stats"; stats: { label: string; display: string | null }[]; slot: string | null }
+  | {
+      kind: "decoy";
+      /** Normal mode: whose build it is. Hard mode: null. */
+      hero: { name: string; image: string | null } | null;
+      items: { id: string; name: string; image: string | null; slot: string }[];
+    }
+  | {
+      kind: "cache";
+      heroes: { id: string; name: string; image: string | null }[];
+      /** One per player, in a fixed shuffled order. `hidden` items are blanks (hard mode). */
+      inventories: { items: ({ name: string; image: string | null; slot: string } | null)[]; souls: number | null }[];
+      /** Inventories already matched (hero id) after the latest submission, else null. */
+      locked: (string | null)[];
+      team: string;
+    }
+  | {
+      kind: "constellation";
+      rows: { label: string; info: string }[];
+      cols: { label: string; info: string }[];
+      /** Row-major, 9 cells. */
+      cells: ({ id: string; name: string; image: string | null } | null)[];
+      /** Once finished: one valid hero per empty cell. */
+      solution?: ({ name: string; image: string | null } | null)[];
+    }
+  | { kind: "relic"; image: string; blur: number; rotate?: number; dark?: boolean }
   | {
       kind: "lineage";
       direction: "into" | "from";
@@ -104,6 +138,12 @@ export type PlayView = {
   maxTries?: number;
   /** The player gave up (unlimited-guess locks): the answer is revealed and the lock jams. */
   gaveUp?: boolean;
+  /** Played in hard mode (chosen before the first guess). */
+  hard?: boolean;
+  /** Souls this play is worth once finished (0 while playing). The server's number is the one that counts. */
+  souls: number;
+  /** Why the latest guess was not taken (board modes: "That hero is already on the board."). Nothing is lost. */
+  notice?: string;
 };
 
 export type CatalogEntry = {

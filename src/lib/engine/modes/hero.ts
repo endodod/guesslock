@@ -4,7 +4,7 @@ import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData, SoundData } from "../context";
 
-import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
+import { hardHiddenColumns, SkipCandidate, SealedError, type BasePayload, type Candidate, type ClueOpts, type ModeImpl } from "../mode";
 import type { ColumnMeta, SoundClipView, Tile } from "../types";
 
 // ---------- helpers ----------
@@ -71,12 +71,14 @@ type GridClue = {
   table: Record<string, { v: CellValue; d: string }[]>;
 };
 
-function gridTiles(p: BasePayload<GridClue>, guessId: string): Tile[] | null {
+export function gridTiles(p: BasePayload<GridClue>, guessId: string, opts: ClueOpts = {}): Tile[] | null {
   const row = p.clue.table[guessId];
   const answer = p.clue.table[p.correctIds[0]];
   if (!answer) return null;
+  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0]) : [];
   return p.clue.columns.map((c, i) => {
     const g = row?.[i];
+    if (hidden.includes(i)) return { key: c.key, display: "?", result: "hidden" as const };
     if (!g) return { key: c.key, display: "?", result: "miss" as const };
     const r = compareCell(c.type as never, g.v, answer[i].v);
     return { key: c.key, display: g.d, result: r.result, arrow: r.arrow };
@@ -89,8 +91,18 @@ function reckoningColumns(data: GameData) {
   return activeColumns(data.heroColumns, pool, data);
 }
 
+/** Grid clue; hard mode marks the hidden columns. */
+export function gridClue(p: BasePayload<GridClue>, opts: ClueOpts = {}) {
+  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0]) : [];
+  return {
+    kind: "grid" as const,
+    columns: p.clue.columns.map(({ key, label, info, numeric }, i) => ({ key, label, info, numeric, ...(hidden.includes(i) ? { hidden: true } : {}) })),
+  };
+}
+
 export const reckoning: ModeImpl<GridClue> = {
   mode: "classic",
+  hard: true,
   candidates: (data) => {
     const cols = reckoningColumns(data);
     return heroPool(data, "classic", (h) => cols.every((c) => c.get(h, data) !== null));
@@ -113,7 +125,7 @@ export const reckoning: ModeImpl<GridClue> = {
       },
     };
   },
-  clue: (p) => ({ kind: "grid", columns: p.clue.columns.map(({ key, label, info, numeric }) => ({ key, label, info, numeric })) }),
+  clue: (p, _w, _d, opts) => gridClue(p, opts),
   tiles: gridTiles,
   displayed: () => [],
 };
@@ -122,22 +134,42 @@ export const reckoning: ModeImpl<GridClue> = {
 
 const ZOOM_STEPS = [5.2, 4.2, 3.4, 2.7, 2.2, 1.8, 1.45, 1.2, 1];
 
-export const visage: ModeImpl<{ image: string; originX: number; originY: number }> = {
+/** `steps` (one server-side crop per zoom step) and `full` exist on puzzles built since crops; older ones zoom with CSS. */
+type VisageClue = { image: string; originX: number; originY: number; steps?: string[]; full?: string };
+
+export const visage: ModeImpl<VisageClue> = {
   mode: "splash",
+  hard: true,
   candidates: (data) => heroPool(data, "splash", (h) => !!h.splash),
-  build(c, { data, rng }) {
+  async build(c, { data, rng, images, date }) {
     const h = data.hero(c.ref as number)!;
+    // Portrait cards have the face in the upper half: bias the crop there.
+    const originX = Math.round(25 + rng.next() * 50), originY = Math.round(18 + rng.next() * 42);
+    const clue: VisageClue = { image: h.splash!, originX, originY };
+    if (images) {
+      const tag = `${date}|splash`;
+      const [steps, full] = await Promise.all([
+        images.crops(h.splash!, ZOOM_STEPS.map((zoom) => ({ zoom, originX, originY })), tag),
+        images.copy(h.splash!, tag),
+      ]);
+      if (!steps || !full) throw new SkipCandidate(`portrait of ${h.name} can't be cropped`);
+      // The plain portrait URL is the catalog's: never part of the clue.
+      clue.image = steps[0];
+      clue.steps = steps;
+      clue.full = full;
+    }
     return {
       v: 1, mode: "splash", answer: heroAnswer(h), correctIds: [String(h.id)], leakTerms: heroLeakTerms(h),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
-      // Portrait cards have the face in the upper half: bias the crop there.
-      clue: { image: h.splash!, originX: Math.round(25 + rng.next() * 50), originY: Math.round(18 + rng.next() * 42) },
+      clue,
     };
   },
-  clue: (p, wrong, done) => ({
-    kind: "splash", image: p.clue.image, originX: p.clue.originX, originY: p.clue.originY,
-    zoom: done ? 1 : ZOOM_STEPS[Math.min(wrong, ZOOM_STEPS.length - 1)],
-  }),
+  clue: (p, wrong, done, opts = {}) => {
+    const i = done ? ZOOM_STEPS.length - 1 : Math.min(wrong, ZOOM_STEPS.length - 1);
+    const dark = opts.hard && !done ? { dark: true } : {};
+    if (p.clue.steps) return { kind: "splash", image: done ? p.clue.full ?? p.clue.steps[i] : p.clue.steps[i], zoom: 1, originX: 50, originY: 50, ...dark };
+    return { kind: "splash", image: p.clue.image, originX: p.clue.originX, originY: p.clue.originY, zoom: ZOOM_STEPS[i], ...dark };
+  },
   displayed: () => [],
 };
 
@@ -145,26 +177,45 @@ export const visage: ModeImpl<{ image: string; originX: number; originY: number 
 
 const SIGIL_GRID = 4;
 const SIGIL_START_OPEN = 3;
+const SIGIL_STEPS = SIGIL_GRID * SIGIL_GRID - SIGIL_START_OPEN + 1;
 
-export const sigil: ModeImpl<{ image: string; order: number[] }> = {
+/** `steps[w]`: the icon with the tiles still covered after w wrong guesses painted over (puzzles built since). */
+type SigilClue = { image: string; order: number[]; steps?: string[]; full?: string };
+
+export const sigil: ModeImpl<SigilClue> = {
   mode: "ability-icon",
+  hard: true,
   candidates: (data) => heroPool(data, "ability-icon", (h) => usableAbilities(data, h.id, "ability-icon").some((a) => a.icon)),
-  build(c, { data, rng }) {
+  async build(c, { data, rng, images, date }) {
     const h = data.hero(c.ref as number)!;
     const ability = rng.pick(usableAbilities(data, h.id, "ability-icon").filter((a) => a.icon));
     const order = rng.shuffle(Array.from({ length: SIGIL_GRID * SIGIL_GRID }, (_, i) => i));
+    const clue: SigilClue = { image: ability.icon!, order };
+    if (images) {
+      const tag = `${date}|ability-icon`;
+      const covered = Array.from({ length: SIGIL_STEPS }, (_, w) => order.slice(SIGIL_START_OPEN + w));
+      const [steps, full] = await Promise.all([images.tiles(ability.icon!, SIGIL_GRID, covered, tag), images.copy(ability.icon!, tag)]);
+      if (!steps || !full) throw new SkipCandidate(`icon of ${ability.name} can't be covered`);
+      // The plain icon URL is the guess list's (it would name the ability): never part of the clue.
+      clue.image = steps[0];
+      clue.steps = steps;
+      clue.full = full;
+    }
     return {
       v: 1, mode: "ability-icon", answer: heroAnswer(h), correctIds: [String(h.id)],
       leakTerms: heroLeakTerms(h),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
       bonus: bonusFor(data, h.id, ability, rng),
-      clue: { image: ability.icon!, order },
+      clue,
     };
   },
-  clue: (p, wrong, done) => ({
-    kind: "sigil", image: p.clue.image, grid: SIGIL_GRID,
-    covered: done ? [] : p.clue.order.slice(SIGIL_START_OPEN + wrong),
-  }),
+  clue: (p, wrong, done, opts = {}) => {
+    const covered = done ? [] : p.clue.order.slice(SIGIL_START_OPEN + wrong);
+    const image = p.clue.steps ? (done ? p.clue.full ?? p.clue.steps.at(-1)! : p.clue.steps[Math.min(wrong, p.clue.steps.length - 1)]) : p.clue.image;
+    // Hard mode: the icon is turned a quarter, half or three quarters (fixed per puzzle).
+    const rotate = opts.hard && !done ? { rotate: 90 * (1 + (p.clue.order[0] % 3)) } : {};
+    return { kind: "sigil", image, grid: SIGIL_GRID, covered, ...rotate };
+  },
   displayed: () => [],
 };
 
@@ -220,6 +271,7 @@ const BUILD_ITEMS = 8;
 
 export const belongings: ModeImpl<{ items: BuildItem[]; path?: number[] }> = {
   mode: "whose-build",
+  hard: true,
   candidates: (data) => heroPool(data, "whose-build"),
   async build(c, { data, analytics, abilityOrder }) {
     const h = data.hero(c.ref as number)!;
@@ -238,9 +290,10 @@ export const belongings: ModeImpl<{ items: BuildItem[]; path?: number[] }> = {
       clue: { items, ...(path ? { path } : {}) },
     };
   },
-  clue: (p, wrong, done) => ({
+  // Hard mode: no ability level path until the lock is finished.
+  clue: (p, wrong, done, opts = {}) => ({
     kind: "build",
-    path: p.clue.path,
+    path: opts.hard && !done ? undefined : p.clue.path,
     items: p.clue.items.slice(0, done ? p.clue.items.length : 1 + wrong).map(({ name, image, slot }) => ({ name, image, slot })),
     total: p.clue.items.length,
   }),
@@ -294,7 +347,8 @@ export function distinctiveItems(
 
 // ---------- VII. The Ascension (upgrades) ----------
 
-type AscClue = { tiers: string[]; icon: string | null };
+/** `blurred`/`full`: salted copies of the icon (puzzles built since); the plain icon URL would name the ability. */
+type AscClue = { tiers: string[]; icon: string | null; blurred?: string; full?: string };
 
 export const ascension: ModeImpl<AscClue> = {
   mode: "upgrades",
@@ -306,9 +360,15 @@ export const ascension: ModeImpl<AscClue> = {
           ["ability_t1", "ability_t2", "ability_t3"].every((t) => data.text(t, a.id));
       })
       .map((a) => ({ answerId: String(a.id), ref: a.id })),
-  build(c, { data }) {
+  async build(c, { data, images, date }) {
     const a = data.ability(c.ref as number)!;
     const h = data.hero(a.heroId)!;
+    let icons: Pick<AscClue, "blurred" | "full"> = {};
+    if (images && a.icon) {
+      const [blurred, full] = await Promise.all([images.blurs(a.icon, [9], `${date}|upgrades`), images.copy(a.icon, `${date}|upgrades`)]);
+      if (!blurred || !full) throw new SkipCandidate(`icon of ${a.name} can't be blurred`);
+      icons = { blurred: blurred[0], full };
+    }
     return {
       v: 1, mode: "upgrades",
       answer: { id: String(a.id), name: a.name, image: a.icon, sub: h.name, extra: { hero: { name: h.name, image: h.card } } },
@@ -316,7 +376,7 @@ export const ascension: ModeImpl<AscClue> = {
       leakTerms: [a.name, ...a.aliases, ...heroLeakTerms(h)],
       hints: {}, // letter hints come from the answer name (engine/play.ts)
       // T3 first, then T2, then T1
-      clue: { tiers: [data.text("ability_t3", a.id)!, data.text("ability_t2", a.id)!, data.text("ability_t1", a.id)!], icon: a.icon },
+      clue: { tiers: [data.text("ability_t3", a.id)!, data.text("ability_t2", a.id)!, data.text("ability_t1", a.id)!], icon: icons.full ? null : a.icon, ...icons },
     };
   },
   clue: (p, wrong, done) => {
@@ -326,7 +386,7 @@ export const ascension: ModeImpl<AscClue> = {
       kind: "text",
       sections: p.clue.tiers.slice(0, n).map((text, i) => ({ label: labels[i], text })),
       total: 3,
-      image: done || wrong >= 3 ? p.clue.icon : null,
+      image: p.clue.full ? (done ? p.clue.full : wrong >= 3 ? p.clue.blurred! : null) : done || wrong >= 3 ? p.clue.icon : null,
     };
   },
   displayed: (p) => p.clue.tiers,

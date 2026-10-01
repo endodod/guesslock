@@ -10,6 +10,7 @@ import { syncTexts } from "@/lib/sync/assets";
 import { redact } from "@/lib/text/redact";
 import { heroTerms } from "@/lib/text/entries";
 import { MODE_OPTIONS } from "../shared";
+import { decodePng, silhouette } from "@/lib/image/png";
 import { EMOJI_SET_SIZE } from "@/lib/engine/modes/hero";
 import { overridePuzzle } from "@/lib/engine/generate";
 import { todayDate } from "@/lib/day";
@@ -84,6 +85,31 @@ export async function saveSplash(heroId: number, form: FormData): Promise<string
     if (!asset?.contentType.startsWith("image/")) return "That URL isn't an image.";
   }
   await patchSetup(heroId, { splash: url || undefined });
+  done(heroId);
+  return null;
+}
+
+// ───────────── The Arsenal ─────────────
+
+/**
+ * The hero's weapon picture (there is none in the API). It must be a PNG cut-out with a transparent background, since
+ * the puzzle turns it into a silhouette; empty = no weapon picture (the hero isn't an Arsenal answer).
+ */
+export async function saveWeapon(heroId: number, form: FormData): Promise<string | null> {
+  await requireSetup();
+  const url = String(form.get("weapon") ?? "").trim();
+  if (url) {
+    if (!/^https?:\/\//.test(url)) return "Use an http(s) image URL.";
+    const id = await mirror(url);
+    if (!id) return "Couldn't download that image.";
+    const asset = await db.mirroredAsset.findUnique({ where: { id }, select: { bytes: true } });
+    try {
+      if (!asset || !silhouette(decodePng(asset.bytes))) return "The picture needs a transparent background (a cut-out).";
+    } catch {
+      return "Use a PNG (8-bit, not interlaced).";
+    }
+  }
+  await patchSetup(heroId, { weapon: url || undefined });
   done(heroId);
   return null;
 }

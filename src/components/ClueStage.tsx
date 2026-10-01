@@ -8,6 +8,7 @@ import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
 import { t } from "@/lib/i18n/en";
 import { SoundStage } from "./SoundPlayer";
+import { CacheStage, ConstellationStage, DecoyStage, StatsStage } from "./BoardStages";
 
 const CLUE_ALT = "Today's clue image";
 
@@ -27,11 +28,11 @@ export function Redacted({ text }: { text: string }) {
   );
 }
 
-function Peephole({ children, size = "lg" }: { children: React.ReactNode; size?: "lg" | "md" }) {
+function Peephole({ children, size = "lg", bg = "bg-ink" }: { children: React.ReactNode; size?: "lg" | "md"; bg?: string }) {
   const dim = size === "lg" ? "h-64 w-64 md:h-80 md:w-80" : "h-52 w-52 md:h-60 md:w-60";
   return (
     <div className="flex justify-center py-2">
-      <div className={`clue-layer relative ${dim} overflow-hidden rounded-full border-4 border-brass/70 bg-ink shadow-[inset_0_0_30px_rgba(0,0,0,0.9),0_0_0_6px_rgba(26,24,22,1),0_0_0_7px_rgba(201,164,92,0.4)]`}>
+      <div className={`clue-layer relative ${dim} overflow-hidden rounded-full border-4 border-brass/70 ${bg} shadow-[inset_0_0_30px_rgba(0,0,0,0.9),0_0_0_6px_rgba(26,24,22,1),0_0_0_7px_rgba(201,164,92,0.4)]`}>
         {children}
         <div className="pointer-events-none absolute inset-0 rounded-full shadow-[inset_0_0_40px_rgba(0,0,0,0.85)]" />
       </div>
@@ -49,19 +50,26 @@ export function twemojiUrl(emoji: string): string {
 
 function SplashStage({ clue }: { clue: Extract<Clue, { kind: "splash" }> }) {
   return (
-    <Peephole>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={clue.image}
-        alt={CLUE_ALT}
-        draggable={false}
-        className="h-full w-full select-none object-cover transition-transform duration-700 ease-out"
-        style={{
-          transform: `scale(${clue.zoom})`,
-          transformOrigin: `${clue.originX}% ${clue.originY}%`,
-        }}
-      />
-    </Peephole>
+    <>
+      <Peephole bg={clue.silhouette ? "bg-[radial-gradient(circle,#efe4cc,#c9b994)]" : undefined}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={clue.image}
+          alt={CLUE_ALT}
+          draggable={false}
+          className={`h-full w-full select-none transition-transform duration-700 ease-out ${clue.silhouette ? "object-contain" : "object-cover"} ${clue.dark ? "[filter:invert(1)_hue-rotate(180deg)_brightness(0.8)]" : ""}`}
+          style={{
+            transform: `scale(${clue.zoom})`,
+            transformOrigin: `${clue.originX}% ${clue.originY}%`,
+          }}
+        />
+      </Peephole>
+      {clue.steps && clue.step !== undefined && (
+        <div className="mx-auto mt-2 flex max-w-48 gap-1" aria-label={`Reveal ${clue.step} of ${clue.steps}`}>
+          {Array.from({ length: clue.steps }, (_, i) => <span key={i} className={`h-1 flex-1 rounded ${i < clue.step! ? "bg-brass" : "bg-brass/25"}`} />)}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -72,7 +80,7 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
     <div className="flex justify-center py-2">
       <div className="clue-layer relative h-56 w-56 overflow-hidden rounded-sm border border-brass/50 bg-[radial-gradient(circle,#2a2520,#0e0d0b)] md:h-64 md:w-64">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={clue.image} alt={CLUE_ALT} draggable={false} className="absolute inset-0 h-full w-full select-none object-contain p-6" />
+        <img src={clue.image} alt={CLUE_ALT} draggable={false} className="absolute inset-0 h-full w-full select-none object-contain p-6 transition-transform duration-500" style={clue.rotate ? { transform: `rotate(${clue.rotate}deg)` } : undefined} />
         <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
           {Array.from({ length: n * n }, (_, i) => (
             <div key={i} className="relative">
@@ -333,7 +341,10 @@ function RelicStage({ clue }: { clue: Extract<Clue, { kind: "relic" }> }) {
         alt={CLUE_ALT}
         draggable={false}
         className="h-full w-full select-none object-contain p-8 transition-[filter,transform] duration-700"
-        style={{ filter: `blur(${clue.blur}px)` }}
+        style={{
+          filter: `${clue.blur ? `blur(${clue.blur}px)` : ""}${clue.dark ? " invert(1) hue-rotate(180deg) brightness(0.8)" : ""}` || undefined,
+          transform: clue.rotate ? `rotate(${clue.rotate}deg)` : undefined,
+        }}
       />
     </Peephole>
   );
@@ -452,8 +463,17 @@ function GridLegend({ subject }: { subject: "hero" | "item" }) {
   );
 }
 
-export function ClueStage({ clue, rows, done = false, subject = "hero" }: { clue: Clue; rows: GuessRow[]; done?: boolean; subject?: "hero" | "item" }) {
+export function ClueStage({ clue, rows, done = false, subject = "hero", onGuess, busy, disabled }: {
+  clue: Clue; rows: GuessRow[]; done?: boolean; subject?: "hero" | "item";
+  /** Board locks (The Decoy, The Cache, The Constellation) take their guesses in the stage itself. */
+  onGuess?: (id: string) => Promise<boolean>; busy?: boolean; disabled?: boolean;
+}) {
+  const play = { onGuess, busy, disabled, done };
   switch (clue.kind) {
+    case "stats": return <StatsStage clue={clue} />;
+    case "decoy": return <DecoyStage clue={clue} picked={new Map(rows.map((r) => [r.id, r.correct]))} {...play} />;
+    case "cache": return <CacheStage clue={clue} {...play} />;
+    case "constellation": return <ConstellationStage clue={clue} {...play} />;
     case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;

@@ -251,3 +251,11 @@ describe("The Cipher default emoji sets", () => {
     }
   });
 });
+
+describe("hard mode flags", () => {
+  it("a lock offers hard mode exactly when its mode has a hard variant", async () => {
+    const { LOCKS } = await import("@/locks.config");
+    const { MODES } = await import("@/lib/engine/registry");
+    for (const l of LOCKS) if (MODES[l.mode]) expect(!!l.hard, l.slug).toBe(!!MODES[l.mode].hard);
+  });
+});
