@@ -234,7 +234,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
   const placeholder = t.lock.placeholder[lock.guess];
   // The Decoy, The Cache and The Constellation take their guesses in the clue stage itself.
-  const boardInput = lock.input === "choice" || lock.guess === "match" || lock.guess === "grid" || lock.guess === "map";
+  const boardInput = lock.input === "choice" || lock.guess === "match" || lock.guess === "grid";
   const hintAt = lock.hints.map((h) => h.after);
   // Unlimited-guess locks can be given up once at least one guess is in.
   const canGiveUp = !done && !lock.maxTries && view.rows.length > 0 && !restoring;

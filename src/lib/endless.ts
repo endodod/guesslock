@@ -13,7 +13,6 @@ import { evaluate } from "./engine/play";
 import { getCatalog, lookupFor } from "./engine/catalog";
 import { fetchAbilityOrder } from "./deadlock/api";
 import { clueImages } from "./image/clue";
-import { getMapMeta } from "./omens/map";
 import { heroCategories, memoAnalytics, memoMatches } from "./engine/generate";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -51,7 +50,6 @@ export async function createEndless(slug: string, avoid: string[] = []): Promise
       const payload: BasePayload = await impl.build(candidate, {
         data, rng: makeRng(`${tag}|build`), date: tag, dayIndex, analytics: s.analytics, abilityOrder: fetchAbilityOrder,
         images: clueImages, matches: s.matches, heroCategories, recent: avoid,
-        mapImage: lock.mode === "wayfinder" ? (await getMapMeta().catch(() => null))?.image ?? null : undefined,
       });
       await db.endlessPuzzle.create({ data: { id: token, lock: slug, answerId: payload.key ?? candidate.answerId, payload: payload as unknown as Prisma.InputJsonValue } });
       return { token };

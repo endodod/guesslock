@@ -44,7 +44,7 @@ export async function lockCoverage(data: GameData): Promise<Coverage[]> {
       pool === 0 ? "empty" : ahead.open === 0 && ahead.sealed > 0 ? "sealed" : pool !== null && pool < THIN_POOL ? "thin" : "ok";
     const note =
       pool === 0 ? "No eligible answer: the lock is sealed until data or curation arrives."
-      : pool === null ? (l.group === "omens" || l.slug === "cache" || l.slug === "wayfinder" ? "Picks from harvested matches" : "Built from the category library")
+      : pool === null ? (l.group === "omens" || l.slug === "cache" ? "Picks from harvested matches" : "Built from the category library")
       : pool < THIN_POOL ? `Only ${pool} answers: repeats after ${window} days.`
       : `${pool} answers, no repeat within ${window} days.`;
     return { slug: l.slug, name: l.name + (l.table ? ` · ${l.table.label}` : ""), numeral: l.numeral, pool, window, ahead, verdict, note };

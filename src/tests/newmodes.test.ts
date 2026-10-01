@@ -313,38 +313,3 @@ describe("hard mode", () => {
   });
 });
 
-// ───────────── The Wayfinder ─────────────
-
-import { spotDistance, wayfinder, pickSpot } from "@/lib/engine/modes/wayfinder";
-
-describe("The Wayfinder", () => {
-  it("measures to the spot or its mirror, whichever is nearer", () => {
-    expect(spotDistance({ x: 0.2, y: 0.3 }, { x: 0.2, y: 0.3 })).toBe(0);
-    expect(spotDistance({ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.7 })).toBeCloseTo(0);
-    expect(spotDistance({ x: 0.2, y: 0.3 }, { x: 0.5, y: 0.5 })).toBeCloseTo(Math.hypot(0.3, 0.2));
-  });
-
-  it("picks a real moment and judges pins: 100/70/40, near-miss credit on a loss", async () => {
-    expect(pickSpot([tl], makeRng("w"))).not.toBeNull();
-    const data = makeData({ heroes: [] });
-    const p = await wayfinder.build({ answerId: "spot", ref: 0 }, ctx(data, "w", { matches: async () => [tl], mapImage: `/media/${"m".repeat(40)}` }));
-    const { x, y } = p.clue.spot;
-    const at = (px: number, py: number) => `${Math.round(px * 1000)},${Math.round(py * 1000)}`;
-    const far = at(x > 0.5 ? 0.05 : 0.95, 0.5);
-    const lock = LOCK_BY_SLUG.wayfinder;
-    const v = (g: string[], hard = false) => evaluate(lock, row(p, "wayfinder"), 1, g, undefined, () => undefined, { hard });
-    expect(v([at(x, y)]).souls).toBe(100);
-    expect(v([at(1 - x, 1 - y)]).status).toBe("won"); // the mirrored spot
-    expect(v([far, at(x + 0.02, y)]).souls).toBe(70);
-    const lost = v([far, at(x, y > 0.5 ? 0.01 : 0.99), at(x + 0.08, y)]);
-    expect(lost.status).toBe("lost");
-    expect(lost.souls).toBeGreaterThan(0);
-    expect(v(["nope"]).notice).toBeTruthy();
-    // Context arrives with misses; hard mode gives none.
-    expect((v([]).clue as { context: object }).context).toEqual({});
-    expect((v([far]).clue as { context: { time?: string } }).context.time).toBeTruthy();
-    expect((v([far, far.replace(/^\d+/, "1")], true).clue as { context: object }).context).toEqual({});
-    // The spot itself only reaches the browser once finished.
-    expect((v([far]).clue as { answer?: unknown }).answer).toBeUndefined();
-  });
-});

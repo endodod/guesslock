@@ -43,8 +43,6 @@ export type BuildCtx = {
   images?: ClueImages;
   /** Ready Omen match timelines (The Cache). Absent in tests and when none are harvested. */
   matches?: () => Promise<import("../omens/types").MatchTimeline[]>;
-  /** The minimap as a /media URL (The Wayfinder). Absent in tests. */
-  mapImage?: string | null;
   /** Approved, complete Séance hero groups (The Constellation). Absent in tests. */
   heroCategories?: () => Promise<{ key: string; label: string; info: string; members: number[] }[]>;
   /** Answer ids used in the no-repeat window (for modes that pick their answer in build()). */
@@ -78,8 +76,7 @@ export interface ModeImpl<C = unknown> {
   /** The mode has a hard variant (BasePayload is the same; only the rendering changes). */
   hard?: boolean;
   /**
-   * The answer is picked in build() from data outside GameData (The Cache: a harvested team; The Constellation: a grid;
-   * The Wayfinder: a spot). candidates() returns one placeholder, so there is no answer list to override from.
+   * The answer is picked in build() from data outside GameData (The Cache: a harvested team; The Constellation: a grid). candidates() returns one placeholder, so there is no answer list to override from.
    */
   selfPicked?: boolean;
   /** Attribute tiles for a guessed id (grid modes only). */

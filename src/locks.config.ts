@@ -2,8 +2,8 @@
 // Local player data is keyed by `slug`, never by numeral, so renumbering is safe.
 
 export type LockGroup = "spirits" | "shop" | "omens" | "seance" | "stars";
-/** `match`: a full assignment (The Cache); `grid`: a cell and a typed name (The Constellation); `map`: a pin (The Wayfinder). */
-export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance" | "match" | "grid" | "map";
+/** `match`: a full assignment (The Cache); `grid`: a cell and a typed name (The Constellation). */
+export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance" | "match" | "grid";
 /** The Séance family: sort 16 entities into 4 hidden groups. One box per entity, four tables a day each. */
 export type SeanceBoxId = "seance" | "bazaar" | "grimoire";
 export type SeanceEntity = "hero" | "item" | "ability";
@@ -223,11 +223,6 @@ export const LOCKS: LockDef[] = [
     slug: "constellation", mode: "constellation", numeral: "XXVIII", name: "The Constellation",
     subtitle: "Fill the 3x3 hero category grid", group: "stars", guess: "grid", picks: 4, maxTries: 4,
     noRepeatDays: 30, hints: [],
-  },
-  {
-    slug: "wayfinder", mode: "wayfinder", numeral: "XXIX", name: "The Wayfinder",
-    subtitle: "Find the spot on the map", group: "stars", guess: "map", picks: 3, maxTries: 3,
-    hard: true, noRepeatDays: 60, hints: [],
   },
   // The Séance family: 16 entities, 4 hidden groups of 4. Four tables a day per box, each its own frozen puzzle,
   // sharing one Vault box. 4 mistakes lose a table (src/lib/seance/play.ts).

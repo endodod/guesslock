@@ -38,6 +38,35 @@ function SoundWaveGlyph() {
   );
 }
 
+/** A mode that is announced but has no daily puzzle, route or answers yet (The Wayfinder). Never counted, never a link. */
+function ComingSoonBox({ name, subtitle, state = "Under construction" }: { name: string; subtitle: string; state?: string }) {
+  return (
+    <div
+      aria-label={`${name}: ${subtitle}. ${state}; not playable.`}
+      className="relative flex h-[17.7rem] w-full flex-col overflow-hidden rounded-[3px] border border-brass/35 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#30291f,#141210)]" />
+      <div className="relative flex h-full flex-col items-center justify-between border border-brass/20 px-3 pt-3 pb-11">
+        <div className="flex h-8 min-w-10 items-center justify-center rounded-[2px] border border-brass/50 bg-[linear-gradient(180deg,#5b4b31,#332919)] px-2.5 font-display text-sm tracking-widest text-brass">
+          ...
+        </div>
+        <div className="flex h-20 w-full flex-none items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-brass/35 bg-ink/60 text-brass/60">
+            <Keyhole className="h-7 w-5" />
+          </div>
+        </div>
+        <div className="mt-2 min-h-[4.25rem] text-center">
+          <div className="font-display text-base leading-tight text-paper">{name}</div>
+          <div className="mt-0.5 line-clamp-2 min-h-[2.75em] text-[0.8rem] leading-snug text-ash">{subtitle}</div>
+        </div>
+      </div>
+      <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-brass">
+        {state}
+      </div>
+    </div>
+  );
+}
+
 /** Shop locks added later get their own row under the original four. */
 const SHOP_EXTRA = new Set(["decoy", "cache"]);
 
@@ -322,10 +351,11 @@ export function Vault({
         </div>
       </section>
 
-      <section aria-labelledby="wayfinder-h" className="mt-8">
-        <h2 id="wayfinder-h" className="smallcaps mb-3 text-brass">More Modes</h2>
+      <section aria-labelledby="more-h" className="mt-8">
+        <h2 id="more-h" className="smallcaps mb-3 text-brass">More Modes</h2>
         <ul className="mx-auto grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
           {STAR_LOCKS.map((l) => box(l))}
+          <li><ComingSoonBox name="The Wayfinder" subtitle="Find your place in the world" /></li>
         </ul>
       </section>
 

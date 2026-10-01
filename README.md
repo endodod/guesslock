@@ -1,6 +1,6 @@
 # GUESSLOCK
 
-A fan-made daily guessing game for Valve's Deadlock: 29 "locks" per day (guessing games, 3 Omens, 3 sorting tables, a hero grid and a map), same for every player, reset at 00:00 Europe/Zurich. Plus Endless practice, hard mode and The Black Market for spending souls.
+A fan-made daily guessing game for Valve's Deadlock: 28 "locks" per day (guessing games, 3 Omens, 3 sorting tables and a hero grid), same for every player, reset at 00:00 Europe/Zurich. Plus Endless practice, hard mode and The Black Market for spending souls.
 Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/) (open work in [`prompts/todo/`](prompts/todo/), finished prompts in [`prompts/done/`](prompts/done/)): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
@@ -37,7 +37,6 @@ No accounts: player progress lives in `localStorage`.
 | XXVI | The Decoy | spot the fake item in a hero's core build (3 picks) | analytics API (fake: < 1% on this hero, ≥ 3% elsewhere) |
 | XXVII | The Cache | match a real team's six final inventories to its heroes (4 submissions) | Omen match harvest |
 | XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (typed names, 4 lives) | Reckoning columns + approved Séance hero groups |
-| XXIX | The Wayfinder | find the spot on the minimap from a zoomed crop (3 pins) | Omen match harvest (real hero positions) |
 
 Numerals XXIII+ were added after the Séance family so existing ones never change; the Vault shows each with its group.
 
@@ -88,11 +87,11 @@ the pool has a value.
 **Hard mode** (`hard: true` in `locks.config.ts`, a `hard` variant in the mode): picked per lock before the first guess
 (default in Settings), worth 1.5× souls. Hidden categories (Reckoning, Appraisal), dark portrait (Visage), turned icon
 (Sigil), no ability path (Belongings), turned and dark (Relic), hidden stat values (Measure), tighter silhouettes (Shadow,
-Arsenal), an omitted stat (Calculus), no hero (Decoy), blank items (Cache), no context (Wayfinder). For a signed-in player
+Arsenal), an omitted stat (Calculus), no hero (Decoy), blank items (Cache). For a signed-in player
 the first clue served is recorded, and a play that has seen the normal clue can't switch to hard.
 
-**Clue images** (`src/lib/image/`): every reveal step of The Visage, Sigil, Relic, Ascension, Shadow, Arsenal and
-Wayfinder is its own image rendered on the server (crop, blur, tile cover, silhouette) and stored under a salted,
+**Clue images** (`src/lib/image/`): every reveal step of The Visage, Sigil, Relic, Ascension, Shadow and Arsenal
+is its own image rendered on the server (crop, blur, tile cover, silhouette) and stored under a salted,
 per-puzzle id. The browser only ever holds what the step shows, and a clue never shares a URL with the guess list.
 
 **Endless** (`/endless`, `src/lib/endless.ts`): any guessing lock, a new puzzle every time, frozen in `EndlessPuzzle` under
@@ -202,7 +201,7 @@ budget. So one Omen per mode per day is produced wherever generation runs: both 
 admin and `npm run generate`. `npm run omens:harvest` and *Harvest now* on `/admin/omens` run it on their own.
 Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h (`OMEN_QUERIES_PER_HOUR` tunes the
 budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md). `/admin/omens` has the
-7-day calendar, candidate pool, tuning and inspector. The same harvested timelines feed The Cache and The Wayfinder.
+7-day calendar, candidate pool, tuning and inspector. The same harvested timelines feed The Cache.
 
 **Seed:** `data/omens-seed.json.gz` holds real scenarios from harvested matches. When an Omen has no harvested stock
 for a day (fresh install, a short harvest, an API outage), the unused seed scenarios are imported and used, so every

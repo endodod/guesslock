@@ -9,7 +9,7 @@ describe("Endless mode", () => {
   it("offers every guessing lock, not the Omens or the sorting tables", () => {
     const slugs = ENDLESS_LOCKS.map((l) => l.slug);
     expect(slugs).toContain("reckoning");
-    expect(slugs).toContain("wayfinder");
+    expect(slugs).toContain("constellation");
     expect(slugs.some((s) => ["clash", "beast", "rift"].includes(s) || s.startsWith("seance-"))).toBe(false);
   });
 

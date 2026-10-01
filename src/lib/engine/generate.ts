@@ -15,7 +15,6 @@ import { assignOmen, harvest, unpackTimeline } from "../omens/harvest";
 import type { MatchTimeline } from "../omens/types";
 import { clueImages } from "../image/clue";
 import { puzzlesChanged } from "../server/cache";
-import { getMapMeta } from "../omens/map";
 import { buildSeanceBoard, loadLibrary } from "../seance/library";
 import { boardKey } from "../seance/board";
 import type { Prisma } from "@/generated/prisma/client";
@@ -107,7 +106,6 @@ export async function buildPuzzle(
       const payload = await impl.build(candidate, {
         data, rng: makeRng(`${seed}|build`), date, dayIndex: idx, analytics, abilityOrder: fetchAbilityOrder,
         images: clueImages, matches: matchesMemo.current, heroCategories, recent,
-        mapImage: lock.mode === "wayfinder" ? (await getMapMeta().catch(() => null))?.image ?? null : undefined,
       });
       return { candidate: payload.key ? { answerId: payload.key, ref: payload.key } : candidate, payload };
     } catch (e) {

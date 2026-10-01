@@ -313,7 +313,7 @@ export async function puzzleAction(slug: string, body: PuzzleAction, dryRun: boo
   const today = todayDate();
   if (date <= today) throw new HttpError(422, `Agents may only act on future dates (after today ${today})`);
   if ((!!lock.box || lock.group === "omens" || MODES[lock.mode]?.selfPicked) && action === "override") {
-    throw new HttpError(422, "Override is not available for this lock (no answer list: Séance tables, Omens, The Cache, The Constellation, The Wayfinder); use regenerate");
+    throw new HttpError(422, "Override is not available for this lock (no answer list: Séance tables, Omens, The Cache, The Constellation); use regenerate");
   }
   const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
 

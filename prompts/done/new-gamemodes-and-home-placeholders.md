@@ -1,7 +1,6 @@
-> **Status: done.** All seven modes are playable (XXIII The Shadow … XXIX The Wayfinder, see the README locks table), so
-> no placeholder cards remain. Departures from this prompt, decided while implementing:
-> - The Wayfinder became a real lock (the user asked for it): a zoomed minimap crop around a real hero position from the
->   Omens harvest; pin it on the map (the mirrored spot counts too).
+> **Status: done.** The six concrete modes are playable (XXIII The Shadow … XXVIII The Constellation, see the README locks
+> table). The Wayfinder keeps its "Under construction" placeholder card, as this prompt asks; it will be designed later.
+> Departures from this prompt, decided while implementing:
 > - The Arsenal: the API has no weapon art, so it uses curated cut-outs (admin setup) and stays sealed until one exists.
 > - The Constellation uses typed names with no suggestions; 4 lives; 10 souls per filled cell + 10 for a full grid.
 > - Hard mode is a general feature (README "Hard mode"), not only for these modes.

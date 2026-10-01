@@ -8,7 +8,7 @@ import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
 import { t } from "@/lib/i18n/en";
 import { SoundStage } from "./SoundPlayer";
-import { CacheStage, ConstellationStage, DecoyStage, MapStage, StatsStage } from "./BoardStages";
+import { CacheStage, ConstellationStage, DecoyStage, StatsStage } from "./BoardStages";
 
 const CLUE_ALT = "Today's clue image";
 
@@ -474,7 +474,6 @@ export function ClueStage({ clue, rows, done = false, subject = "hero", onGuess,
     case "decoy": return <DecoyStage clue={clue} picked={new Map(rows.map((r) => [r.id, r.correct]))} {...play} />;
     case "cache": return <CacheStage clue={clue} {...play} />;
     case "constellation": return <ConstellationStage clue={clue} {...play} />;
-    case "map": return <MapStage clue={clue} {...play} />;
     case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;
