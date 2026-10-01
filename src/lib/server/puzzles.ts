@@ -2,7 +2,7 @@
 import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { PUZZLES_TAG } from "./cache";
-import { LOCKS } from "@/locks.config";
+import { HARD_LOCKS, LOCKS } from "@/locks.config";
 import type { BasePayload } from "../engine/mode";
 import type { AnswerView } from "../engine/types";
 import type { BeastAnswer, ClashAnswer, OmenPayload, RiftAnswer } from "../omens/types";
@@ -46,9 +46,18 @@ export async function getPuzzle(date: string, slug: string) {
 }
 
 export async function dayMeta(date: string): Promise<LockMeta[]> {
+  return metaFor(LOCKS, date);
+}
+
+/** The same for the hard puzzles (an empty state where none was generated). */
+export async function hardMeta(date: string): Promise<LockMeta[]> {
+  return metaFor(HARD_LOCKS, date);
+}
+
+async function metaFor(locks: typeof LOCKS, date: string): Promise<LockMeta[]> {
   const rows = await cachedMeta(date);
   const by = new Map(rows.map((r) => [r.mode, r]));
-  return LOCKS.map((l) => {
+  return locks.map((l) => {
     const r = by.get(l.slug);
     if (!r) return { slug: l.slug, state: "empty" as const };
     return r.sealed ? { slug: l.slug, state: "sealed" as const, sealedReason: r.sealedReason ?? undefined } : { slug: l.slug, state: "available" as const };

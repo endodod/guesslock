@@ -89,11 +89,13 @@ function BonusCard({ bonus, onPick }: { bonus: BonusView; onPick: (id: string) =
 }
 
 export function WinPanel({
-  lock, view, souls, shareText, shareGridText, dist, nextHref, onBonus, nextLabel, practice = false,
+  lock, view, souls, shareText, shareGridText, dist, nextHref, onBonus, nextLabel, hardHref, practice = false,
 }: {
   lock: LockDef; view: PlayView; souls: number; shareText: string; shareGridText?: string;
   dist: Record<string, number>; nextHref: string; onBonus: (id: string) => void;
   nextLabel?: string;
+  /** The hard puzzle of this lock (hard mode switched on, normal lock finished): an extra button. */
+  hardHref?: string;
   /** Endless practice: no distribution, the way back leads to the Endless list. */
   practice?: boolean;
 }) {
@@ -191,6 +193,11 @@ export function WinPanel({
         <Link href={nextHref} className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-ecto/60 bg-ecto/10 px-4 py-2 text-ecto hover:bg-ecto/20">
           {nextLabel ?? t.lock.nextLock} <Icon name="arrow-right" className="h-4 w-4" />
         </Link>
+        {hardHref && (
+          <Link href={hardHref} className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-[#b0433f]/70 bg-[#b0433f]/10 px-4 py-2 text-[#f0b3b0] hover:bg-[#b0433f]/20">
+            <Icon name="flame" className="h-4 w-4" /> Play hard mode
+          </Link>
+        )}
         <Link href={practice ? "/endless" : "/"} className="inline-flex min-h-11 items-center px-4 py-2 text-ash hover:text-paper">
           {practice ? "All endless locks" : t.nav.back}
         </Link>

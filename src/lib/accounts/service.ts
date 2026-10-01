@@ -90,7 +90,6 @@ export async function playAsUser(
   incoming: string[],
   bonusIn: string | undefined,
   giveUpIn = false,
-  hardIn = false,
   defer?: Defer,
 ): Promise<RecordedPlay> {
   const lock = getLock(slug)!;
@@ -108,30 +107,11 @@ export async function playAsUser(
   const bonus = existing?.bonus ?? bonusIn;
   // A finished "lost" play on a lock without a try limit can only be a give-up: keep it given up.
   const giveUp = giveUpIn || (!!finished && existing.status === "lost" && !lock.maxTries);
-  // Hard mode is worth more souls, so the normal clue must never be seen before a hard play: the first clue served is
-  // recorded (an empty play), and a play that has seen the normal clue can't switch to hard. Hard to normal is fine
-  // until the first guess; after it the mode is fixed.
-  const hard = !lock.hard ? false
-    : existing && existing.guesses.length > 0 ? existing.hard
-    : existing ? existing.hard && hardIn
-    : hardIn;
+  // Hard puzzles are their own locks (see HARD_LOCKS), always played hard: nothing to pick, nothing to peek at.
+  const hard = !!lock.hardPlay;
   const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp, hard });
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
-  if (hardIn && !hard && lock.hard && !existing?.guesses.length) view.notice = "Hard mode has to be picked before you see the normal clue.";
-  if (lock.hard && merged.guesses.length === 0 && !bonusIn && !finished) {
-    // First view of a hard-capable lock, or a switch from hard to normal before the first guess.
-    if (!existing || existing.hard !== hard) {
-      await writeLater(defer, async () => {
-        await db.play.upsert({
-          where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
-          create: { userId: user.id, date: row.date, lock: slug, guesses: [], status: "playing", hard, archive },
-          update: { hard },
-        });
-      });
-    }
-    return { view, guesses: [], ranked: !archive && (existing?.source ?? "live") === "live", conflict: false };
-  }
 
   const clean = view.rows.map((r) => r.id);
   const bonusPicked = view.bonus?.picked;
@@ -313,7 +293,7 @@ export async function syncProgress(user: SessionUser, local: Record<string, Reco
         continue;
       }
       const guesses = rec.g.map(String).slice(0, 200);
-      const view = evaluate(lock, row, numberFor(date), guesses, rec.b, lookupFor(catalog, lock.guess), { hard: !!rec.hard });
+      const view = evaluate(lock, row, numberFor(date), guesses, rec.b, lookupFor(catalog, lock.guess), { hard: !!lock.hardPlay });
       const done = view.status === "won" || view.status === "lost";
       await db.play.create({
         data: {

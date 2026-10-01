@@ -25,6 +25,8 @@ type Props = {
   rules: string;
   /** Endless mode: a practice puzzle (its own record, never part of the daily progress). */
   endless?: EndlessProps;
+  /** This lock's hard puzzle exists today (a button offers it after the normal one). */
+  hardReady?: boolean;
 };
 
 export type EndlessProps = {
@@ -46,7 +48,7 @@ async function post(url: string, body: unknown): Promise<PlayResponse> {
   return res.json();
 }
 
-export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless }: Props) {
+export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless, hardReady = false }: Props) {
   const lock = LOCK_BY_SLUG[slug];
   const { store, hydrated, today, setRecord, play, toast, user: account } = useGame();
   // Practice puzzles are played anonymously against /api/endless, whoever is signed in.
@@ -71,8 +73,8 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
-  // Hard mode is switched off for every lock for now (the server and the clue builders still support it).
-  const hard = false;
+  // A hard puzzle is always played hard; the normal locks never are.
+  const hard = !!lock.hardPlay;
 
   const persist = useCallback(
     (v: PlayResponse, guessesIn: string[], bonusIn?: string, giveUp?: boolean) => {
@@ -197,13 +199,18 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   // Next lock: next unsolved by numeral order, wrapping; vault when none left.
   const nextHref = useMemo(() => {
     if (endless) return endless.nextHref;
+    if (lock.hardPlay) return isArchive ? `/archive/${date}` : "/";
     const day = store.progress[date] ?? {};
     const idx = LOCKS.findIndex((l) => l.slug === slug);
     const order = [...LOCKS.slice(idx + 1), ...LOCKS.slice(0, idx)];
     const next = order.find((l) => available.includes(l.slug) && !ignored.has(l.slug) && !["won", "lost"].includes(day[l.slug]?.s ?? ""));
     const q = isArchive ? `?d=${date}` : "";
     return next ? `/lock/${next.slug}${q}` : isArchive ? `/archive/${date}` : "/";
-  }, [store.progress, date, slug, available, isArchive, ignored, endless]);
+  }, [store.progress, date, slug, available, isArchive, ignored, endless, lock.hardPlay]);
+  // The hard puzzle of this lock, offered after the normal one when hard mode is switched on in the Vault.
+  const hardHref = !endless && lock.hard && !lock.hardPlay && hardReady && store.settings.hardMode ? `/lock/${slug}-hard${isArchive ? `?d=${date}` : ""}` : undefined;
+  // A hard puzzle opens once the normal lock of the day is finished.
+  const normalDone = !lock.hardOf || ["won", "lost"].includes(store.progress[date]?.[lock.hardOf]?.s ?? "");
 
   const stats = useMemo(() => lockStats(store.progress, slug, today), [store.progress, slug, today]);
   const souls = rec?.souls ?? view.souls;
@@ -232,8 +239,26 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     );
   }
 
+  if (lock.hardOf && hydrated && !normalDone) {
+    const normal = LOCK_BY_SLUG[lock.hardOf];
+    return (
+      <DecoFrame className="p-8 text-center">
+        <Icon name="lock" className="mx-auto mb-3 h-12 w-12 text-[#b0433f]" />
+        <p className="font-display text-xl text-paper">Hard mode is still locked</p>
+        <p className="mt-2 text-ash">Finish {normal?.name ?? "the normal lock"} first, then come back for its hard puzzle.</p>
+        <Link href={`/lock/${lock.hardOf}${isArchive ? `?d=${date}` : ""}`} className="mt-4 inline-flex min-h-11 items-center rounded-[3px] border border-ecto/60 bg-ecto/10 px-4 text-ecto hover:bg-ecto/20">Go to {normal?.name ?? "the lock"}</Link>
+      </DecoFrame>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-28 md:pb-10">
+      {lock.hardPlay && (
+        <p className="rounded-sm border border-[#b0433f]/50 bg-[#b0433f]/10 px-3 py-2 text-sm text-[#f0b3b0]">
+          <span className="smallcaps mr-2 text-[#e0645c]">Hard mode</span>
+          {t.lock.hardInfo[lock.hardOf ?? ""] ?? "a tougher clue"} · 1.5× souls
+        </p>
+      )}
       {/* Rules popover trigger lives in the header; the popover renders here */}
       <div className="flex items-center justify-between gap-2">
         <LockpickRow total={lock.picks} broken={view.wrong} hintAt={hintAt} glowing={view.status === "won"} triesLeft={triesLeft} />
@@ -320,7 +345,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       </AnimatePresence>
 
       {done ? (
-        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={endless ? undefined : shareGridText} dist={endless ? {} : stats.dist} nextHref={nextHref} nextLabel={endless ? "Next puzzle" : undefined} practice={!!endless} onBonus={onBonus} />
+        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={endless ? undefined : shareGridText} dist={endless ? {} : stats.dist} nextHref={nextHref} nextLabel={endless ? "Next puzzle" : lock.hardPlay ? "Back to the Vault" : undefined} hardHref={hardHref} practice={!!endless} onBonus={onBonus} />
       ) : boardInput ? null : lock.guess === "number" ? (
         <NumberInput placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (

@@ -1,6 +1,6 @@
 // Local player data (localStorage). Keyed by date and lock *slug* — never by numeral —
 // so renumbering locks can't corrupt saved progress. Pure helpers are unit-tested.
-import { boxOf, LEGACY_11_NUMERALS, LOCKS, SOUND_LOCK_SLUGS } from "@/locks.config";
+import { boxOf, LEGACY_11_NUMERALS, LOCK_BY_SLUG, SOUND_LOCK_SLUGS } from "@/locks.config";
 import { foldPlays } from "../seance/scoring";
 
 export type LockRecord = {
@@ -30,7 +30,7 @@ export type Settings = {
   skipSound: boolean;
   /** Sound locks volume, 0…1 (separate from the SFX toggle). */
   soundVolume: number;
-  /** Start locks that have a hard variant in hard mode (can still be switched per lock before the first guess). */
+  /** Show the hard puzzles in the Vault (and offer them after a finished lock). */
   hardMode: boolean;
 };
 
@@ -68,7 +68,7 @@ export function migrateStore(raw: unknown): StoreData {
   out.onboarded = !!r.onboarded;
   out.settings = { ...DEFAULT_SETTINGS, ...((r.settings as Partial<Settings>) ?? {}) };
   const progress = (r.progress ?? {}) as Record<string, Record<string, LockRecord>>;
-  const validSlugs = new Set(LOCKS.map((l) => l.slug));
+  const validSlugs = new Set(Object.keys(LOCK_BY_SLUG)); // the hard puzzles too
   for (const [date, locks] of Object.entries(progress)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !locks || typeof locks !== "object") continue;
     for (const [key, rec] of Object.entries(locks)) {

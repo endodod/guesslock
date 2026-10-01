@@ -34,7 +34,8 @@ export function evaluate(
   const payload = row.payload as BasePayload;
   const impl = MODES[lock.mode];
   // Hard mode only exists where the mode has a hard variant.
-  const hard = !!opts.hard && !!impl.hard;
+  // A hard puzzle (a virtual lock of its own) is always hard; Endless practice can still ask for it per play.
+  const hard = !!impl.hard && (!!lock.hardPlay || !!opts.hard);
   const rows: GuessRow[] = [];
   const seen = new Set<string>();
   let won = false;
@@ -124,7 +125,8 @@ export function evaluate(
   if (done) {
     const r = { won, rows, wrong, hintsUsed };
     const souls = impl.souls ? impl.souls(payload, r) : soulsFor({ won, guesses: rows.length, hintsUsed, bonusCorrect: !!view.bonus?.correct });
-    view.souls = hard ? hardSouls(souls) : souls;
+    const weighted = Math.round(souls * (lock.soulsWeight ?? 1)); // harder locks pay more, easier ones less
+    view.souls = hard ? hardSouls(weighted) : weighted;
   }
   return view;
 }

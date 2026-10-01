@@ -4,6 +4,7 @@ import {
   sellValue, type Collectible, type Kind,
 } from "@/lib/market/catalog";
 import { makeRng } from "@/lib/rng";
+import { DAILY_INCOME, scaleValue } from "@/lib/game/economy";
 import { VAULT_UNITS } from "@/locks.config";
 import { ability, hero, makeData } from "./fixtures";
 import type { ItemData } from "@/lib/engine/context";
@@ -28,8 +29,8 @@ describe("The Black Market catalogue", () => {
     expect(new Set(all.map((c) => c.key)).size).toBe(all.length);
     const items = all.filter((c) => c.kind === "item");
     expect(items).toHaveLength(24); // items without a price or a picture are left out
-    expect(items.find((c) => c.key === "item:10")).toMatchObject({ rarity: "common", value: 50 });
-    expect(items.find((c) => c.key === "item:40")).toMatchObject({ rarity: "legendary", value: 630 });
+    expect(items.find((c) => c.key === "item:10")).toMatchObject({ rarity: "common", value: scaleValue(50) });
+    expect(items.find((c) => c.key === "item:40")).toMatchObject({ rarity: "legendary", value: scaleValue(630) });
     expect(all.filter((c) => c.kind === "weapon")).toHaveLength(40);
     expect(all.filter((c) => c.kind === "hero")).toHaveLength(40);
     expect(all.filter((c) => c.kind === "ability")).toHaveLength(160);
@@ -111,6 +112,23 @@ describe("The Black Market catalogue", () => {
     expect(scrapValue(x)).toBe(200);
     expect(sellValue(x)).toBe(240);
     expect(sellValue(x)).toBeGreaterThan(scrapValue(x));
+  });
+});
+
+describe("The Black Market economy", () => {
+  it("a Cursed Vault costs about a full day of a typical player, the others a share of it, and every case still pays back 60-90%", () => {
+    const cursed = CASES.find((c) => c.id === "cursed")!;
+    expect(Math.abs(cursed.price - DAILY_INCOME)).toBeLessThanOrEqual(10);
+    expect(DAILY_INCOME).toBeGreaterThan(1200);
+    expect(DAILY_INCOME).toBeLessThan(3000);
+    for (const c of CASES) {
+      expect(c.price, c.id).toBeLessThanOrEqual(cursed.price);
+      const ratio = expectedValue(c, all) / c.price;
+      expect(ratio, c.id).toBeGreaterThan(0.1); // the fixture catalogue is smaller than the real one
+      expect(ratio, c.id).toBeLessThan(1.05);
+    }
+    // The cheapest case is a small fraction of a day, so a day buys several.
+    expect(Math.min(...CASES.map((c) => c.price))).toBeLessThan(DAILY_INCOME / 4);
   });
 });
 

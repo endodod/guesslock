@@ -10,7 +10,7 @@ import { config } from "@/lib/config";
 import { isDay, numberFor, todayDate } from "@/lib/day";
 import { getCatalog, lookupFor } from "@/lib/engine/catalog";
 import { evaluate } from "@/lib/engine/play";
-import { dayMeta, getPuzzle } from "@/lib/server/puzzles";
+import { dayMeta, getPuzzle, hardMeta } from "@/lib/server/puzzles";
 import { RULES } from "@/lib/i18n/rules";
 import { healToday } from "@/lib/server/heal";
 import { t } from "@/lib/i18n/en";
@@ -19,7 +19,6 @@ import { getMapMeta } from "@/lib/omens/map";
 import { omenView } from "@/lib/omens/serve";
 import type { OmenPayload } from "@/lib/omens/types";
 import type { Catalog } from "@/lib/engine/types";
-import { currentUser } from "@/lib/auth/server";
 
 /** Hero and item lookups for the Omen panels (ids -> name/icon). */
 function omenCatalog(catalog: Catalog) {
@@ -46,7 +45,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   if (!lock) notFound();
   const today = todayDate();
   const date = isDay(d) && d < today ? d : today;
-  const [row, meta, catalog, user] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog(), currentUser()]);
+  const [row, meta, catalog, hard] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog(), lock.hard ? hardMeta(date) : null]);
   if (date === today) healToday(date, meta);
   const number = numberFor(date);
   const available = meta.filter((m) => m.state === "available").map((m) => m.slug);
@@ -61,14 +60,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
         return evaluateSeance(l, r ?? empty, number, []).view;
       }))
     : null;
-  // Signed in, a lock with a hard variant: the clue comes from the account (in the mode the player picks), never
-  // pre-rendered in the normal mode, so a ranked hard play can't have seen the easier clue.
-  const initialView = row && !isOmen && !lock.box
-    ? (() => {
-        const v = evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess));
-        return user && lock.hard ? { ...v, clue: null } : v;
-      })()
-    : null;
+  const initialView = row && !isOmen && !lock.box ? evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess)) : null;
   // Start downloading the clue picture with the page instead of after the game component has loaded.
   if (initialView?.clue && "image" in initialView.clue && initialView.clue.image) preload(initialView.clue.image, { as: "image" });
   return (
@@ -115,6 +107,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}
+          hardReady={hard?.find((m) => m.slug === `${slug}-hard`)?.state === "available"}
         />
       ) : (
         <DecoFrame className="p-8 text-center">

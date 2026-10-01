@@ -64,6 +64,8 @@ export function OmenLock({ slug, date, number, initial, cat, map, site, availabl
             g: [], o: (v as OmenView & { account?: { answers: OmenAnswer } }).account?.answers ?? answers,
             s: "won", w: 0, h: 0, souls: v.reveal!.result.total,
             archive: isArchive, at: Date.now(),
+            // The cover on the Vault: the six richest heroes of the frozen moment.
+            answer: { name: `Match ${v.reveal!.matchId}`, image: null, images: [...initial.snapshot.heroes].sort((a, b) => b.netWorth - a.netWorth).slice(0, 6).flatMap((h) => { const u = cat.heroes[h.heroId]?.icon; return u ? [u] : []; }) },
           });
         }}
         footer={(reveal) => (

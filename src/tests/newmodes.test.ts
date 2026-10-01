@@ -3,7 +3,7 @@ import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { makeRng } from "@/lib/rng";
-import { LOCK_BY_SLUG } from "@/locks.config";
+import { HARD_LOCKS, LOCK_BY_SLUG, LOCKS, getLock } from "@/locks.config";
 import { evaluate } from "@/lib/engine/play";
 import { checkLeaks } from "@/lib/engine/leaks";
 import { hardHiddenColumns, type BasePayload } from "@/lib/engine/mode";
@@ -301,14 +301,36 @@ describe("hard mode", () => {
     const lock = LOCK_BY_SLUG.reckoning;
     const view = evaluate(lock, row(p, "classic"), 1, ["2", "1"], undefined, heroLookup(data), { hard: true });
     expect(view.rows[0].tiles!.filter((t) => t.result === "hidden")).toHaveLength(2);
-    expect(view.souls).toBe(hardSouls(90));
-    expect(evaluate(lock, row(p, "classic"), 1, ["2", "1"], undefined, heroLookup(data)).souls).toBe(90);
+    expect(view.souls).toBe(hardSouls(Math.round(90 * LOCK_BY_SLUG.reckoning.soulsWeight!))); // the lock's weight, then 1.5x
+    expect(evaluate(lock, row(p, "classic"), 1, ["2", "1"], undefined, heroLookup(data)).souls).toBe(Math.round(90 * lock.soulsWeight!));
+  });
+
+  it("hard puzzles are virtual locks of their own: derived from the locks with a hard clue, never part of the Vault", () => {
+    expect(HARD_LOCKS.length).toBeGreaterThan(5);
+    for (const l of HARD_LOCKS) {
+      expect(l.hardPlay).toBe(true);
+      expect(l.slug).toBe(`${l.hardOf}-hard`);
+      expect(LOCK_BY_SLUG[l.hardOf!].hard).toBe(true);
+      expect(getLock(l.slug)).toBe(l);
+      expect(LOCKS.some((x) => x.slug === l.slug)).toBe(false);
+    }
+    expect(HARD_LOCKS.some((l) => l.hardOf === "testament")).toBe(false); // no hard clue there
+  });
+
+  it("a hard puzzle is always played hard, with no flag from the player, and pays 1.5x", async () => {
+    const data = makeData({ heroes: Array.from({ length: 6 }, (_, i) => hero(i + 1, `H${i + 1}`)) });
+    const p = (await reckoning.build({ answerId: "1", ref: 1 }, ctx(data))) as BasePayload;
+    const lock = LOCK_BY_SLUG["reckoning-hard"];
+    const view = evaluate(lock, row(p, "classic"), 1, ["2", "1"], undefined, heroLookup(data));
+    expect(view.hard).toBe(true);
+    expect(view.rows[0].tiles!.filter((t) => t.result === "hidden")).toHaveLength(2);
+    expect(view.souls).toBe(hardSouls(Math.round(90 * LOCK_BY_SLUG.reckoning.soulsWeight!))); // the lock's weight, then 1.5x
   });
 
   it("is ignored on locks without a hard variant", async () => {
     const view = evaluate(LOCK_BY_SLUG.testament, row({ v: 1, mode: "lore", answer: { id: "1", name: "Haze", image: null }, correctIds: ["1"], leakTerms: [], hints: {}, clue: { chunks: ["a"] } }, "lore"), 1, ["1"], undefined, () => ({ id: "1", name: "Haze", icon: null }), { hard: true });
     expect(view.hard).toBeUndefined();
-    expect(view.souls).toBe(100);
+    expect(view.souls).toBe(Math.round(100 * LOCK_BY_SLUG.testament.soulsWeight!));
   });
 });
 
@@ -362,5 +384,22 @@ describe("The Constellation: taking heroes off and impossible grids", () => {
     const won = v([`0:${hero0}`, "-0", ...full]);
     expect(won.status).toBe("won");
     expect(won.souls).toBe(100);
+  });
+});
+
+describe("soul weights", () => {
+  it("every weight is a sane multiplier, hard puzzles keep their lock's, and Omens and sorting tables stay on the base scale", () => {
+    for (const l of LOCKS) {
+      const w = l.soulsWeight ?? 1;
+      expect(w, l.slug).toBeGreaterThanOrEqual(0.7);
+      expect(w, l.slug).toBeLessThanOrEqual(1.5);
+      if (l.group === "omens" || l.box) expect(l.soulsWeight, l.slug).toBeUndefined();
+    }
+    for (const h of HARD_LOCKS) expect(h.soulsWeight).toBe(LOCK_BY_SLUG[h.hardOf!].soulsWeight);
+    // The base scale stays balanced: weights average about 1 over the guessing locks.
+    const guess = LOCKS.filter((l) => l.group !== "omens" && !l.box);
+    const avg = guess.reduce((a, l) => a + (l.soulsWeight ?? 1), 0) / guess.length;
+    expect(avg).toBeGreaterThan(0.95);
+    expect(avg).toBeLessThan(1.1);
   });
 });

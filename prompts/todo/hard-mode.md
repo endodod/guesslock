@@ -1,6 +1,6 @@
 # Hard Mode
 
-> **Implemented** (per lock, before the first guess, 1.5x souls; see README "Hard mode") for every row below except the
+> **Implemented** (a second puzzle per day with its own answer, open once the normal lock is finished, 1.5x souls; see README "Hard mode") for every row below except the
 > ones still open: The Testament and The Incantation need curated rewrites (many variants of the same text), The
 > Ascension is undecided, and the Omens have none. The Measure's hard mode hides the other stat values (the pool is
 > unchanged, since puzzles are frozen before anyone picks a mode).

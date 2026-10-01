@@ -57,8 +57,18 @@ export type LockDef = {
   table?: { kind: SeanceTable; label: string };
   /** How guesses are entered when it isn't the search box: one of the clue's items (The Decoy). */
   input?: "choice";
-  /** Has a hard variant (the player picks it before the first guess; worth 1.5x souls). */
+  /** Has a hard puzzle: a second puzzle per day with its own answer (see HARD_LOCKS), open once this lock is finished. */
   hard?: boolean;
+  /** A hard puzzle itself (derived from a lock with `hard`): played with the hard clue, worth 1.5x souls. */
+  hardPlay?: boolean;
+  /**
+   * What a finished play is worth compared with the base scale (100 souls at most, less per guess): a lock that is harder
+   * to crack pays more, an easy one less. Default 1. Not used by the Omens and the sorting tables (always up to 100). A hard
+   * puzzle keeps its lock's weight and adds the 1.5x on top.
+   */
+  soulsWeight?: number;
+  /** Hard puzzles: the slug of the normal lock that has to be finished first. */
+  hardOf?: string;
 };
 
 export type SeanceBoxDef = {
@@ -86,68 +96,68 @@ export const SEANCE_BOXES: Record<SeanceBoxId, SeanceBoxDef> = Object.fromEntrie
 
 export const LOCKS: LockDef[] = [
   {
-    slug: "reckoning", mode: "classic", numeral: "I", name: "The Reckoning",
+    slug: "reckoning", soulsWeight: 0.9, mode: "classic", numeral: "I", name: "The Reckoning",
     subtitle: "Guess the hero by attributes", group: "spirits", guess: "hero", picks: 6, hard: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "visage", mode: "splash", numeral: "II", name: "The Visage",
+    slug: "visage", soulsWeight: 0.8, mode: "splash", numeral: "II", name: "The Visage",
     subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: [],
   },
   {
-    slug: "sigil", mode: "ability-icon", numeral: "III", name: "The Sigil",
+    slug: "sigil", soulsWeight: 1, mode: "ability-icon", numeral: "III", name: "The Sigil",
     subtitle: "Guess the hero from an ability icon", group: "spirits", guess: "hero", picks: 6, hard: true,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "testament", mode: "lore", numeral: "IV", name: "The Testament",
+    slug: "testament", soulsWeight: 1.1, mode: "lore", numeral: "IV", name: "The Testament",
     subtitle: "Guess the hero from their lore", group: "spirits", guess: "hero", picks: 7,
     hints: LETTER_HINTS(4, 7),
   },
   {
-    slug: "incantation", mode: "ability-desc", numeral: "V", name: "The Incantation",
+    slug: "incantation", soulsWeight: 1, mode: "ability-desc", numeral: "V", name: "The Incantation",
     subtitle: "Guess the hero from an ability description", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true,
     hints: LETTER_HINTS(3, 6),
   },
   {
-    slug: "belongings", mode: "whose-build", numeral: "VI", name: "The Belongings",
+    slug: "belongings", soulsWeight: 1.2, mode: "whose-build", numeral: "VI", name: "The Belongings",
     subtitle: "Guess the hero from their build", group: "spirits", guess: "hero", picks: 7, hard: true,
     hints: LETTER_HINTS(5, 7),
   },
   {
-    slug: "ascension", mode: "upgrades", numeral: "VII", name: "The Ascension",
+    slug: "ascension", soulsWeight: 1.3, mode: "upgrades", numeral: "VII", name: "The Ascension",
     subtitle: "Guess the ability from its upgrades", group: "spirits", guess: "ability", picks: 6,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "cipher", mode: "emoji", numeral: "VIII", name: "The Cipher",
+    slug: "cipher", soulsWeight: 1, mode: "emoji", numeral: "VIII", name: "The Cipher",
     subtitle: "Guess the hero from emojis", group: "spirits", guess: "hero", picks: 8,
     // 5 emojis per puzzle: all shown after 4 wrong guesses.
     hints: LETTER_HINTS(6, 8),
   },
   {
-    slug: "echo", mode: "quote", numeral: "IX", name: "The Echo",
+    slug: "echo", soulsWeight: 0.9, mode: "quote", numeral: "IX", name: "The Echo",
     subtitle: "Guess the hero from their select lines", group: "spirits", guess: "hero", picks: 6,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "utterance", mode: "quote-cast", numeral: "X", name: "The Utterance",
+    slug: "utterance", soulsWeight: 1, mode: "quote-cast", numeral: "X", name: "The Utterance",
     subtitle: "Guess the hero from what they say casting an ability", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "colloquy", mode: "quote-convo", numeral: "XI", name: "The Colloquy",
+    slug: "colloquy", soulsWeight: 0.9, mode: "quote-convo", numeral: "XI", name: "The Colloquy",
     subtitle: "Guess the hero from a conversation", group: "spirits", guess: "hero", picks: 6,
     hints: LETTER_HINTS(3, 5),
   },
   {
-    slug: "resonance", mode: "hero-sound", numeral: "XII", name: "The Resonance",
+    slug: "resonance", soulsWeight: 1.2, mode: "hero-sound", numeral: "XII", name: "The Resonance",
     subtitle: "Guess the hero from an ability cast sound", group: "spirits", guess: "hero", picks: 6,
     bonusRound: true, needsAudio: true,
     // Wrong guesses unlock more sound (clear clip, then more cast variants; see the mode). Hints are the shared letter hints.
@@ -155,53 +165,53 @@ export const LOCKS: LockDef[] = [
   },
   // Added after the Séance family (numerals XXIII+ so the existing ones never change), shown with their groups.
   {
-    slug: "shadow", mode: "silhouette", numeral: "XXIII", name: "The Shadow",
+    slug: "shadow", soulsWeight: 0.9, mode: "silhouette", numeral: "XXIII", name: "The Shadow",
     subtitle: "Guess the hero from their silhouette", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "arsenal", mode: "weapon", numeral: "XXIV", name: "The Arsenal",
+    slug: "arsenal", soulsWeight: 1, mode: "weapon", numeral: "XXIV", name: "The Arsenal",
     subtitle: "Guess the hero from their weapon", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "calculus", mode: "ability-stats", numeral: "XXV", name: "The Calculus",
+    slug: "calculus", soulsWeight: 1.2, mode: "ability-stats", numeral: "XXV", name: "The Calculus",
     subtitle: "Guess the hero from their abilities' stats", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "relic", mode: "item-picture", numeral: "XIII", name: "The Relic",
+    slug: "relic", soulsWeight: 1, mode: "item-picture", numeral: "XIII", name: "The Relic",
     subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6, hard: true,
     bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "appraisal", mode: "item-classic", numeral: "XIV", name: "The Appraisal",
+    slug: "appraisal", soulsWeight: 0.9, mode: "item-classic", numeral: "XIV", name: "The Appraisal",
     subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6, hard: true,
     bonusRound: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
-    slug: "lineage", mode: "build-path", numeral: "XV", name: "The Lineage",
+    slug: "lineage", soulsWeight: 1, mode: "build-path", numeral: "XV", name: "The Lineage",
     subtitle: "Guess what builds into what", group: "shop", guess: "item", picks: 6,
     bonusRound: true,
     noRepeatDays: 10,
     hints: LETTER_HINTS(3, 5),
   },
   {
-    slug: "measure", mode: "stat-bonus", numeral: "XVI", name: "The Measure",
+    slug: "measure", soulsWeight: 1.1, mode: "stat-bonus", numeral: "XVI", name: "The Measure",
     subtitle: "Guess the item's hidden stat value", group: "shop", guess: "number", picks: 5, hard: true,
     maxTries: 5,
     hints: [],
   },
   {
-    slug: "decoy", mode: "decoy", numeral: "XXVI", name: "The Decoy",
+    slug: "decoy", soulsWeight: 1, mode: "decoy", numeral: "XXVI", name: "The Decoy",
     subtitle: "Spot the fake item in a hero's build", group: "shop", guess: "item", picks: 3, maxTries: 3,
     input: "choice", hard: true, noRepeatDays: 20, hints: [],
   },
   {
-    slug: "cache", mode: "cache", numeral: "XXVII", name: "The Cache",
+    slug: "cache", soulsWeight: 1, mode: "cache", numeral: "XXVII", name: "The Cache",
     subtitle: "Match a team to their inventories", group: "shop", guess: "match", picks: 4, maxTries: 4,
     hard: true, noRepeatDays: 60, hints: [],
   },
@@ -220,7 +230,7 @@ export const LOCKS: LockDef[] = [
     subtitle: "Predict the Unstable Rift", group: "omens", guess: "omen", picks: 0, hints: [],
   },
   {
-    slug: "constellation", mode: "constellation", numeral: "XXVIII", name: "The Constellation",
+    slug: "constellation", soulsWeight: 1, mode: "constellation", numeral: "XXVIII", name: "The Constellation",
     subtitle: "Fill the 3x3 hero category grid", group: "stars", guess: "grid", picks: 4, maxTries: 4,
     noRepeatDays: 30, hints: [],
   },
@@ -236,7 +246,16 @@ export const LOCKS: LockDef[] = [
   ),
 ];
 
-export const LOCK_BY_SLUG: Record<string, LockDef> = Object.fromEntries(LOCKS.map((l) => [l.slug, l]));
+/**
+ * The hard puzzles: for every lock with `hard`, a second puzzle per day (slug "<slug>-hard") with its own answer, always
+ * played with the hard clue and worth 1.5x souls. They are not part of LOCKS (so they never count towards the Vault's
+ * "x / N locks", the share, the ledger or the streak) and open once the normal lock is finished.
+ */
+export const HARD_LOCKS: LockDef[] = LOCKS.filter((l) => l.hard).map((l) => ({
+  ...l, slug: `${l.slug}-hard`, name: `${l.name} · Hard`, hard: false, hardPlay: true, hardOf: l.slug,
+}));
+
+export const LOCK_BY_SLUG: Record<string, LockDef> = Object.fromEntries([...LOCKS, ...HARD_LOCKS].map((l) => [l.slug, l]));
 
 export function getLock(slug: string): LockDef | undefined {
   return LOCK_BY_SLUG[slug];

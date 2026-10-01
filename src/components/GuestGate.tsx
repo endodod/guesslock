@@ -9,7 +9,7 @@ export function GuestGate() {
   const { gated, startGuest } = useGame();
   const path = usePathname();
   // The sign-in pages themselves must stay reachable.
-  if (!gated || path.startsWith("/auth")) return null;
+  if (!gated || path.startsWith("/auth") || path.startsWith("/invite")) return null;
   const next = encodeURIComponent(path);
   return (
     <div role="dialog" aria-modal="true" aria-label="Welcome to GUESSLOCK" className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-ink/95 p-4 backdrop-blur">

@@ -152,7 +152,8 @@ export const constellation: ModeImpl<ConstellationClue> = {
     const key = `${date}:${[...grid.rows, ...grid.cols].map((f) => f.label).join("|")}`;
     return {
       v: 1, mode: "constellation", key,
-      answer: { id: "grid", name: "The full sky", image: null },
+      // The solution as a picture: the nine heroes of one full grid.
+      answer: { id: "grid", name: "The full sky", image: null, images: grid.solution.flatMap((id) => { const u = pool.find((h) => h.id === id)?.icon; return u ? [u] : []; }) },
       correctIds: [],
       leakTerms: [],
       hints: {},

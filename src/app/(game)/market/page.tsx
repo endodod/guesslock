@@ -3,6 +3,9 @@ import { currentUser } from "@/lib/auth/server";
 import { ensureProfile } from "@/lib/accounts/service";
 import { marketState } from "@/lib/market/service";
 import { Market } from "@/components/Market";
+import { cookies } from "next/headers";
+import { dailyState, inviteState } from "@/lib/market/earn";
+import { INVITE_COOKIE } from "@/lib/market/rewards";
 import { DecoFrame } from "@/components/ui";
 
 export const metadata = { title: "The Black Market" };
@@ -10,7 +13,8 @@ export const metadata = { title: "The Black Market" };
 export default async function MarketPage() {
   const user = await currentUser();
   if (user) await ensureProfile(user);
-  const state = user ? await marketState(user.id) : null;
+  const ref = (await cookies()).get(INVITE_COOKIE)?.value ?? null;
+  const [state, daily, invite] = user ? await Promise.all([marketState(user.id), dailyState(user.id), inviteState(user.id, ref ? decodeURIComponent(ref) : null)]) : [null, null, null];
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:py-10">
       <h1 className="font-display text-3xl text-cursed">The Black Market</h1>
@@ -18,8 +22,8 @@ export default async function MarketPage() {
         Spend the souls you earn on cosmetics: titles and name colours for the leaderboards, and themes for your Vault. Nothing here changes a puzzle or a score,
         and spending never costs you a place on the boards. Cases are bought with souls only, never with money.
       </p>
-      {state ? (
-        <Market initial={state} />
+      {state && daily && invite ? (
+        <Market initial={state} earn={{ daily, invite }} />
       ) : (
         <DecoFrame className="mt-6 p-6 text-center">
           <p className="text-paper">The market only deals with registered keepers: souls kept in a browser could be edited, so they can&apos;t be spent.</p>

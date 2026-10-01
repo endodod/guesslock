@@ -5,32 +5,37 @@ if (/neon\.tech/.test(process.env.DATABASE_URL ?? "") && !process.argv.includes(
 import assert from "node:assert/strict";
 import { db } from "../src/lib/db";
 import { balance, claimSet, equip, inventoryState, marketState, openCase, sellItem, MarketError } from "../src/lib/market/service";
-import { scrapValue, sellValue } from "../src/lib/market/catalog";
+import { CASE_BY_ID, scrapValue, sellValue } from "../src/lib/market/catalog";
+import { claimDaily, dailyState, inviteState, inviteToken, redeemInvite } from "../src/lib/market/earn";
+import { INVITE_NEW, INVITE_REFERRER, dailyReward } from "../src/lib/market/rewards";
 
 const USERS = ["u-a", "u-b"];
+const CRATE = CASE_BY_ID.scrapheap.price;
 const cleanup = async () => {
   for (const id of USERS) {
     await db.profile.deleteMany({ where: { userId: id } });
     await db.userStats.deleteMany({ where: { userId: id } });
     await db.soulLedger.deleteMany({ where: { userId: id } });
+    await db.play.deleteMany({ where: { userId: id } });
   }
 };
 
 (async () => {
   await cleanup();
-  for (const [id, name, souls] of [["u-a", "Alice Test", 1000], ["u-b", "Bob Test", 50]] as const) {
+  for (const [id, name, souls] of [["u-a", "Alice Test", CRATE * 5 + 30], ["u-b", "Bob Test", 50]] as const) {
     await db.profile.create({ data: { userId: id, displayName: name, nameKey: name.toLowerCase() } });
     await db.userStats.create({ data: { userId: id, totalSouls: souls } });
   }
-  // 12 parallel scrapheap crates (140 each) on 1000 souls: never overspends, whatever the refunds turn out to be.
-  const r = await Promise.allSettled(Array.from({ length: 12 }, () => openCase("u-a", "scrapheap")));
+  // 8 parallel scrapheap crates on enough souls for five (the pool holds 10 connections): never overspends, whatever the refunds turn out to be.
+  const r = await Promise.allSettled(Array.from({ length: 8 }, () => openCase("u-a", "scrapheap")));
   const ok = r.filter((x) => x.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof openCase>>>[];
   const refunds = ok.reduce((a, x) => a + x.value.refund, 0);
   const b = await balance("u-a");
   console.log("opened", ok.length, "refunds", refunds, "balance", b);
   assert.ok(b.spendable >= 0);
-  assert.equal(b.earned, 1000);
-  assert.equal(b.spendable, 1000 - ok.length * 140 + refunds);
+  assert.equal(b.earned, CRATE * 5 + 30);
+  assert.equal(b.spendable, (CRATE * 5 + 30) - ok.length * CRATE + refunds);
+  for (const x of r) if (x.status === "rejected" && !(x.reason instanceof MarketError)) console.log("unexpected rejection:", String(x.reason).slice(0, 300));
   assert.ok(r.filter((x) => x.status === "rejected").every((x) => (x as PromiseRejectedResult).reason instanceof MarketError));
   // Duplicates are scrapped, never stored twice, and the refund is the published share of the value.
   const keys = (await db.inventoryItem.findMany({ where: { userId: "u-a" } })).map((i) => i.itemKey);
@@ -56,8 +61,31 @@ const cleanup = async () => {
   await assert.rejects(claimSet("u-a", "map:all"), /complete/);
   const st = await marketState("u-a");
   console.log("state ok", st.spendable, st.cases.length, st.ledger.length);
+  // Daily reward: once a day, 20 souls on day 1, and a parallel double click pays once.
+  const wallet0 = (await balance("u-b")).spendable;
+  const claims = await Promise.allSettled([claimDaily("u-b"), claimDaily("u-b"), claimDaily("u-b")]);
+  assert.equal(claims.filter((x) => x.status === "fulfilled").length, 1);
+  assert.equal((await balance("u-b")).spendable, wallet0 + dailyReward(1));
+  const ds = await dailyState("u-b");
+  assert.equal(ds.claimedToday, true);
+  assert.equal(ds.streak, 1);
+  await assert.rejects(claimDaily("u-b"), /already/);
+  // Invitations: not before a ranked lock is finished, never your own link, paid to both once.
+  const tokenA = inviteToken("u-a");
+  await assert.rejects(redeemInvite("u-b", tokenA), /ranked/);
+  await assert.rejects(redeemInvite("u-a", tokenA), /yourself/);
+  await db.play.create({ data: { userId: "u-b", date: "2026-01-01", lock: "reckoning", guesses: ["1"], status: "won", souls: 100, source: "live", archive: false } });
+  assert.equal((await inviteState("u-b", tokenA)).pending?.ready, true);
+  const beforeA = (await balance("u-a")).spendable, beforeB = (await balance("u-b")).spendable;
+  const paid = await Promise.allSettled([redeemInvite("u-b", tokenA), redeemInvite("u-b", tokenA)]);
+  assert.equal(paid.filter((x) => x.status === "fulfilled").length, 1);
+  assert.equal((await balance("u-b")).spendable, beforeB + INVITE_NEW);
+  assert.equal((await balance("u-a")).spendable, beforeA + INVITE_REFERRER);
+  assert.equal((await inviteState("u-a")).joined, 1);
+  await assert.rejects(redeemInvite("u-b", tokenA), /already/);
+  await assert.rejects(redeemInvite("u-b", "garbage"), /valid/);
   // Bob can't buy what he can't afford.
-  await assert.rejects(openCase("u-b", "relic"), /Not enough/);
+  await assert.rejects(openCase("u-b", "coffer").then(() => openCase("u-b", "cursed")), /Not enough/);
   await cleanup();
   console.log("market OK");
   await db.$disconnect();

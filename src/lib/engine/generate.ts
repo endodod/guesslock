@@ -1,7 +1,7 @@
 // Daily puzzle generation: one frozen DailyPuzzle row per lock per day.
 import { db } from "../db";
 import { config } from "../config";
-import { LOCKS, type LockDef } from "@/locks.config";
+import { HARD_LOCKS, LOCKS, type LockDef } from "@/locks.config";
 import { makeRng, puzzleSeed } from "../rng";
 import { addDays } from "../time";
 import { dayIndex, todayDate } from "../day";
@@ -50,6 +50,12 @@ async function latestDataVersion(): Promise<number | null> {
   return run?.clientVersion ?? null;
 }
 
+/** The answer of a normal lock on a day (for its hard puzzle to avoid). */
+async function normalAnswer(date: string, slug: string): Promise<string[]> {
+  const row = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } }, select: { answerId: true, sealed: true } });
+  return row && !row.sealed ? [row.answerId] : [];
+}
+
 async function recentAnswers(slug: string, date: string, windowDays: number): Promise<string[]> {
   if (windowDays <= 0) return [];
   const rows = await db.dailyPuzzle.findMany({
@@ -90,6 +96,8 @@ export async function regenerateOmen(date: string, slug: string): Promise<void> 
 /** Build a payload for one lock/day. Returns null when the pool is empty. */
 export async function buildPuzzle(
   lock: LockDef, date: string, data: GameData, analytics: () => Promise<HeroItemStats>, forced?: Candidate,
+  /** Answers to stay away from (a hard puzzle never repeats the answer of its normal lock that day). */
+  avoid: string[] = [],
 ): Promise<{ candidate: Candidate; payload: BasePayload } | null> {
   const impl = MODES[lock.mode];
   const idx = dayIndex(date);
@@ -98,7 +106,7 @@ export async function buildPuzzle(
   let order: Candidate[];
   // Modes that pick their own answer in build() (one candidate) get a window sized by their own default.
   const window = noRepeatWindow(pool.length > 1 ? pool.length : 100, config.maxNoRepeatDays, lock.noRepeatDays);
-  const recent = forced ? [] : await recentAnswers(lock.slug, date, window);
+  const recent = forced ? [] : [...(await recentAnswers(lock.slug, date, window)), ...avoid];
   if (forced) order = [forced];
   else order = orderCandidates(pool, recent, seed);
   for (const candidate of order.slice(0, 8)) {
@@ -126,7 +134,8 @@ export async function generateDay(
   const today = todayDate();
   const results: GenResult[] = [];
 
-  for (const lock of LOCKS) {
+  // The hard puzzles come after the normal locks, so they can stay clear of today's normal answers.
+  for (const lock of [...LOCKS, ...HARD_LOCKS]) {
     if (opts.slugs && !opts.slugs.includes(lock.slug)) continue;
     const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: lock.slug } } });
     // Never regenerate a day that is live or past unless forced; overrides always stick.
@@ -140,7 +149,7 @@ export async function generateDay(
       const built =
         lock.group === "omens" ? await buildOmen(lock, date)
         : !!lock.box ? await buildSeance(lock, date)
-        : await buildPuzzle(lock, date, data, analytics);
+        : await buildPuzzle(lock, date, data, analytics, undefined, lock.hardOf ? await normalAnswer(date, lock.hardOf) : []);
       if (!built) throw new SealedError("no eligible answers");
       const row = {
         answerId: built.candidate.answerId,

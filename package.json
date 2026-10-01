@@ -23,6 +23,7 @@
     "import:herovoice": "tsx --tsconfig tsconfig.json scripts/import-hero-voice.ts",
     "import:castsounds": "tsx --tsconfig tsconfig.json scripts/import-cast-sounds.ts",
     "backup:curation": "tsx --tsconfig tsconfig.json scripts/backup-curation.ts",
+    "check:hard": "tsx --tsconfig tsconfig.json scripts/check-hard.ts",
     "check:market": "tsx --tsconfig tsconfig.json scripts/check-market.ts",
     "restore:curation": "tsx --tsconfig tsconfig.json scripts/restore-curation.ts",
     "import:weapons": "tsx --tsconfig tsconfig.json scripts/import-weapons.ts",

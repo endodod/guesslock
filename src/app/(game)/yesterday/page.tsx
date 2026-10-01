@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DecoFrame } from "@/components/ui";
 import { answerImageClass } from "@/lib/images";
+import { AnswerMosaic } from "@/components/AnswerMosaic";
 import { todayDate } from "@/lib/day";
 import { answersFor } from "@/lib/server/puzzles";
 import { addDays } from "@/lib/time";
@@ -22,12 +23,7 @@ export default async function YesterdayPage() {
             <DecoFrame className="flex items-center gap-3 p-3" corners={false}>
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-sm bg-velvet">
                 {answer?.images?.length ? (
-                  <div className="grid h-full w-full grid-cols-3 grid-rows-2">
-                    {answer.images.slice(0, 6).map((u, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} src={u} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
-                    ))}
-                  </div>
+                  <AnswerMosaic images={answer.images} />
                 ) : answer?.image && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={answer.image} alt="" loading="lazy" className={answerImageClass(lock.guess)} />

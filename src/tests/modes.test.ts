@@ -209,7 +209,7 @@ describe("Letter hints", () => {
 
   it("every guessing lock uses the two letter hints (The Visage's zoom-out is enough: none)", () => {
     for (const l of Object.values(LOCK_BY_SLUG).filter((x) => x.picks > 0 && !x.maxTries))
-      expect(l.hints.map((h) => h.id)).toEqual(l.slug === "visage" ? [] : ["initial", "initial2"]);
+      expect(l.hints.map((h) => h.id)).toEqual((l.hardOf ?? l.slug) === "visage" ? [] : ["initial", "initial2"]);
   });
 });
 

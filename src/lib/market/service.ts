@@ -37,7 +37,10 @@ export async function balance(userId: string): Promise<{ earned: number; spendab
   return { earned, spendable: Math.max(0, earned + (wallet?.adjust ?? 0)) };
 }
 
-type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
+
+/** A market transaction. Purchases by one player queue on their wallet row, so give them more time than the default 2 s to start. */
+export const marketTx = <T,>(fn: (tx: Tx) => Promise<T>) => db.$transaction(fn, { maxWait: 10_000, timeout: 20_000 });
 
 /** The wallet row, created race-free (ON CONFLICT DO NOTHING: Prisma's upsert can collide under parallel requests). */
 const ensureWallet = (tx: Tx, userId: string) => tx.wallet.createMany({ data: [{ userId }], skipDuplicates: true });
@@ -57,7 +60,7 @@ async function spend(tx: Tx, userId: string, amount: number, reason: string, ref
   return true;
 }
 
-async function credit(tx: Tx, userId: string, amount: number, reason: string, ref?: string) {
+export async function credit(tx: Tx, userId: string, amount: number, reason: string, ref?: string) {
   await ensureWallet(tx, userId);
   await tx.wallet.update({ where: { userId }, data: { adjust: { increment: amount } } });
   await tx.soulLedger.create({ data: { userId, delta: amount, reason, ref } });
@@ -135,7 +138,7 @@ export async function openCase(
   const c = CASE_BY_ID[caseId];
   if (!c) throw new MarketError("Unknown case.", 404);
   const item = rollCase(c, await getCollectibles(), rand(), rand(), rand());
-  return db.$transaction(async (tx) => {
+  return marketTx(async (tx) => {
     if (!(await spend(tx, userId, c.price, "case", c.id))) throw new MarketError("Not enough souls.", 402);
     const owned = await tx.inventoryItem.count({ where: { userId, itemKey: item.key } });
     if (owned > 0) {
@@ -151,7 +154,7 @@ export async function openCase(
 /** Sells an owned item back for part of its value (the row is deleted and paid in one transaction). */
 export async function sellItem(userId: string, itemId: number): Promise<{ name: string; souls: number }> {
   const byKey = new Map((await getCollectibles()).map((c) => [c.key, c]));
-  return db.$transaction(async (tx) => {
+  return marketTx(async (tx) => {
     const row = await tx.inventoryItem.findFirst({ where: { id: itemId, userId } });
     if (!row) throw new MarketError("You don't own that.", 404);
     const c = byKey.get(row.itemKey);
@@ -174,7 +177,7 @@ export async function claimSet(userId: string, setId: string): Promise<{ name: s
   const collectibles = await getCollectibles();
   const set = buildSets(collectibles).find((s) => s.id === setId);
   if (!set) throw new MarketError("Unknown set.", 404);
-  return db.$transaction(async (tx) => {
+  return marketTx(async (tx) => {
     // Serialise claims of the same set by the same player, so two parallel requests can't both pay.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`set:${userId}:${setId}`}))`;
     if (await tx.soulLedger.count({ where: { userId, reason: "set", ref: setId } })) throw new MarketError("Already claimed.", 409);

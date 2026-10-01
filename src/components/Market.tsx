@@ -10,6 +10,7 @@ import { DecoFrame } from "./ui";
 import { PlayerName } from "./Hall";
 import { Art, RARITY_CLS, rarityText } from "./CollectibleTile";
 import { useGame } from "./GameProvider";
+import { EarnSouls, type EarnState } from "./EarnSouls";
 
 type State = Awaited<ReturnType<typeof marketState>>;
 type CaseView = State["cases"][number];
@@ -141,7 +142,7 @@ function CaseOpening({ c, result, onSettled, onClose, onAgain, canAgain }: {
 
 // ───────────── the shop window ─────────────
 
-export function Market({ initial }: { initial: State }) {
+export function Market({ initial, earn }: { initial: State; earn: EarnState }) {
   const { toast } = useGame();
   const [s, setS] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -226,6 +227,11 @@ export function Market({ initial }: { initial: State }) {
           ))}
         </div>
       </section>
+
+      <EarnSouls
+        initial={earn}
+        onPaid={(next) => setS((prev) => ({ ...next, cases: next.cases.map((c) => ({ ...c, preview: prev.cases.find((x) => x.id === c.id)?.preview ?? [] })) }))}
+      />
 
       <AnimatePresence>
         {opening && (

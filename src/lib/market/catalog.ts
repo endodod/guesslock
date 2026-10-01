@@ -8,6 +8,7 @@
 // and completing a set pays a one-time bonus.
 import type { GameData } from "../engine/context";
 import { LOCKS, VAULT_UNITS } from "@/locks.config";
+import { scalePrice, scaleValue } from "../game/economy";
 
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 export type Slot = "title" | "color" | "theme";
@@ -26,7 +27,7 @@ export type Collectible = {
   kind: Kind;
   name: string;
   rarity: Rarity;
-  /** Souls: what a duplicate is scrapped for (part of it), what selling pays (part of it) and what set bonuses are made of. */
+  /** Souls (in today's economy, see game/economy.ts): what a duplicate is scrapped for (part of it), what selling pays (part of it) and what set bonuses are made of. */
   value: number;
   /** A picture URL (shop items, heroes, weapons, abilities) or null. */
   image: string | null;
@@ -140,7 +141,7 @@ export function buildCollectibles(data: Pick<GameData, "items" | "heroes"> & Par
     if (!i.image || i.src.cost == null || i.src.cost <= 0) continue;
     const rarity = TIER_RARITY[Math.min(3, Math.max(0, (i.src.tier || 1) - 1))];
     out.push({
-      key: `item:${i.id}`, kind: "item", name: i.name, rarity, value: Math.max(20, Math.round(i.src.cost / 50) * 5),
+      key: `item:${i.id}`, kind: "item", name: i.name, rarity, value: scaleValue(Math.max(20, Math.round(i.src.cost / 50) * 5)),
       image: i.image, glyph: null, sub: `${cap(i.src.slot)} · tier ${i.src.tier}`, group: i.src.slot, tier: i.src.tier,
     });
   }
@@ -149,22 +150,22 @@ export function buildCollectibles(data: Pick<GameData, "items" | "heroes"> & Par
     const art = h.card ?? h.icon;
     if (art) {
       const rarity = heroRarity(h.id);
-      out.push({ key: `hero:${h.id}`, kind: "hero", name: h.name, rarity, value: HERO_VALUE[rarity], image: art, glyph: null, sub: h.src.heroType ? cap(h.src.heroType) : "Hero", heroId: h.id });
+      out.push({ key: `hero:${h.id}`, kind: "hero", name: h.name, rarity, value: scaleValue(HERO_VALUE[rarity]), image: art, glyph: null, sub: h.src.heroType ? cap(h.src.heroType) : "Hero", heroId: h.id });
     }
     if (h.weapon) {
       const rarity = weaponRarity(h.id);
-      out.push({ key: `weapon:${h.id}`, kind: "weapon", name: `${h.name}'s weapon`, rarity, value: WEAPON_VALUE[rarity], image: h.weapon, glyph: null, sub: h.weaponType, heroId: h.id });
+      out.push({ key: `weapon:${h.id}`, kind: "weapon", name: `${h.name}'s weapon`, rarity, value: scaleValue(WEAPON_VALUE[rarity]), image: h.weapon, glyph: null, sub: h.weaponType, heroId: h.id });
     }
   }
   for (const a of data.abilities ?? []) {
     if (!a.icon || !heroName.has(a.heroId)) continue;
     const rarity = abilityRarity(a.id, a.slot);
     out.push({
-      key: `ability:${a.id}`, kind: "ability", name: a.name, rarity, value: ABILITY_VALUE[rarity], image: a.icon, glyph: null,
+      key: `ability:${a.id}`, kind: "ability", name: a.name, rarity, value: scaleValue(ABILITY_VALUE[rarity]), image: a.icon, glyph: null,
       sub: `${heroName.get(a.heroId)} · ${a.slot >= 4 ? "Ultimate" : `Ability ${a.slot}`}`, heroId: a.heroId, tier: a.slot,
     });
   }
-  for (const m of MAP_OBJECTS) out.push({ key: `map:${m.id}`, kind: "map", name: m.name, rarity: m.rarity, value: m.value, image: null, glyph: m.glyph, sub: m.sub, group: m.area });
+  for (const m of MAP_OBJECTS) out.push({ key: `map:${m.id}`, kind: "map", name: m.name, rarity: m.rarity, value: scaleValue(m.value), image: null, glyph: m.glyph, sub: m.sub, group: m.area });
   // A seal for every lock of the Vault (the three sorting boxes are one lock each).
   for (const u of VAULT_UNITS) {
     const lock = u.kind === "lock" ? u.lock : u.locks[0];
@@ -172,11 +173,11 @@ export function buildCollectibles(data: Pick<GameData, "items" | "heroes"> & Par
     const rarity = SEAL_BY_GROUP[group] ?? "common";
     const name = u.kind === "lock" ? lock.name : lock.name;
     out.push({
-      key: `seal:${u.kind === "lock" ? lock.slug : u.box}`, kind: "seal", name: `Seal of ${name.replace(/^The /, "The ")}`, rarity, value: SEAL_VALUE[rarity],
+      key: `seal:${u.kind === "lock" ? lock.slug : u.box}`, kind: "seal", name: `Seal of ${name.replace(/^The /, "The ")}`, rarity, value: scaleValue(SEAL_VALUE[rarity]),
       image: null, glyph: lock.numeral, sub: { spirits: "Spirits lock", shop: "Shop lock", omens: "Omens lock", seance: "Sorting lock", stars: "Stars lock" }[group] ?? "Lock", group,
     });
   }
-  for (const c of COSMETICS) out.push({ key: c.key, kind: "flair", name: c.name, rarity: c.rarity, value: FLAIR_VALUE[c.rarity], image: null, glyph: FLAIR_GLYPH[c.slot], sub: { title: "Title", color: "Name colour", theme: "Vault theme" }[c.slot], slot: c.slot, flair: c.value, group: c.slot });
+  for (const c of COSMETICS) out.push({ key: c.key, kind: "flair", name: c.name, rarity: c.rarity, value: scaleValue(FLAIR_VALUE[c.rarity]), image: null, glyph: FLAIR_GLYPH[c.slot], sub: { title: "Title", color: "Name colour", theme: "Vault theme" }[c.slot], slot: c.slot, flair: c.value, group: c.slot });
   return out;
 }
 
@@ -193,15 +194,20 @@ export type CaseDef = {
   odds: Record<Rarity, number>;
 };
 
+/**
+ * Case prices are given on the scale the values were authored for (a Cursed Vault = 560) and brought to the economy: a
+ * Cursed Vault costs about what a typical player earns by finishing every lock of a day (see game/economy.ts), the others
+ * a share of that. Item values scale the same way, so every case keeps its payout ratio.
+ */
 export const CASES: CaseDef[] = [
-  { id: "scrapheap", name: "Scrapheap Crate", description: "Odds and ends from the shop floor.", price: 140, kinds: { item: 1 }, odds: { common: 0.7, rare: 0.25, epic: 0.04, legendary: 0.01 } },
-  { id: "satchel", name: "Spellbinder's Satchel", description: "Abilities torn from the heroes' kits.", price: 110, kinds: { ability: 1 }, odds: { common: 0.62, rare: 0.28, epic: 0.08, legendary: 0.02 } },
-  { id: "shopkeeper", name: "Shopkeeper's Crate", description: "Shop items, with the odd bit of flair.", price: 210, kinds: { item: 4, flair: 1 }, odds: { common: 0.45, rare: 0.35, epic: 0.16, legendary: 0.04 } },
-  { id: "coffer", name: "Lockbreaker's Coffer", description: "Seals from every lock of the Vault.", price: 240, kinds: { seal: 3, flair: 1 }, odds: { common: 0.4, rare: 0.35, epic: 0.2, legendary: 0.05 } },
-  { id: "armory", name: "Armory Case", description: "Hero weapons, and what you build around them.", price: 280, kinds: { weapon: 3, item: 1 }, odds: { common: 0.4, rare: 0.35, epic: 0.2, legendary: 0.05 } },
-  { id: "dossier", name: "Hero Dossier", description: "Hero cards, with their weapons and abilities.", price: 320, kinds: { hero: 3, weapon: 1, ability: 2 }, odds: { common: 0.35, rare: 0.35, epic: 0.22, legendary: 0.08 } },
-  { id: "relic", name: "Relic Chest", description: "Objects from across the map: the Urn, the Mid-Boss, the Rejuvenator.", price: 330, kinds: { map: 3, flair: 1 }, odds: { common: 0.3, rare: 0.38, epic: 0.25, legendary: 0.07 } },
-  { id: "cursed", name: "The Cursed Vault", description: "Everything, and better odds at the top.", price: 560, kinds: { item: 2, weapon: 1, hero: 1, ability: 2, map: 1, seal: 1, flair: 1 }, odds: { common: 0.1, rare: 0.3, epic: 0.38, legendary: 0.22 } },
+  { id: "satchel", name: "Spellbinder's Satchel", description: "Abilities torn from the heroes' kits.", price: scalePrice(110), kinds: { ability: 1 }, odds: { common: 0.62, rare: 0.28, epic: 0.08, legendary: 0.02 } },
+  { id: "scrapheap", name: "Scrapheap Crate", description: "Odds and ends from the shop floor.", price: scalePrice(140), kinds: { item: 1 }, odds: { common: 0.7, rare: 0.25, epic: 0.04, legendary: 0.01 } },
+  { id: "shopkeeper", name: "Shopkeeper's Crate", description: "Shop items, with the odd bit of flair.", price: scalePrice(210), kinds: { item: 4, flair: 1 }, odds: { common: 0.45, rare: 0.35, epic: 0.16, legendary: 0.04 } },
+  { id: "coffer", name: "Lockbreaker's Coffer", description: "Seals from every lock of the Vault.", price: scalePrice(240), kinds: { seal: 3, flair: 1 }, odds: { common: 0.4, rare: 0.35, epic: 0.2, legendary: 0.05 } },
+  { id: "armory", name: "Armory Case", description: "Hero weapons, and what you build around them.", price: scalePrice(280), kinds: { weapon: 3, item: 1 }, odds: { common: 0.4, rare: 0.35, epic: 0.2, legendary: 0.05 } },
+  { id: "dossier", name: "Hero Dossier", description: "Hero cards, with their weapons and abilities.", price: scalePrice(320), kinds: { hero: 3, weapon: 1, ability: 2 }, odds: { common: 0.35, rare: 0.35, epic: 0.22, legendary: 0.08 } },
+  { id: "relic", name: "Relic Chest", description: "Objects from across the map: the Urn, the Mid-Boss, the Rejuvenator.", price: scalePrice(330), kinds: { map: 3, flair: 1 }, odds: { common: 0.3, rare: 0.38, epic: 0.25, legendary: 0.07 } },
+  { id: "cursed", name: "The Cursed Vault", description: "Everything, and better odds at the top.", price: scalePrice(560), kinds: { item: 2, weapon: 1, hero: 1, ability: 2, map: 1, seal: 1, flair: 1 }, odds: { common: 0.1, rare: 0.3, epic: 0.38, legendary: 0.22 } },
 ];
 export const CASE_BY_ID: Record<string, CaseDef> = Object.fromEntries(CASES.map((c) => [c.id, c]));
 

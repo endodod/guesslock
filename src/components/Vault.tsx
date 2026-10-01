@@ -1,7 +1,8 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { countedLocks, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
+import { countedLocks, HARD_LOCKS, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
 import { dayStreaks, ignoredSlugs, type LockRecord } from "@/lib/client/store";
 import { dayTotals, shareDay, type LockResult } from "@/lib/game/scoring";
@@ -11,9 +12,12 @@ import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
 import { answerImageClass } from "@/lib/images";
+import { AnswerMosaic } from "./AnswerMosaic";
+import { DailyReward } from "./DailyReward";
 import { ShareButton } from "./WinPanel";
 
-export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed" | "skipped";
+/** `gated`: a hard puzzle whose normal lock is not finished yet; `nohard`: a lock without a hard puzzle, shown greyed out in the hard view. */
+export type BoxState = "locked" | "progress" | "opened" | "jammed" | "sealed" | "skipped" | "gated" | "nohard";
 
 /** `skipped`: the player skips this lock (sound locks with "Skip sound locks" on). */
 export function boxState(meta: LockMeta | undefined, rec: LockRecord | undefined, skipped = false): BoxState {
@@ -51,19 +55,23 @@ export function VaultStrip({ lock, state, rec, href }: { lock: LockDef; state: B
     : state === "opened" ? <span className="text-ecto">{omen ? `${rec!.souls} / 100` : `${rec!.g.length} · ${rec!.souls} souls`}</span>
     : state === "jammed" ? <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>
     : state === "sealed" ? <span className="text-ash">{t.vault.sealed}</span>
+    : state === "nohard" ? <span className="text-ash">No hard mode</span>
+    : state === "gated" ? <span className="text-ash">Finish the normal lock first</span>
     : <span className="text-ash">{t.vault.states.skipped}</span>;
   const inner = (
-    <div className={`group ${stripBase} ${omen ? "border-cursed/60 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)]" : "border-brass/50 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"} ${state === "opened" ? "shadow-[inset_0_0_30px_rgba(127,227,194,0.25)]" : ""} ${href ? "hover:border-ecto/70" : "opacity-75"}`}>
+    <div className={`group ${stripBase} ${omen ? "border-cursed/60 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)]" : "border-brass/50 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"} ${state === "opened" ? "shadow-[inset_0_0_30px_rgba(127,227,194,0.25)]" : ""} ${state === "nohard" ? "opacity-35 grayscale" : href ? "hover:border-ecto/70" : "opacity-75"}`}>
       <div className={plate}>{lock.numeral}</div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-display text-base leading-tight text-paper">{lock.name}</div>
         <div className="line-clamp-2 text-[0.8rem] leading-snug text-ash">{lock.subtitle}</div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 text-right font-mono text-[0.72rem] leading-tight">
-        {open && rec?.answer?.image && (
+        {open && rec?.answer?.images?.length ? (
+          <div className={`h-14 w-14 overflow-hidden rounded-sm border border-brass/30 ${state === "jammed" ? "grayscale" : ""}`}><AnswerMosaic images={rec.answer.images} /></div>
+        ) : open && rec?.answer?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={rec.answer.image} alt="" loading="lazy" className={`h-10 w-10 rounded-sm object-cover object-top ${state === "jammed" ? "grayscale" : ""}`} />
-        )}
+        ) : null}
         {status}
       </div>
     </div>
@@ -94,10 +102,11 @@ export function VaultBox({
 }: { lock: LockDef; state: BoxState; rec?: LockRecord; href: string | null }) {
   const open = state === "opened" || state === "jammed";
   const omen = lock.group === "omens";
+  const hardBox = !!lock.hardPlay;
   const inner = (
-    <div className={`group relative flex h-[17.7rem] flex-col overflow-hidden rounded-[3px] border bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${omen ? "border-cursed/60" : "border-brass/50"}`}>
+    <div className={`group relative flex h-[17.7rem] flex-col overflow-hidden rounded-[3px] border bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)] ${omen ? "border-cursed/60" : hardBox ? "border-[#b0433f]/70" : "border-brass/50"} ${state === "gated" ? "opacity-60" : state === "nohard" ? "opacity-35 grayscale" : ""}`}>
       {/* Box interior (visible when the door swings open) */}
-      <div className={`absolute inset-0 ${omen ? "bg-[radial-gradient(ellipse_at_center,#3b2a63,#140f22)]" : "bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]"}`}>
+      <div className={`absolute inset-0 ${omen ? "bg-[radial-gradient(ellipse_at_center,#3b2a63,#140f22)]" : hardBox ? "bg-[radial-gradient(ellipse_at_center,#7a1f1b,#1f0706)]" : "bg-[radial-gradient(ellipse_at_center,#5a2429,#2a0f12)]"}`}>
         {open && omen && rec && (
           <div className="flex h-full flex-col items-center justify-center pl-8 text-center">
             <span className="font-mono text-4xl text-paper">{rec.souls}</span>
@@ -105,17 +114,13 @@ export function VaultBox({
           </div>
         )}
         {open && rec?.answer?.images?.length ? (
-          <div className={`grid h-full w-full grid-cols-2 grid-rows-3 opacity-90 ${state === "jammed" ? "grayscale" : ""}`} aria-label={rec.answer.name}>
-            {rec.answer.images.slice(0, 6).map((u, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={u} alt="" loading="lazy" className="h-full w-full object-cover object-top" />
-            ))}
-          </div>
+          <AnswerMosaic portrait images={rec.answer.images} label={rec.answer.name} className={`opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
         ) : open && rec?.answer?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={rec.answer.image} alt={rec.answer.name} loading="lazy" className={`${answerImageClass(lock.guess)} opacity-90 ${state === "jammed" ? "grayscale" : ""}`} />
         ) : null}
-        {state === "opened" && <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(127,227,194,0.45)]" />}
+        {state === "opened" && <div className={`absolute inset-0 ${hardBox ? "shadow-[inset_0_0_46px_rgba(224,100,92,0.65)]" : "shadow-[inset_0_0_40px_rgba(127,227,194,0.45)]"}`} />}
+        {open && hardBox && <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_115%,rgba(224,100,92,0.45),transparent_62%)]" />}
         {state === "jammed" && (
           <svg className="absolute inset-0 h-full w-full text-[#d08a8a]/70" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
             <path d="M42 40 L58 60 M58 38 L44 62 M40 52 L62 48" stroke="currentColor" strokeWidth="1.2" fill="none" />
@@ -123,6 +128,11 @@ export function VaultBox({
         )}
       </div>
 
+      {hardBox && (
+        <span className="absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-[2px] border border-[#b0433f]/70 bg-[#2a0f0e]/85 px-1.5 font-mono text-[0.62rem] tracking-widest text-[#f0b3b0]">
+          <Icon name="flame" className="h-3 w-3" /> HARD
+        </span>
+      )}
       {/* The door hides the numeral once open: repeat it on the box frame */}
       {open && (
         <span className="absolute right-1.5 top-1.5 z-10 rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-1.5 font-display text-[0.7rem] tracking-widest text-[#2a1f08]">
@@ -132,7 +142,7 @@ export function VaultBox({
       {/* Door */}
       <div className="relative h-full [perspective:1000px]">
         <motion.div
-          className={`relative flex h-full flex-col items-center justify-between border px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden] [&>*]:transition-opacity [&>*]:duration-200 ${open ? "[&>*]:opacity-0" : ""} ${omen ? "border-cursed/40 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)] shadow-[inset_0_0_28px_rgba(140,107,216,0.28)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}
+          className={`relative flex h-full flex-col items-center justify-between border px-3 pt-3 pb-11 [transform-origin:left_center] [backface-visibility:hidden] [&>*]:transition-opacity [&>*]:duration-200 ${open ? "[&>*]:opacity-0" : ""} ${omen ? "border-cursed/40 bg-[linear-gradient(160deg,#2c2733,#1a1720_60%,#131018)] shadow-[inset_0_0_28px_rgba(140,107,216,0.28)]" : hardBox ? "border-[#b0433f]/40 bg-[linear-gradient(160deg,#321d1b,#1c1211_60%,#150d0c)] shadow-[inset_0_0_28px_rgba(176,67,63,0.25)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}
           initial={false}
           // Open: the door swings almost edge-on (a thin panel at the hinge); its face is hidden.
           animate={open ? { rotateY: -86, opacity: 1 } : { rotateY: 0, opacity: 1 }}
@@ -171,7 +181,11 @@ export function VaultBox({
         {state === "jammed" && <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>}
         {state === "sealed" && <span className="text-ash">{t.vault.sealed}</span>}
         {state === "skipped" && <span className="text-ash">{t.vault.states.skipped}</span>}
+        {state === "gated" && <span className="text-ash">Finish the normal lock first</span>}
+        {state === "nohard" && <span className="text-ash">No hard mode</span>}
       </div>
+      {/* the hard view: a red wash over the whole card */}
+      {hardBox && <div className="pointer-events-none absolute inset-0 z-20 bg-[#b0433f]/15" />}
     </div>
   );
   const label = `${lock.numeral}. ${lock.name}: ${lock.subtitle}. ${state === "sealed" ? t.vault.sealed : state === "skipped" ? `${t.vault.states.skipped} (${t.settings.skipSound})` : state}`;
@@ -201,12 +215,16 @@ export function SeanceBox({ box: boxId, metaBy, day, q }: { box: SeanceBoxId; me
   const target = live.find((x) => x.seal === "intact") ?? live[0];
   const href = target ? `/lock/${target.l.slug}${q}` : null;
   const open = state === "opened";
+  const cover = done.map((x) => x.rec?.answer?.images).find((i) => i?.length);
   const label = `${SEANCE_BOX.numeral}. ${SEANCE_BOX.name}: ${SEANCE_BOX.subtitle} ${state === "sealed" ? t.vault.sealed : state}. ${tables.map((x) => `${x.l.table!.label}: ${t.seance.seal[x.seal === "intact" ? "open" : x.seal]}`).join(", ")}`;
 
   const inner = (
     <div className="group relative flex min-h-40 overflow-hidden rounded-[3px] border border-brass/50 bg-iron shadow-[0_6px_18px_rgba(0,0,0,0.5)]">
       {/* A wide door doesn't swing well: once every table is finished, the séance table shows through instead. */}
       <div className="relative w-full">
+        {cover && (
+          <div className="pointer-events-none absolute inset-0 opacity-25"><AnswerMosaic images={cover} /></div>
+        )}
         <div className={`relative flex h-full flex-col items-center justify-between gap-3 border px-4 pt-3 pb-11 sm:flex-row sm:pb-10 ${open ? "seance-table border-ecto/40 shadow-[inset_0_0_50px_rgba(127,227,194,0.35)]" : "border-brass/30 bg-[linear-gradient(160deg,#2c2722,#1a1816_60%,#141210)]"}`}>
           <div className="flex flex-col items-center gap-1 sm:items-start">
             <div className="rounded-[2px] border border-brass/70 bg-[linear-gradient(180deg,#d9b872,#a8853f)] px-2.5 py-0.5 font-display text-sm tracking-widest text-[#2a1f08] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
@@ -250,9 +268,9 @@ export function SeanceBox({ box: boxId, metaBy, day, q }: { box: SeanceBoxId; me
 }
 
 export function Vault({
-  date, number, meta, isArchive, nextReset, site,
-}: { date: string; number: number; meta: LockMeta[]; isArchive: boolean; nextReset: number; site: string }) {
-  const { store, today, hydrated } = useGame();
+  date, number, meta, hardMeta, isArchive, nextReset, site,
+}: { date: string; number: number; meta: LockMeta[]; hardMeta: LockMeta[]; isArchive: boolean; nextReset: number; site: string }) {
+  const { store, today, hydrated, setRecord, setSettings } = useGame();
   const day = store.progress[date] ?? {};
   const metaBy = new Map(meta.map((m) => [m.slug, m]));
   // "Skip sound locks": those locks drop out of every count, the share and the streak.
@@ -271,6 +289,31 @@ export function Vault({
   const q = isArchive ? `?d=${date}` : "";
   const next = available.find((l) => !["won", "lost"].includes(day[l.slug]?.s ?? ""));
   const nothingPlayed = hydrated && Object.keys(day).length === 0;
+  const hardOn = hydrated && store.settings.hardMode;
+  const hardBy = new Map(hardMeta.map((m) => [m.slug, m]));
+  // The hard view: every lock with a hard puzzle shows that puzzle (red), the rest are greyed out.
+  const hardOf = new Map(HARD_LOCKS.map((h) => [h.hardOf!, h]));
+  const hardView = hardOn;
+  const hardState = (h: LockDef): BoxState => {
+    const normalDone = ["won", "lost"].includes(day[h.hardOf!]?.s ?? "");
+    const base = boxState(hardBy.get(h.slug), day[h.slug], false);
+    return !normalDone && base !== "sealed" ? "gated" : base;
+  };
+
+  // Finished locks saved before they carried their answer pictures (The Cache's team mosaic): fetch it once and keep it.
+  useEffect(() => {
+    if (!hydrated) return;
+    for (const l of LOCKS.filter((x) => x.guess === "match" || x.guess === "grid")) {
+      const rec = store.progress[date]?.[l.slug];
+      if (!rec || (rec.s !== "won" && rec.s !== "lost") || rec.answer?.images?.length) continue;
+      fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, slug: l.slug, guesses: rec.g, giveUp: rec.gu }) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((v: { answer?: { name: string; image: string | null; images?: string[] } } | null) => {
+          if (v?.answer?.images?.length) setRecord(date, l.slug, { ...rec, answer: { name: v.answer.name, image: v.answer.image, images: v.answer.images } });
+        })
+        .catch(() => undefined);
+    }
+  }, [hydrated, date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results: Record<string, LockResult> = Object.fromEntries(
     LOCKS.map((l) => {
@@ -286,6 +329,7 @@ export function Vault({
   const best = counted.filter((l) => !l.box && day[l.slug]?.s === "won").sort((a, b) => (day[b.slug].souls ?? 0) - (day[a.slug].souls ?? 0))[0];
 
   const strip = (l: LockDef) => {
+    if (hardView) return <li key={l.slug}><VaultStrip lock={l} state="nohard" href={null} /></li>;
     const m = metaBy.get(l.slug);
     const state = boxState(m, day[l.slug], ignored.has(l.slug));
     return (
@@ -296,6 +340,16 @@ export function Vault({
   };
 
   const box = (l: LockDef) => {
+    if (hardView) {
+      const h = hardOf.get(l.slug);
+      if (!h) return <li key={l.slug} className="h-full"><VaultBox lock={l} state="nohard" href={null} /></li>;
+      const st = hardState(h);
+      return (
+        <li key={h.slug} className="h-full">
+          <VaultBox lock={h} state={st} rec={day[h.slug]} href={st === "sealed" || st === "gated" ? null : `/lock/${h.slug}${q}`} />
+        </li>
+      );
+    }
     const m = metaBy.get(l.slug);
     const state = boxState(m, day[l.slug], ignored.has(l.slug));
     return (
@@ -307,6 +361,7 @@ export function Vault({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-10">
+      {!isArchive && <DailyReward />}
       {isArchive && (
         <div className="mb-6 rounded-sm border border-brass/50 bg-brass/10 px-4 py-2 text-center text-sm text-brass">{t.vault.archiveBanner}</div>
       )}
@@ -319,9 +374,29 @@ export function Vault({
           <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, displayedUnitCount)}</p>
         </div>
         {!isArchive && (
-          <p className="max-w-md flex-1 text-center text-sm leading-relaxed text-paper/85">
-            Each puzzle is a lock in the Vault. Choose a lock, use the clues to find its answer, and open it for souls.
-          </p>
+          <div className="flex max-w-md flex-1 flex-col items-center gap-3">
+            {/* Both texts sit in the same grid cell: the taller one sets the height, so switching changes no layout. */}
+            <div className="grid text-center text-sm leading-relaxed">
+              <p className={`col-start-1 row-start-1 text-paper/85 ${hardOn ? "invisible" : ""}`} aria-hidden={hardOn || undefined}>
+                Each puzzle is a lock in the Vault. Choose a lock, use the clues to find its answer, and open it for souls.
+              </p>
+              <p className={`col-start-1 row-start-1 text-[#f0b3b0] ${hardOn ? "" : "invisible"}`} aria-hidden={!hardOn || undefined}>
+                Hard mode: each lock shows its second, tougher puzzle (1.5× souls), open once the normal lock is finished. Locks greyed out have no hard mode.
+              </p>
+            </div>
+            <button
+              type="button" role="switch" aria-checked={hardOn}
+              // No `disabled` here: it differs between the server and the first client render. Before hydration a click does nothing.
+              onClick={() => { if (hydrated) setSettings({ hardMode: !hardOn }); }}
+              // `relative top-3` nudges the switch down visually without changing the layout, so nothing else moves.
+              className={`relative top-3 flex min-h-11 items-center gap-3 rounded-[3px] border px-3 text-sm ${hardOn ? "border-[#b0433f]/70 bg-[#b0433f]/10 text-[#f0b3b0]" : "border-brass/30 text-ash hover:text-paper"}`}
+            >
+              <span aria-hidden className={`relative h-5 w-9 rounded-full ${hardOn ? "bg-[#b0433f]" : "bg-ash/30"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-paper transition-all ${hardOn ? "left-[1.1rem]" : "left-0.5"}`} />
+              </span>
+              <span className="text-left leading-tight">Hard mode<span className="block text-xs text-ash">A second, tougher puzzle for each finished lock · 1.5× souls</span></span>
+            </button>
+          </div>
         )}
         {next && (
           <Link
@@ -383,7 +458,11 @@ export function Vault({
       <section aria-labelledby="seance-h" className="mt-8">
         <h2 id="seance-h" className="smallcaps mb-3 text-brass">{t.groups.seance}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {SEANCE_BOX_LIST.map((b) => <SeanceBox key={b.id} box={b.id} metaBy={metaBy} day={day} q={q} />)}
+          {SEANCE_BOX_LIST.map((b) => (
+            <div key={b.id} className={hardView ? "pointer-events-none opacity-35 grayscale" : undefined} aria-disabled={hardView || undefined}>
+              <SeanceBox box={b.id} metaBy={metaBy} day={day} q={q} />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -391,7 +470,7 @@ export function Vault({
         <h2 id="more-h" className="smallcaps mb-3 text-brass">More Modes</h2>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
           {STAR_LOCKS.map((l) => strip(l))}
-          <li><ComingSoonStrip name="The Wayfinder" subtitle="Find your place in the world" /></li>
+          <li className={hardView ? "opacity-35 grayscale" : undefined}><ComingSoonStrip name="The Wayfinder" subtitle="Find your place in the world" /></li>
         </ul>
       </section>
 

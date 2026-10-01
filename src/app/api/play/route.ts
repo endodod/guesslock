@@ -6,6 +6,7 @@ import { getCatalog, lookupFor } from "@/lib/engine/catalog";
 import { evaluate } from "@/lib/engine/play";
 import { getPuzzle } from "@/lib/server/puzzles";
 import { currentUser } from "@/lib/auth/server";
+import { db } from "@/lib/db";
 import { playAsUser, playSeanceAsUser } from "@/lib/accounts/service";
 import { evaluateSeance } from "@/lib/seance/play";
 import { clientIp, rateLimit, tooMany } from "@/lib/server/ratelimit";
@@ -16,7 +17,6 @@ const Body = z.object({
   guesses: z.array(z.string().max(64)).max(200),
   bonus: z.string().max(40).optional(),
   giveUp: z.boolean().optional(),
-  hard: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (!limit.ok) return tooMany(limit.retryAfter);
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  const { date, slug, guesses, bonus, giveUp = false, hard = false } = parsed.data;
+  const { date, slug, guesses, bonus, giveUp = false } = parsed.data;
   const lock = getLock(slug);
   if (!lock) return NextResponse.json({ error: "unknown lock" }, { status: 404 });
   // No peeking at future puzzles.
@@ -37,6 +37,11 @@ export async function POST(req: Request) {
   const headers = { "cache-control": "no-store" };
   // A signed-in play is saved after the response is sent: the answer to a guess doesn't depend on the write.
   const defer = (task: () => Promise<void>) => after(task);
+  // A hard puzzle opens once the normal lock of the same day is finished (the account's record is the proof).
+  if (lock.hardOf && user) {
+    const normal = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date, lock: lock.hardOf } }, select: { status: true } });
+    if (!normal || normal.status === "playing") return NextResponse.json({ error: "Finish the normal lock first." }, { status: 403, headers });
+  }
   if (!!lock.box) {
     // The Séance: guesses are submissions ("id,id,id,id") and hint requests; see src/lib/seance/play.ts.
     if (user) {
@@ -48,9 +53,9 @@ export async function POST(req: Request) {
   }
   if (user) {
     // Signed in: the server records the play and its guess list is authoritative.
-    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp, hard, defer);
+    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp, defer);
     return NextResponse.json({ ...r.view, account: { guesses: r.guesses, bonus: r.bonus, ranked: r.ranked } }, { headers });
   }
-  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog!, lock.guess), { giveUp, hard });
+  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog!, lock.guess), { giveUp, hard: !!lock.hardPlay });
   return NextResponse.json(view, { headers });
 }

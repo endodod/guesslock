@@ -76,6 +76,8 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
       ranked: v.account?.ranked,
       at: done ? (prev?.at ?? Date.now()) : undefined,
       tables: inPlay,
+      // The cover on the Vault: the table's pictures (heroes, items or abilities).
+      answer: done ? { name: v.heroes.length ? `${v.heroes.length} on the table` : "", image: null, images: v.heroes.flatMap((h) => (h.image ? [h.image] : [])).slice(0, 12) } : prev?.answer,
     });
   }, [store.progress, date, isArchive, inPlay, setRecord]);
 
