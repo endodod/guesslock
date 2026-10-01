@@ -22,7 +22,7 @@ export function ActionButton({ action, label, confirm }: { action: () => Promise
             }
           });
         }}
-        className="rounded border border-neutral-400 bg-neutral-50 px-3 py-1 text-sm hover:bg-neutral-200 disabled:opacity-50"
+        className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-neutral-50 disabled:opacity-50"
       >
         {pending ? "Working…" : label}
       </button>
