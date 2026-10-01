@@ -9,8 +9,9 @@
 When a `todo/` prompt is finished, move it to `done/`.
 
 ## Now in `todo/`
-- [`handoff-admin-ui-and-agent-api.md`](todo/handoff-admin-ui-and-agent-api.md): design every admin page properly, check that every puzzle page is reachable, and build the secured agent API.
+- None.
 
 ## Now in `done/`
 - [`fix-sealed-modes.md`](done/fix-sealed-modes.md): Cipher, Clash, Beast and Rift were sealed; all four are open in production now.
 - [`handoff-merge-resonance-seance.md`](done/handoff-merge-resonance-seance.md): merging The Resonance and The Séance; merged and live.
+- [`handoff-admin-ui-and-agent-api.md`](done/handoff-admin-ui-and-agent-api.md): admin pages restyled, routes/build verified, and the secured agent API completed.
