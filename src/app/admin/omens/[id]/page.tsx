@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdminPage } from "@/lib/admin/auth";
 import { getCatalog } from "@/lib/engine/catalog";
 import { getMapMeta } from "@/lib/omens/map";
 import { unpackTimeline } from "@/lib/omens/harvest";
@@ -12,7 +12,7 @@ import { OmenInspector } from "./OmenInspector";
 export const dynamic = "force-dynamic";
 
 export default async function ScenarioInspector({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdminPage();
   const { id } = await params;
   const s = await db.scenario.findUnique({ where: { id }, include: { match: { select: { timelineGz: true, status: true } } } });
   if (!s) notFound();

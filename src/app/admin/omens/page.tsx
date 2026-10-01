@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { config } from "@/lib/config";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdminPage } from "@/lib/admin/auth";
 import { todayDate } from "@/lib/day";
 import { addDays } from "@/lib/time";
 import { OMEN_LOCKS } from "@/locks.config";
@@ -21,7 +21,7 @@ const Box = ({ title, children }: { title: string; children: React.ReactNode }) 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 export default async function OmensAdmin() {
-  await requireAdmin();
+  await requireAdminPage();
   const today = todayDate();
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const [byStatus, failed, recentQueries, dayRows, pool, tuning] = await Promise.all([
