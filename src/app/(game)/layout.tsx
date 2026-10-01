@@ -7,6 +7,9 @@ import { config } from "@/lib/config";
 import { nextResetAt } from "@/lib/time";
 import { todayDate } from "@/lib/day";
 import { currentUser } from "@/lib/auth/server";
+import { db } from "@/lib/db";
+import { COSMETIC_BY_KEY } from "@/lib/market/catalog";
+import { VAULT_UNITS } from "@/locks.config";
 
 // "Today" depends on the request time: never prerender.
 export const dynamic = "force-dynamic";
@@ -18,7 +21,7 @@ const notoEmoji = Noto_Emoji({ weight: "400", variable: "--font-noto-emoji", dis
 
 export const metadata: Metadata = {
   title: { default: "GUESSLOCK — Pick today's lock", template: "%s · GUESSLOCK" },
-  description: "A daily Deadlock guessing game. 17 locks every day: 14 guessing games and 3 Omens that show a real match.",
+  description: `A daily Deadlock guessing game. ${VAULT_UNITS.length} locks every day: guessing games, Omens from real matches, sorting tables and more.`,
   metadataBase: new URL(`https://${config.siteUrl}`),
 };
 
@@ -30,10 +33,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const dateLabel = new Intl.DateTimeFormat("en-GB", { timeZone: config.timezone, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(now);
   const sessionUser = await currentUser();
   const user = sessionUser ? { id: sessionUser.id, name: sessionUser.name || "Keeper" } : null;
+  // The Black Market: an equipped Vault theme recolours the whole site for its owner.
+  const themeKey = sessionUser ? (await db.profile.findUnique({ where: { userId: sessionUser.id }, select: { equippedTheme: true } }).catch(() => null))?.equippedTheme : null;
+  const theme = themeKey ? COSMETIC_BY_KEY[themeKey]?.value : undefined;
   return (
     <html lang="en" className={`${limelight.variable} ${spectral.variable} ${plexMono.variable} ${notoEmoji.variable}`}>
       {/* Browser extensions add classes to <body> before hydration (e.g. "vc-init"). */}
-      <body className="grain flex min-h-dvh flex-col antialiased" suppressHydrationWarning>
+      <body className="grain flex min-h-dvh flex-col antialiased" data-vault-theme={theme} suppressHydrationWarning>
         <GameProvider today={today} user={user}>
           <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-ink focus:p-2">Skip to content</a>
           <Header dateLabel={dateLabel} nextReset={nextResetAt(now, config.timezone).getTime()} />

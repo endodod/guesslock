@@ -270,3 +270,10 @@
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* ───────────── Vault themes (The Black Market cosmetics, equipped per account) ───────────── */
+[data-vault-theme="verdigris"] { --brass: #7fb8a2; --brass-dim: #4f7f6d; --velvet: #1d3a33; --iron: #141c1a; }
+[data-vault-theme="obsidian"] { --brass: #a7a3b8; --brass-dim: #6d6a7d; --velvet: #1b1a24; --iron: #111015; --ink: #08080b; }
+[data-vault-theme="velvet"] { --brass: #d9a3b5; --brass-dim: #9a6577; --velvet: #4a1430; --iron: #1d1118; }
+[data-vault-theme="ectoplasm"] { --brass: #9ff0d6; --brass-dim: #5aa892; --velvet: #123a32; --iron: #0f1a18; --ecto: #c8ffe9; }
+[data-vault-theme="gilded"] { --brass: #f2d27a; --brass-dim: #b8913f; --velvet: #4a3510; --iron: #1c170c; --paper: #fff3d6; }

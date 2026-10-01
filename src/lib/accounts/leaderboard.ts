@@ -6,16 +6,20 @@ import { weekStart } from "./rules";
 import { boxOf } from "@/locks.config";
 import { foldPlays } from "../seance/scoring";
 import { tablesInPlay } from "../seance/library";
+import { collectionCounts, cosmeticsOf } from "../market/service";
+import { COSMETICS } from "../market/catalog";
 
-export type Board = "today" | "week" | "all" | "streak";
+export type Board = "today" | "week" | "all" | "streak" | "collectors";
 export const BOARDS: { id: Board; label: string; sub: string }[] = [
   { id: "today", label: "Today", sub: "Souls earned today" },
   { id: "week", label: "This week", sub: "Souls since Monday" },
   { id: "all", label: "All time", sub: "Total souls" },
   { id: "streak", label: "Streaks", sub: "Days unlocked in a row" },
+  { id: "collectors", label: "Collectors", sub: "Different cosmetics owned (The Black Market)" },
 ];
 
-export type BoardRow = { rank: number; userId: string; name: string; value: number; detail?: string; me?: boolean };
+/** `title`/`color`: the player's equipped cosmetics (The Black Market). */
+export type BoardRow = { rank: number; userId: string; name: string; value: number; detail?: string; me?: boolean; title?: string | null; color?: string | null };
 export type BoardResult = { board: Board; rows: BoardRow[]; me: BoardRow | null; total: number };
 
 const LIMIT = 50;
@@ -56,6 +60,8 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
       const f = foldPlays(ps, boxOf, inPlay);
       return { userId, value: f.souls, tie: -f.opened, detail: `${f.opened} locks opened` };
     });
+  } else if (board === "collectors") {
+    entries = (await collectionCounts()).map((e) => ({ ...e, detail: `of ${COSMETICS.length}` }));
   } else {
     const yesterday = addDays(today, -1);
     const stats = await db.userStats.findMany();
@@ -73,5 +79,9 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
   }
 
   const all = rank(entries, names, meId);
-  return { board, rows: all.slice(0, LIMIT), me: all.find((r) => r.me) ?? null, total: all.length };
+  const rows = all.slice(0, LIMIT);
+  const me = all.find((r) => r.me) ?? null;
+  const looks = await cosmeticsOf([...rows, ...(me ? [me] : [])].map((r) => r.userId));
+  const dress = (r: BoardRow): BoardRow => ({ ...r, ...looks.get(r.userId) });
+  return { board, rows: rows.map(dress), me: me && dress(me), total: all.length };
 }

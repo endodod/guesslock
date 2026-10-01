@@ -53,7 +53,8 @@ export default async function AccountPage() {
         <p className="mt-3 text-sm text-ash">
           {ranked} ranked {ranked === 1 ? "lock" : "locks"} played.
           {imported > 0 && <> {imported} imported from before you signed in (personal stats only, not ranked).</>}{" "}
-          <Link href="/hall" className="text-brass underline-offset-4 hover:underline">See the leaderboards</Link>
+          <Link href="/hall" className="text-brass underline-offset-4 hover:underline">See the leaderboards</Link> ·{" "}
+          <Link href="/market" className="text-cursed underline-offset-4 hover:underline">Spend souls in The Black Market</Link>
         </p>
       </DecoFrame>
 

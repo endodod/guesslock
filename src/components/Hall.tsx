@@ -6,14 +6,25 @@ import { DecoFrame, Icon } from "./ui";
 
 type BoardInfo = { id: string; label: string; sub: string };
 
+/** A player's name in their equipped colour (a gradient for the legendary one). */
+export function PlayerName({ name, color }: { name: string; color?: string | null }) {
+  if (!color) return <>{name}</>;
+  const gradient = color.startsWith("linear-gradient");
+  return (
+    <span style={gradient ? { backgroundImage: color, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" } : { color }}>{name}</span>
+  );
+}
+
 function Row({ r, unit }: { r: BoardRow; unit: string }) {
   const medal = r.rank === 1 ? "text-[#e8c36a]" : r.rank === 2 ? "text-[#c9c9d1]" : r.rank === 3 ? "text-[#c8895a]" : "text-ash";
   return (
     <li className={`flex min-h-12 items-center gap-3 rounded-sm px-3 py-2 ${r.me ? "bg-ecto/10 ring-1 ring-ecto/50" : "odd:bg-iron/50"}`}>
       <span className={`w-8 text-right font-mono text-lg ${medal}`}>{r.rank}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-paper">{r.name}{r.me && <span className="ml-2 text-xs text-ecto">you</span>}</span>
-        {r.detail && <span className="block text-xs text-ash">{r.detail}</span>}
+        <span className="block truncate text-paper">
+          <PlayerName name={r.name} color={r.color} />{r.me && <span className="ml-2 text-xs text-ecto">you</span>}
+        </span>
+        {(r.title || r.detail) && <span className="block truncate text-xs text-ash">{r.title && <span className="text-brass">{r.title}</span>}{r.title && r.detail ? " · " : ""}{r.detail}</span>}
       </span>
       <span className="font-mono text-lg text-brass">{r.value}</span>
       <span className="w-12 text-xs text-ash">{unit}</span>
@@ -25,7 +36,7 @@ export function Hall({ boards, results, signedIn }: { boards: BoardInfo[]; resul
   const [active, setActive] = useState(boards[0].id);
   const result = results.find((r) => r.board === active)!;
   const info = boards.find((b) => b.id === active)!;
-  const unit = active === "streak" ? "days" : "souls";
+  const unit = active === "streak" ? "days" : active === "collectors" ? "items" : "souls";
   const meOutside = result.me && !result.rows.some((r) => r.me);
 
   return (
@@ -75,6 +86,7 @@ export function Hall({ boards, results, signedIn }: { boards: BoardInfo[]; resul
           <li>Archive replays and plays imported from before you signed in count for your own stats only.</li>
           <li>Ties are broken by more locks opened, then alphabetically.</li>
           <li>Streaks count consecutive days with at least one opened lock; a streak survives until the end of the next day.</li>
+          <li>Spending souls in <Link href="/market" className="text-brass underline-offset-4 hover:underline">The Black Market</Link> never lowers your place: the boards rank souls earned.</li>
         </ul>
       </details>
     </div>

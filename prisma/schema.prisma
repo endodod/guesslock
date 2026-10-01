@@ -289,10 +289,16 @@ model Profile {
   displayName  String
   nameKey      String     @unique // lowercased displayName, for case-insensitive uniqueness
   showOnBoards Boolean    @default(true)
+  /// The Black Market: equipped cosmetics (keys from src/lib/market/catalog.ts; null = none).
+  equippedTitle String?
+  equippedColor String?
+  equippedTheme String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   plays        Play[]
   stats        UserStats?
+  wallet       Wallet?
+  items        InventoryItem[]
 }
 
 // One player's attempt at one lock on one day, recorded by the server.
@@ -409,4 +415,58 @@ model EndlessPuzzle {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ───────────── The Black Market (spending souls on cosmetics) ─────────────
+
+// Spendable souls = UserStats.totalSouls (earned, what the leaderboards rank) + Wallet.adjust (spent < 0, refunds and
+// trades). Updated with a conditional UPDATE so a balance can never go below zero, even with parallel requests.
+model Wallet {
+  userId    String   @id
+  profile   Profile  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  adjust    Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// Every change to Wallet.adjust, for the player's history and for support.
+model SoulLedger {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  delta     Int
+  reason    String // "case" | "duplicate" | "trade-out" | "trade-in"
+  ref       String? // case id, trade id
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// One owned cosmetic (an instance, so it can change hands in a trade).
+model InventoryItem {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  profile    Profile  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  itemKey    String
+  source     String // "case" | "trade"
+  obtainedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, itemKey])
+}
+
+// A trade offer between two players: items and/or souls each way. Accepting moves everything in one transaction.
+model TradeOffer {
+  id         Int       @id @default(autoincrement())
+  fromUser   String
+  toUser     String
+  giveItems  Int[] // InventoryItem ids owned by fromUser
+  giveSouls  Int       @default(0)
+  wantItems  Int[] // InventoryItem ids owned by toUser
+  wantSouls  Int       @default(0)
+  message    String?
+  status     String    @default("open") // "open" | "accepted" | "declined" | "cancelled" | "failed"
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([toUser, status])
+  @@index([fromUser, status])
 }

@@ -64,6 +64,7 @@ export function Footer() {
       <p className="mx-auto max-w-2xl">{t.footer.disclaimer}</p>
       <p className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
         <Link href="/endless" className="hover:text-paper">Endless</Link>
+        <Link href="/market" className="hover:text-paper">The Black Market</Link>
         <Link href="/yesterday" className="hover:text-paper">{t.vault.yesterday}</Link>
         <Link href="/how-to-play" className="hover:text-paper">{t.nav.rules}</Link>
         <Link href="/about" className="hover:text-paper">{t.footer.credits}</Link>
