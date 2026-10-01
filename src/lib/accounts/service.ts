@@ -20,6 +20,27 @@ import { tablesInPlay } from "../seance/library";
 
 // ───────────── profiles ─────────────
 
+/** Users whose profile this server instance has already confirmed: the hot paths (every guess) skip the lookup. */
+const confirmedProfiles = new Set<string>();
+
+/** Like ensureProfile, without the database round trip once this instance has seen the profile. */
+async function ensureProfileOnce(user: SessionUser): Promise<void> {
+  if (confirmedProfiles.has(user.id)) return;
+  await ensureProfile(user);
+  if (confirmedProfiles.size > 5000) confirmedProfiles.clear();
+  confirmedProfiles.add(user.id);
+}
+
+/**
+ * Where a play's database write runs. Given `defer` (a route handler's `after`), the response goes out first and the
+ * write follows; failures are logged. Without it the caller waits for the write.
+ */
+export type Defer = (task: () => Promise<void>) => void;
+function writeLater(defer: Defer | undefined, task: () => Promise<void>): Promise<void> | void {
+  if (!defer) return task();
+  defer(() => task().catch((e) => console.error("[play] deferred write failed", e)));
+}
+
 /** Profile for a signed-in user, created on first use from the sign-up name. */
 export async function ensureProfile(user: SessionUser) {
   const existing = await db.profile.findUnique({ where: { userId: user.id } });
@@ -70,13 +91,17 @@ export async function playAsUser(
   bonusIn: string | undefined,
   giveUpIn = false,
   hardIn = false,
+  defer?: Defer,
 ): Promise<RecordedPlay> {
   const lock = getLock(slug)!;
-  await ensureProfile(user);
-  const catalog = await getCatalog();
+  // Independent lookups run together (each is a network round trip).
+  const [, catalog, existing] = await Promise.all([
+    ensureProfileOnce(user),
+    getCatalog(),
+    db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } }),
+  ]);
   const lookup = lookupFor(catalog, lock.guess);
   const number = numberFor(row.date);
-  const existing = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } });
   const finished = existing && existing.status !== "playing";
 
   const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
@@ -97,10 +122,12 @@ export async function playAsUser(
   if (lock.hard && merged.guesses.length === 0 && !bonusIn && !finished) {
     // First view of a hard-capable lock, or a switch from hard to normal before the first guess.
     if (!existing || existing.hard !== hard) {
-      await db.play.upsert({
-        where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
-        create: { userId: user.id, date: row.date, lock: slug, guesses: [], status: "playing", hard, archive },
-        update: { hard },
+      await writeLater(defer, async () => {
+        await db.play.upsert({
+          where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
+          create: { userId: user.id, date: row.date, lock: slug, guesses: [], status: "playing", hard, archive },
+          update: { hard },
+        });
       });
     }
     return { view, guesses: [], ranked: !archive && (existing?.source ?? "live") === "live", conflict: false };
@@ -125,12 +152,14 @@ export async function playAsUser(
       source,
       finishedAt: done ? (existing?.finishedAt ?? new Date()) : null,
     };
-    await db.play.upsert({
-      where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
-      create: { userId: user.id, date: row.date, lock: slug, archive, ...data },
-      update: data,
+    await writeLater(defer, async () => {
+      await db.play.upsert({
+        where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
+        create: { userId: user.id, date: row.date, lock: slug, archive, ...data },
+        update: data,
+      });
+      if (done) await recomputeStats(user.id);
     });
-    if (done) await recomputeStats(user.id);
   }
   return { view, guesses: clean, bonus: bonusPicked, ranked: source === "live" && !archive, conflict: merged.conflict };
 }
@@ -142,11 +171,13 @@ export async function playAsUser(
  * an entry too), finished tables are frozen.
  */
 export async function playSeanceAsUser(
-  user: SessionUser, row: PuzzleRow & { date: string }, slug: string, incoming: string[],
+  user: SessionUser, row: PuzzleRow & { date: string }, slug: string, incoming: string[], defer?: Defer,
 ): Promise<{ view: SeanceView; guesses: string[]; ranked: boolean; conflict: boolean }> {
   const lock = getLock(slug)!;
-  await ensureProfile(user);
-  const existing = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } });
+  const [, existing] = await Promise.all([
+    ensureProfileOnce(user),
+    db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } }),
+  ]);
   const finished = existing && existing.status !== "playing";
   const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
   const { view, accepted } = evaluateSeance(lock, row, numberFor(row.date), merged.guesses);
@@ -162,12 +193,14 @@ export async function playSeanceAsUser(
       hintsUsed: view.hintsUsed, noHints: false, souls: done ? view.souls ?? 0 : 0, source,
       finishedAt: done ? (existing?.finishedAt ?? new Date()) : null,
     };
-    await db.play.upsert({
-      where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
-      create: { userId: user.id, date: row.date, lock: slug, archive, ...data },
-      update: data,
+    await writeLater(defer, async () => {
+      await db.play.upsert({
+        where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } },
+        create: { userId: user.id, date: row.date, lock: slug, archive, ...data },
+        update: data,
+      });
+      if (done) await recomputeStats(user.id);
     });
-    if (done) await recomputeStats(user.id);
   }
   return { view, guesses: accepted, ranked: source === "live" && !archive, conflict: merged.conflict };
 }
@@ -358,6 +391,7 @@ export async function exportAccount(user: SessionUser) {
  * Managed Auth doesn't expose self-service deleteUser, so the identity row is removed directly.
  */
 export async function deleteAccountCompletely(userId: string) {
+  confirmedProfiles.delete(userId);
   await db.$transaction([
     db.profile.deleteMany({ where: { userId } }),
     db.$executeRaw`DELETE FROM neon_auth."user" WHERE id::text = ${userId}`,

@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Limelight, Noto_Emoji, Spectral } from "next/font/google";
 import "../globals.css";
-import { GameProvider } from "@/components/GameProvider";
+import { GameProvider, GUEST_COOKIE } from "@/components/GameProvider";
 import { Footer, Header, Onboarding } from "@/components/Chrome";
+import { GuestBanner, GuestGate } from "@/components/GuestGate";
 import { config } from "@/lib/config";
 import { nextResetAt } from "@/lib/time";
 import { todayDate } from "@/lib/day";
-import { currentUser } from "@/lib/auth/server";
+import { cookies } from "next/headers";
+import { authConfigured, currentUser } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { COSMETIC_BY_KEY } from "@/lib/market/catalog";
 import { VAULT_UNITS } from "@/locks.config";
@@ -31,7 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const now = new Date();
   const today = todayDate(now);
   const dateLabel = new Intl.DateTimeFormat("en-GB", { timeZone: config.timezone, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(now);
-  const sessionUser = await currentUser();
+  const [sessionUser, jar] = await Promise.all([currentUser(), cookies()]);
   const user = sessionUser ? { id: sessionUser.id, name: sessionUser.name || "Keeper" } : null;
   // The Black Market: an equipped Vault theme recolours the whole site for its owner.
   const themeKey = sessionUser ? (await db.profile.findUnique({ where: { userId: sessionUser.id }, select: { equippedTheme: true } }).catch(() => null))?.equippedTheme : null;
@@ -40,12 +42,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${limelight.variable} ${spectral.variable} ${plexMono.variable} ${notoEmoji.variable}`}>
       {/* Browser extensions add classes to <body> before hydration (e.g. "vc-init"). */}
       <body className="grain flex min-h-dvh flex-col antialiased" data-vault-theme={theme} suppressHydrationWarning>
-        <GameProvider today={today} user={user}>
+        <GameProvider today={today} user={user} guest={jar.get(GUEST_COOKIE)?.value === "1"} accounts={authConfigured()}>
           <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-ink focus:p-2">Skip to content</a>
           <Header dateLabel={dateLabel} nextReset={nextResetAt(now, config.timezone).getTime()} />
+          <GuestBanner />
           <main id="main" className="flex-1">{children}</main>
           <Footer />
           <Onboarding />
+          <GuestGate />
         </GameProvider>
       </body>
     </html>

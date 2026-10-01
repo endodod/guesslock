@@ -82,9 +82,9 @@ export function GuessList({ rows, numeric }: { rows: GuessRow[]; numeric?: boole
   if (!rows.length) return null;
   return (
     <ul className="space-y-1.5">
-      {[...rows].reverse().map((r) => (
+      {[...rows].reverse().map((r, i) => (
         <motion.li
-          key={r.id}
+          key={`${r.id}-${rows.length - i}`}
           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
           className={`flex min-h-12 items-center gap-3 rounded-sm border px-3 py-1.5 ${r.correct ? "border-ecto/60 bg-ecto/10" : "border-brass/15 bg-iron/60"}`}
         >

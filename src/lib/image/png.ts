@@ -105,9 +105,41 @@ function chunk(type: string, body: Buffer): Buffer {
   return Buffer.concat([head, body, crc]);
 }
 
-export function encodePng({ width, height, data }: Rgba): Buffer {
+/** The image's colours when it has at most 256 distinct RGBA values (flat cut-outs, silhouettes), else null. */
+function paletteOf({ width, height, data }: Rgba): { colors: number[]; indices: Uint8Array } | null {
+  const seen = new Map<number, number>();
+  const colors: number[] = [];
+  const indices = new Uint8Array(width * height);
+  for (let i = 0; i < indices.length; i++) {
+    const o = i * 4;
+    const key = ((data[o] << 24) | (data[o + 1] << 16) | (data[o + 2] << 8) | data[o + 3]) >>> 0;
+    let k = seen.get(key);
+    if (k === undefined) {
+      if (colors.length === 256) return null;
+      k = colors.length;
+      seen.set(key, k);
+      colors.push(key);
+    }
+    indices[i] = k;
+  }
+  return { colors, indices };
+}
+
+/** Encodes RGBA; images with few colours (silhouettes) are written as an indexed PNG, a fraction of the size. */
+export function encodePng(img: Rgba): Buffer {
+  const { width, height, data } = img;
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4);
+  const pal = paletteOf(img);
+  if (pal) {
+    ihdr[8] = 8; ihdr[9] = 3; // 8-bit indexed
+    const raw = Buffer.alloc((width + 1) * height);
+    for (let y = 0; y < height; y++) Buffer.from(pal.indices.buffer, y * width, width).copy(raw, y * (width + 1) + 1);
+    const plte = Buffer.alloc(pal.colors.length * 3);
+    const trns = Buffer.alloc(pal.colors.length);
+    pal.colors.forEach((c, i) => { plte[i * 3] = c >>> 24; plte[i * 3 + 1] = (c >>> 16) & 255; plte[i * 3 + 2] = (c >>> 8) & 255; trns[i] = c & 255; });
+    return Buffer.concat([SIGNATURE, chunk("IHDR", ihdr), chunk("PLTE", plte), chunk("tRNS", trns), chunk("IDAT", deflateSync(raw, { level: 9 })), chunk("IEND", Buffer.alloc(0))]);
+  }
   ihdr[8] = 8; ihdr[9] = 6; // 8-bit RGBA
   const stride = width * 4;
   const raw = Buffer.alloc((stride + 1) * height);

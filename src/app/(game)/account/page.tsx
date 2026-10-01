@@ -54,7 +54,8 @@ export default async function AccountPage() {
           {ranked} ranked {ranked === 1 ? "lock" : "locks"} played.
           {imported > 0 && <> {imported} imported from before you signed in (personal stats only, not ranked).</>}{" "}
           <Link href="/hall" className="text-brass underline-offset-4 hover:underline">See the leaderboards</Link> ·{" "}
-          <Link href="/market" className="text-cursed underline-offset-4 hover:underline">Spend souls in The Black Market</Link>
+          <Link href="/market" className="text-cursed underline-offset-4 hover:underline">Spend souls in The Black Market</Link> ·{" "}
+          <Link href="/inventory" className="text-brass underline-offset-4 hover:underline">Your inventory</Link>
         </p>
       </DecoFrame>
 

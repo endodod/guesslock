@@ -36,7 +36,7 @@ export function Hall({ boards, results, signedIn }: { boards: BoardInfo[]; resul
   const [active, setActive] = useState(boards[0].id);
   const result = results.find((r) => r.board === active)!;
   const info = boards.find((b) => b.id === active)!;
-  const unit = active === "streak" ? "days" : active === "collectors" ? "items" : "souls";
+  const unit = active === "streak" ? "days" : active === "collectors" ? "worth" : "souls";
   const meOutside = result.me && !result.rows.some((r) => r.me);
 
   return (

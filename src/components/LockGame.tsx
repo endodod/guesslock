@@ -333,7 +333,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />
       ) : (
-        <GuessList rows={view.rows} numeric={lock.guess === "number"} />
+        <GuessList rows={lock.guess === "grid" ? view.rows.filter((r) => !r.id.startsWith("-")) : view.rows} numeric={lock.guess === "number"} />
       )}
 
       {isArchive && (

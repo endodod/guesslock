@@ -74,6 +74,8 @@ export type Clue =
       cols: { label: string; info: string }[];
       /** Row-major, 9 cells. */
       cells: ({ id: string; name: string; image: string | null } | null)[];
+      /** The heroes on the board make the grid impossible to finish: take one off. */
+      stuck?: boolean;
       /** Once finished: one valid hero per empty cell. */
       solution?: ({ name: string; image: string | null } | null)[];
     }

@@ -11,7 +11,7 @@ import { shadow, arsenal } from "@/lib/engine/modes/sight";
 import { calculus, CALCULUS_MIN_STATS } from "@/lib/engine/modes/calculus";
 import { decoy, fakeCandidates } from "@/lib/engine/modes/decoy";
 import { cache, finalInventory, teamProblem } from "@/lib/engine/modes/cache";
-import { constellation, dedupeFacets, normalizeName, pickGrid, solveGrid, type Facet } from "@/lib/engine/modes/constellation";
+import { constellation, dedupeFacets, normalizeName, pickGrid, solveGrid, canFinish, type Facet } from "@/lib/engine/modes/constellation";
 import { reckoning } from "@/lib/engine/modes/hero";
 import { buildTimeline } from "@/lib/omens/ingest";
 import { decodePng, encodePng, silhouette } from "@/lib/image/png";
@@ -312,3 +312,55 @@ describe("hard mode", () => {
   });
 });
 
+
+describe("PNG encoding size", () => {
+  it("writes few-colour images as indexed PNGs that decode to the same pixels", () => {
+    const sil = silhouette(block())!;
+    const png = encodePng(sil);
+    expect(png[25]).toBe(3); // IHDR colour type: indexed
+    const back = decodePng(png);
+    expect(Buffer.from(back.data).equals(Buffer.from(sil.data))).toBe(true);
+    // A big flat silhouette is a tiny file.
+    const big = { width: 600, height: 600, data: new Uint8Array(600 * 600 * 4) };
+    for (let i = 0; i < 600 * 600; i++) big.data.set(i % 600 < 300 ? [16, 14, 12, 255] : [0, 0, 0, 0], i * 4);
+    expect(encodePng(big).length).toBeLessThan(5000);
+  });
+});
+
+describe("The Constellation: taking heroes off and impossible grids", () => {
+  it("canFinish: a hero needed elsewhere makes the grid impossible", () => {
+    // Cell 0 fits heroes 1 and 2, cell 1 only hero 1: putting hero 1 on cell 0 leaves cell 1 with nobody.
+    const valid = [[1, 2], [1, 3], [2, 3]];
+    expect(canFinish(valid, [])).toBe(true);
+    expect(canFinish(valid, [[0, 1]])).toBe(true); // cell 1 can use 3, cell 2 can use 2
+    const tight = [[1, 2], [1], [2]];
+    expect(canFinish(tight, [])).toBe(false); // heroes 1 and 2 are each needed twice
+    expect(canFinish([[1, 2], [1], [3]], [[0, 2]])).toBe(true);
+    expect(canFinish([[1, 2], [1], [3]], [[0, 1]])).toBe(false); // hero 1 was the only fit for cell 1
+  });
+
+  it("a hero can be taken off for free, put back, and the board follows", async () => {
+    const heroes = Array.from({ length: 24 }, (_, i) => hero(i + 1, `Hero${String.fromCharCode(65 + i)}`));
+    const data = makeData({ heroes });
+    const groups = Array.from({ length: 6 }, (_, k) => ({ key: `g${k}`, label: `Group ${k}`, info: "", members: heroes.filter((h) => (h.id * (k + 3) + k) % 7 < 4).map((h) => h.id) }));
+    const p = await constellation.build({ answerId: "grid", ref: 0 }, ctx(data, "c", { heroCategories: async () => groups }));
+    const lock = LOCK_BY_SLUG.constellation;
+    const v = (g: string[]) => evaluate(lock, row(p, "constellation"), 1, g, undefined, () => undefined);
+    const hero0 = p.clue.valid[0][0];
+    const cells = (g: string[]) => (v(g).clue as { cells: ({ id: string } | null)[] }).cells;
+    expect(cells([`0:${hero0}`])[0]?.id).toBe(String(hero0));
+    // Taking it off: the cell is empty again, no life lost, the removal is a row of its own.
+    const off = v([`0:${hero0}`, "-0"]);
+    expect(cells([`0:${hero0}`, "-0"])[0]).toBeNull();
+    expect(off.wrong).toBe(0);
+    expect(off.status).toBe("playing");
+    // An empty cell has nothing to take off, and the hero may go back (even into another valid cell).
+    expect(v(["-3"]).notice).toMatch(/empty/);
+    expect(cells([`0:${hero0}`, "-0", `0:${hero0}`])[0]?.id).toBe(String(hero0));
+    // A full solution still wins after a detour, and removed heroes don't count towards the souls.
+    const full = p.clue.solution.map((id, i) => `${i}:${id}`);
+    const won = v([`0:${hero0}`, "-0", ...full]);
+    expect(won.status).toBe("won");
+    expect(won.souls).toBe(100);
+  });
+});

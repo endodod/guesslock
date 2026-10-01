@@ -6,5 +6,6 @@
 import type { GuessKind } from "@/locks.config";
 
 export function answerImageClass(kind: GuessKind): string {
-  return kind === "hero" ? "h-full w-full object-cover object-top" : "h-full w-full object-contain p-[14%]";
+  // The Cache shows the portrait of its richest hero.
+  return kind === "hero" || kind === "match" ? "h-full w-full object-cover object-top" : "h-full w-full object-contain p-[14%]";
 }

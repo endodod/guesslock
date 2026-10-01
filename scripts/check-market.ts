@@ -4,53 +4,61 @@ import "dotenv/config";
 if (/neon\.tech/.test(process.env.DATABASE_URL ?? "") && !process.argv.includes("--yes")) { console.error("Refusing to run against a Neon database without --yes."); process.exit(1); }
 import assert from "node:assert/strict";
 import { db } from "../src/lib/db";
-import { balance, createOffer, equip, marketState, openCase, respondOffer, MarketError } from "../src/lib/market/service";
-(async () => {
-  for (const [id, name, souls] of [["u-a", "Alice Test", 1000], ["u-b", "Bob Test", 300]] as const) {
+import { balance, claimSet, equip, inventoryState, marketState, openCase, sellItem, MarketError } from "../src/lib/market/service";
+import { scrapValue, sellValue } from "../src/lib/market/catalog";
+
+const USERS = ["u-a", "u-b"];
+const cleanup = async () => {
+  for (const id of USERS) {
     await db.profile.deleteMany({ where: { userId: id } });
+    await db.userStats.deleteMany({ where: { userId: id } });
+    await db.soulLedger.deleteMany({ where: { userId: id } });
+  }
+};
+
+(async () => {
+  await cleanup();
+  for (const [id, name, souls] of [["u-a", "Alice Test", 1000], ["u-b", "Bob Test", 50]] as const) {
     await db.profile.create({ data: { userId: id, displayName: name, nameKey: name.toLowerCase() } });
     await db.userStats.create({ data: { userId: id, totalSouls: souls } });
   }
-  // 10 parallel strongboxes (250 each) on 1000 souls: exactly 4 can be paid (refunds may allow one more).
-  const r = await Promise.allSettled(Array.from({ length: 10 }, () => openCase("u-a", "strongbox")));
+  // 12 parallel scrapheap crates (140 each) on 1000 souls: never overspends, whatever the refunds turn out to be.
+  const r = await Promise.allSettled(Array.from({ length: 12 }, () => openCase("u-a", "scrapheap")));
   const ok = r.filter((x) => x.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof openCase>>>[];
   const refunds = ok.reduce((a, x) => a + x.value.refund, 0);
   const b = await balance("u-a");
   console.log("opened", ok.length, "refunds", refunds, "balance", b);
   assert.ok(b.spendable >= 0);
   assert.equal(b.earned, 1000);
-  assert.equal(b.spendable, 1000 - ok.length * 250 + refunds);
+  assert.equal(b.spendable, 1000 - ok.length * 140 + refunds);
   assert.ok(r.filter((x) => x.status === "rejected").every((x) => (x as PromiseRejectedResult).reason instanceof MarketError));
-  // Duplicates are refunded, never stored twice.
+  // Duplicates are scrapped, never stored twice, and the refund is the published share of the value.
   const keys = (await db.inventoryItem.findMany({ where: { userId: "u-a" } })).map((i) => i.itemKey);
   assert.equal(new Set(keys).size, keys.length);
-  // Equip an owned item; an unowned one is refused.
-  const mine = (await db.inventoryItem.findFirst({ where: { userId: "u-a" } }))!;
-  const slot = mine.itemKey.split(":")[0] as "title" | "color" | "theme";
-  await equip("u-a", slot, mine.itemKey);
-  await assert.rejects(equip("u-b", slot, mine.itemKey));
-  // Trade: Alice gives her item to Bob for 100 souls.
-  const { id } = await createOffer("u-a", { to: "bob test", giveItems: [mine.id], giveSouls: 0, wantItems: [], wantSouls: 100 });
-  await assert.rejects(respondOffer("u-a", id, "accept")); // only the receiver
-  await respondOffer("u-b", id, "accept");
-  await assert.rejects(respondOffer("u-b", id, "accept")); // closed
-  assert.equal((await db.inventoryItem.findUnique({ where: { id: mine.id } }))!.userId, "u-b");
-  assert.equal((await balance("u-b")).spendable, 200);
-  assert.equal((await balance("u-a")).spendable, b.spendable + 100);
-  // Alice's equipped item left with the trade.
-  const pa = await db.profile.findUnique({ where: { userId: "u-a" } });
-  assert.equal(pa?.[`equipped${slot[0].toUpperCase()}${slot.slice(1)}` as "equippedTitle"], null);
-  // A stale offer (items moved meanwhile) fails as a whole and moves nothing.
-  const { id: id2 } = await createOffer("u-b", { to: "Alice Test", giveItems: [mine.id], giveSouls: 0, wantItems: [], wantSouls: 0 });
-  await db.inventoryItem.update({ where: { id: mine.id }, data: { userId: "u-a" } });
-  await assert.rejects(respondOffer("u-a", id2, "accept"));
-  assert.equal((await db.tradeOffer.findUnique({ where: { id: id2 } }))!.status, "failed");
-  const st = await marketState("u-b");
-  console.log("state ok", st.spendable, st.items.length, st.outgoing.length, st.ledger.length);
-  // Bob can't spend souls he doesn't have.
-  await assert.rejects(openCase("u-b", "reliquary"), /Not enough/);
-  for (const id of ["u-a", "u-b"]) { await db.profile.deleteMany({ where: { userId: id } }); await db.userStats.deleteMany({ where: { userId: id } }); await db.soulLedger.deleteMany({ where: { userId: id } }); }
-  await db.tradeOffer.deleteMany({ where: { OR: [{ fromUser: { in: ["u-a", "u-b"] } }] } });
+  for (const x of ok) if (x.value.duplicate) assert.equal(x.value.refund, scrapValue(x.value.item));
+  // Selling pays a share of the value once; selling the same row again fails.
+  const inv = await inventoryState("u-a");
+  assert.equal(inv.items.length, keys.length);
+  const first = inv.items[0];
+  const before = (await balance("u-a")).spendable;
+  const sold = await sellItem("u-a", first.id);
+  assert.equal(sold.souls, sellValue(first));
+  assert.equal((await balance("u-a")).spendable, before + sold.souls);
+  await assert.rejects(sellItem("u-a", first.id), /own/);
+  await assert.rejects(sellItem("u-b", inv.items[1].id), /own/); // someone else's item
+  // Flair can be worn when owned, and not when it isn't.
+  const flair = inv.items.find((i) => i.kind === "flair" && i.slot);
+  if (flair) {
+    await equip("u-a", flair.slot!, flair.key);
+    await assert.rejects(equip("u-b", flair.slot!, flair.key));
+  }
+  // An incomplete set can't be claimed.
+  await assert.rejects(claimSet("u-a", "map:all"), /complete/);
+  const st = await marketState("u-a");
+  console.log("state ok", st.spendable, st.cases.length, st.ledger.length);
+  // Bob can't buy what he can't afford.
+  await assert.rejects(openCase("u-b", "relic"), /Not enough/);
+  await cleanup();
   console.log("market OK");
   await db.$disconnect();
-})().catch(async (e) => { console.error(e); await db.$disconnect(); process.exit(1); });
+})().catch(async (e) => { console.error(e); await cleanup().catch(() => undefined); await db.$disconnect(); process.exit(1); });

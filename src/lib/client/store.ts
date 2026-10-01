@@ -80,19 +80,36 @@ export function migrateStore(raw: unknown): StoreData {
   return out;
 }
 
-export function loadStore(): StoreData {
+/** Guest mode: the day's progress lives in this tab only (sessionStorage); settings still come from the device. */
+export const GUEST_KEY = "guesslock:guest-progress";
+
+export function loadStore(guest = false): StoreData {
   if (typeof window === "undefined") return emptyStore();
+  let device = emptyStore();
   try {
     const raw = window.localStorage.getItem(STORE_KEY);
-    return raw ? migrateStore(JSON.parse(raw)) : emptyStore();
-  } catch {
-    return emptyStore();
-  }
+    if (raw) device = migrateStore(JSON.parse(raw));
+  } catch { /* unreadable: start empty */ }
+  if (!guest) return device;
+  // A guest never sees (or adds to) the progress saved on this device.
+  let progress: StoreData["progress"] = {};
+  try {
+    const raw = window.sessionStorage.getItem(GUEST_KEY);
+    if (raw) progress = migrateStore({ version: 2, progress: JSON.parse(raw) }).progress;
+  } catch { /* none */ }
+  return { ...device, progress };
 }
 
-export function saveStore(data: StoreData) {
+export function saveStore(data: StoreData, guest = false) {
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    if (guest) {
+      // Progress stays in the tab; only settings and the onboarding flag are written to the device, next to whatever
+      // progress it already holds.
+      window.sessionStorage.setItem(GUEST_KEY, JSON.stringify(data.progress));
+      window.localStorage.setItem(STORE_KEY, JSON.stringify({ ...loadStore(false), settings: data.settings, onboarded: data.onboarded }));
+    } else {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    }
     window.dispatchEvent(new CustomEvent("guesslock:store"));
   } catch {
     /* storage full or blocked: play continues without persistence */

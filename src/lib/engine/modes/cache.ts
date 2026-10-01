@@ -86,9 +86,12 @@ export const cache: ModeImpl<CacheClue> = {
       return { id: String(h.id), name: h.name, image: h.icon };
     });
     const label = `${team === "amber" ? "Amber" : "Sapphire"} team`;
+    // The answer picture on the Vault: the team's richest hero.
+    const richest = [...inventories].sort((a, b) => (b.souls ?? 0) - (a.souls ?? 0))[0];
+    const carry = richest ? data.hero(richest.heroId) : undefined;
     return {
       v: 1, mode: "cache", key,
-      answer: { id: key, name: `${label}, match ${tl.matchId}`, image: null },
+      answer: { id: key, name: `${label}, match ${tl.matchId}`, image: carry?.card ?? carry?.icon ?? null },
       correctIds: [inventories.map((i) => String(i.heroId)).join(",")],
       leakTerms: [],
       hints: {},

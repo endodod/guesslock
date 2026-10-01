@@ -43,7 +43,8 @@ export function evaluate(
 
   for (const raw of guessesIn.slice(0, 200)) {
     const g = String(raw).trim();
-    if (!g || seen.has(g)) continue;
+    // The Constellation repeats legitimately (a hero taken off and put back, the same cell emptied twice): its judge refuses real duplicates.
+    if (!g || (seen.has(g) && lock.guess !== "grid")) continue;
     if (lock.maxTries && wrong >= lock.maxTries) break;
     seen.add(g);
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { preload } from "react-dom";
 import { notFound, redirect } from "next/navigation";
 import { getLock, SEANCE_BOXES, seanceLocksOf, type SeanceBoxId } from "@/locks.config";
 import { SeanceLock } from "@/components/seance/SeanceLock";
@@ -60,6 +61,16 @@ export default async function LockPage({ params, searchParams }: { params: Promi
         return evaluateSeance(l, r ?? empty, number, []).view;
       }))
     : null;
+  // Signed in, a lock with a hard variant: the clue comes from the account (in the mode the player picks), never
+  // pre-rendered in the normal mode, so a ranked hard play can't have seen the easier clue.
+  const initialView = row && !isOmen && !lock.box
+    ? (() => {
+        const v = evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess));
+        return user && lock.hard ? { ...v, clue: null } : v;
+      })()
+    : null;
+  // Start downloading the clue picture with the page instead of after the game component has loaded.
+  if (initialView?.clue && "image" in initialView.clue && initialView.clue.image) preload(initialView.clue.image, { as: "image" });
   return (
     <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : seance ? "max-w-[820px]" : "max-w-[760px]"}`}>
       <div className="mb-5 flex items-center gap-3">
@@ -99,12 +110,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           slug={slug}
           date={date}
           number={number}
-          initialView={(() => {
-            const v = evaluate(lock, row, number, [], undefined, lookupFor(catalog, lock.guess));
-            // Signed in, a lock with a hard variant: the clue comes from the account (in the mode the player picks), never
-            // pre-rendered in the normal mode, so a ranked hard play can't have seen the easier clue.
-            return user && lock.hard ? { ...v, clue: null } : v;
-          })()}
+          initialView={initialView!}
           entries={lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item" || lock.guess === "grid") ? [] : catalog[lock.guess === "grid" ? "hero" : lock.guess]}
           site={config.siteUrl}
           available={available}

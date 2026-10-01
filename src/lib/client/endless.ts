@@ -10,12 +10,16 @@ export type EndlessData = {
 };
 
 const KEY = "guesslock:endless";
+/** Guest mode: practice data stays in this tab (sessionStorage) instead of the device. */
+let guest = false;
+export const setEndlessGuest = (g: boolean) => { guest = g; };
+const storage = () => (guest ? sessionStorage : localStorage);
 const RECENT = 12;
 export const emptyEndless = (): EndlessData => ({ current: {}, recent: {}, stats: {} });
 
 export function loadEndless(): EndlessData {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
+    const raw = JSON.parse(storage().getItem(KEY) ?? "null");
     return raw && typeof raw === "object" ? { ...emptyEndless(), ...raw } : emptyEndless();
   } catch {
     return emptyEndless();
@@ -23,7 +27,7 @@ export function loadEndless(): EndlessData {
 }
 
 export function saveEndless(d: EndlessData) {
-  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* storage blocked: practice still works */ }
+  try { storage().setItem(KEY, JSON.stringify(d)); } catch { /* storage blocked: practice still works */ }
 }
 
 /** Stores a record; the first time a puzzle finishes it counts once for the stats and its answer joins `recent`. */

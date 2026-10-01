@@ -9,7 +9,7 @@ function unitRecord(day: Record<string, LockRecord>, u: (typeof VAULT_UNITS)[num
   if (u.kind === "lock") return { key: u.lock.slug, s: day[u.lock.slug]?.s };
   const recs = u.locks.map((l) => day[l.slug]).filter((r): r is LockRecord => !!r);
   const s = recs.some((r) => r.s === "won") ? "won" : recs.some((r) => r.s === "playing") ? "playing" : recs.length ? "lost" : undefined;
-  return { key: "seance", s };
+  return { key: u.box, s };
 }
 
 export function ArchiveCalendar({ dates }: { dates: string[] }) {

@@ -187,14 +187,14 @@ export function ConstellationStage({ clue, entries, onGuess, busy, disabled, don
               const h = clue.cells[i];
               const sol = clue.solution?.[i];
               return (
+                <div key={ci} className="relative">
                 <button
-                  key={ci}
                   type="button"
                   disabled={!!h || done || disabled}
                   onClick={() => setCell(i)}
                   aria-label={`Row ${ri + 1} ${r.label}, column ${ci + 1} ${clue.cols[ci].label}: ${h ? h.name : sol ? `unfilled, for example ${sol.name}` : "empty"}`}
                   aria-pressed={active === i}
-                  className={`relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-sm border text-center ${h ? "border-ecto/60 bg-ecto/10" : active === i && !done ? "border-ecto bg-ink shadow-[0_0_14px_rgba(127,227,194,0.35)]" : "border-brass/30 bg-ink/50 hover:border-brass/70"}`}
+                  className={`relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-sm border text-center ${h ? "border-ecto/60 bg-ecto/10" : active === i && !done ? "border-ecto bg-ink shadow-[0_0_14px_rgba(127,227,194,0.35)]" : "border-brass/30 bg-ink/50 hover:border-brass/70"}`}
                 >
                   {h ? (
                     <motion.span initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-1 p-1">
@@ -212,11 +212,29 @@ export function ConstellationStage({ clue, entries, onGuess, busy, disabled, don
                     <span className="font-display text-2xl text-brass/40">✦</span>
                   )}
                 </button>
+                {h && onGuess && !done && (
+                  <button
+                    type="button"
+                    disabled={busy || disabled}
+                    onClick={() => { setCell(i); void onGuess(`-${i}`); }}
+                    aria-label={`Take ${h.name} off row ${ri + 1}, column ${ci + 1}`}
+                    title="Take off"
+                    className="absolute right-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-ink/80 text-sm text-ash hover:text-paper disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
+                )}
+                </div>
               );
             })}
           </div>
         ))}
       </div>
+      {clue.stuck && (
+        <p role="alert" className="mx-auto max-w-xl rounded-sm border border-[#b0433f]/60 bg-[#b0433f]/10 px-3 py-2 text-center text-sm text-[#f0b3b0]">
+          This grid can&apos;t be completed with the heroes on the board. Take one off (✕) to carry on.
+        </p>
+      )}
       {onGuess && !done && active !== null && (
         <div className="mx-auto max-w-xl">
           <GuessInput

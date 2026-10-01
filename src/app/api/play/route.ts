@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getLock } from "@/locks.config";
 import { isDay, numberFor, todayDate } from "@/lib/day";
@@ -30,15 +30,17 @@ export async function POST(req: Request) {
   if (!lock) return NextResponse.json({ error: "unknown lock" }, { status: 404 });
   // No peeking at future puzzles.
   if (date > todayDate()) return NextResponse.json({ error: "not yet" }, { status: 403 });
-  const row = await getPuzzle(date, slug);
+  // Independent lookups run together; the catalog and the puzzle are cached, the session is a network call.
+  const [row, user, catalog] = await Promise.all([getPuzzle(date, slug), currentUser(), lock.box ? null : getCatalog()]);
   if (!row) return NextResponse.json({ error: "empty" }, { status: 404 });
 
   const headers = { "cache-control": "no-store" };
-  const user = await currentUser();
+  // A signed-in play is saved after the response is sent: the answer to a guess doesn't depend on the write.
+  const defer = (task: () => Promise<void>) => after(task);
   if (!!lock.box) {
     // The Séance: guesses are submissions ("id,id,id,id") and hint requests; see src/lib/seance/play.ts.
     if (user) {
-      const r = await playSeanceAsUser(user, row, slug, guesses);
+      const r = await playSeanceAsUser(user, row, slug, guesses, defer);
       return NextResponse.json({ ...r.view, account: { guesses: r.guesses, ranked: r.ranked } }, { headers });
     }
     const { view, accepted } = evaluateSeance(lock, row, numberFor(date), guesses);
@@ -46,10 +48,9 @@ export async function POST(req: Request) {
   }
   if (user) {
     // Signed in: the server records the play and its guess list is authoritative.
-    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp, hard);
+    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp, hard, defer);
     return NextResponse.json({ ...r.view, account: { guesses: r.guesses, bonus: r.bonus, ranked: r.ranked } }, { headers });
   }
-  const catalog = await getCatalog();
-  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), { giveUp, hard });
+  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog!, lock.guess), { giveUp, hard });
   return NextResponse.json(view, { headers });
 }

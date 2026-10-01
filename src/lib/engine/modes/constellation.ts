@@ -1,7 +1,8 @@
 // The Constellation: a 3x3 grid. Each cell needs a hero that fits both its row's and its column's category.
 // Categories come from the curated systems already in use: the attribute columns of The Reckoning (API values plus
 // /admin/categories) and the approved Séance hero groups. The player types names (no suggestions); each hero fits one
-// cell only. A wrong hero costs one of four lives; a filled cell is final.
+// cell only. A wrong hero costs one of four lives; a placed hero can be taken off again for free, and the clue says when
+// the heroes on the board make the grid impossible to finish.
 import type { GameData, HeroData } from "../context";
 import { activeColumns } from "../columns";
 import { SealedError, SkipCandidate, type ModeImpl } from "../mode";
@@ -97,13 +98,41 @@ export function pickGrid(facets: Facet[], rng: Rng, tries = 4000): { rows: Facet
   return null;
 }
 
-/** Guess: "<cell 0-8>:<typed name>". */
-function parseGuess(g: string): { cell: number; text: string } | null {
+/** Guess: "<cell 0-8>:<typed name>" places a hero; "-<cell 0-8>" takes the hero off that cell. */
+function parseGuess(g: string): { cell: number; text: string } | { remove: number } | null {
+  const rm = /^-([0-8])$/.exec(g);
+  if (rm) return { remove: Number(rm[1]) };
   const m = /^([0-8]):([\s\S]+)$/.exec(g);
   return m ? { cell: Number(m[1]), text: m[2] } : null;
 }
 
-const filled = (rows: { id: string; correct: boolean }[]) => rows.filter((r) => r.correct).map((r) => r.id.split(":").map(Number) as [number, number]);
+/** The board after the guesses so far: placements in order, removals taking a hero off again. [cell, hero id] pairs. */
+const filled = (rows: { id: string; correct: boolean }[]): [number, number][] => {
+  const board = new Map<number, number>();
+  for (const r of rows) {
+    if (r.id.startsWith("-")) board.delete(Number(r.id.slice(1)));
+    else if (r.correct) { const [cell, id] = r.id.split(":").map(Number); board.set(cell, id); }
+  }
+  return [...board];
+};
+
+/** Can every empty cell still get its own hero (one not on the board), whatever the player does next? Bipartite matching. */
+export function canFinish(valid: number[][], board: [number, number][]): boolean {
+  const used = new Set(board.map(([, id]) => id));
+  const full = new Set(board.map(([cell]) => cell));
+  const owner = new Map<number, number>(); // hero -> cell
+  const place = (cell: number, seen: Set<number>): boolean => {
+    for (const h of valid[cell]) {
+      if (used.has(h) || seen.has(h)) continue;
+      seen.add(h);
+      const other = owner.get(h);
+      if (other === undefined || place(other, seen)) { owner.set(h, cell); return true; }
+    }
+    return false;
+  };
+  for (let cell = 0; cell < valid.length; cell++) if (!full.has(cell) && !place(cell, new Set())) return false;
+  return true;
+}
 
 export const constellation: ModeImpl<ConstellationClue> = {
   mode: "constellation",
@@ -144,6 +173,7 @@ export const constellation: ModeImpl<ConstellationClue> = {
     }
     return {
       kind: "constellation", rows: p.clue.rows, cols: p.clue.cols, cells,
+      stuck: !done && !canFinish(p.clue.valid, filled(rows)),
       ...(done ? { solution: p.clue.solution.map((id, i) => (cells[i] ? null : (({ name, image }) => ({ name, image }))(hero(id)!))) } : {}),
     };
   },
@@ -151,19 +181,26 @@ export const constellation: ModeImpl<ConstellationClue> = {
     const g = parseGuess(guess);
     if (!g) return { rejected: "Pick a cell first." };
     const done = filled(rows);
+    if ("remove" in g) {
+      const on = done.find(([cell]) => cell === g.remove);
+      if (!on) return { rejected: "That cell is empty." };
+      const h = p.clue.heroes.find((x) => x.id === on[1]);
+      return { row: { id: `-${g.remove}`, name: `Took ${h?.name ?? "the hero"} off`, icon: h?.image ?? null, sub: `Cell ${g.remove + 1}`, correct: false }, wrong: false };
+    }
     if (done.some(([cell]) => cell === g.cell)) return { rejected: "That cell is already filled." };
     const key = normalizeName(g.text);
     const h = /^\d+$/.test(g.text) ? p.clue.heroes.find((x) => String(x.id) === g.text) : p.clue.heroes.find((x) => x.keys.includes(key));
     if (!h) return { rejected: "No hero by that name." };
     if (done.some(([, id]) => id === h.id)) return { rejected: `${h.name} is already on the board.` };
-    if (rows.some((r) => r.id === `${g.cell}:${h.id}`)) return { rejected: `${h.name} was already tried in that cell.` };
+    // A wrong try stays wrong; a hero taken off again may go back on.
+    if (rows.some((r) => r.id === `${g.cell}:${h.id}` && !r.correct)) return { rejected: `${h.name} was already tried in that cell.` };
     const correct = p.clue.valid[g.cell].includes(h.id);
     return { row: { id: `${g.cell}:${h.id}`, name: h.name, icon: h.image, sub: `Cell ${g.cell + 1}`, correct }, wrong: !correct };
   },
-  solved: (_p, rows) => rows.filter((r) => r.correct).length === 9,
+  solved: (_p, rows) => filled(rows).length === 9,
   // Partial credit: every filled cell counts, a full grid earns a bonus. Never more than 100.
   souls: (_p, r) => {
-    const n = r.rows.filter((x) => x.correct).length;
+    const n = filled(r.rows).length;
     return n * PER_CELL_SOULS + (n === 9 ? FULL_GRID_BONUS : 0);
   },
   displayed: (p) => [...p.clue.rows, ...p.clue.cols].map((f) => f.label),

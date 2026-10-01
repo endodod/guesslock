@@ -36,7 +36,7 @@ No accounts: player progress lives in `localStorage`.
 | XXV | The Calculus | guess the hero from the tooltip stats (cooldown, cast range, duration, charges…) of all four of their abilities | API (`abilityStats`, every ability needs 2+ stats) |
 | XXVI | The Decoy | spot the fake item in a hero's core build (3 picks) | analytics API (fake: < 1% on this hero, ≥ 3% elsewhere) |
 | XXVII | The Cache | match a real team's six final inventories to its heroes (4 submissions) | Omen match harvest |
-| XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (typed names, 4 lives) | Reckoning columns + approved Séance hero groups |
+| XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (hero search, 4 lives, heroes can be taken off again; warns when the grid can't be finished) | Reckoning columns + approved Séance hero groups |
 
 Numerals XXIII+ were added after the Séance family so existing ones never change; the Vault shows each with its group.
 

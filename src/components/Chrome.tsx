@@ -13,7 +13,7 @@ import { Button, Countdown, DecoFrame, Icon, Logo } from "./ui";
 export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset: number }) {
   const { toast, user } = useGame();
   // Five icons and the logo must fit a 320 px phone: the buttons narrow a little below 360 px (they stay 44 px tall).
-  const navBtn = "flex h-11 w-[2.125rem] items-center justify-center text-brass hover:text-paper min-[360px]:w-10 sm:w-11";
+  const navBtn = "flex h-11 w-[1.875rem] items-center justify-center text-brass hover:text-paper min-[360px]:w-10 sm:w-11";
   const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-brass/20 bg-ink/90 backdrop-blur">
@@ -29,6 +29,9 @@ export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset:
           </span>
         </div>
         <nav className="flex items-center" aria-label="Main">
+          <Link href="/market" className={navBtn} aria-label="The Black Market" title="The Black Market">
+            <Icon name="market" />
+          </Link>
           <Link href="/hall" className={navBtn} aria-label={t.nav.hall} title={t.nav.hall}>
             <Icon name="crown" />
           </Link>
@@ -132,7 +135,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
 }
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { store, setSettings, resetAll, importStore, toast, user } = useGame();
+  const { store, setSettings, resetAll, importStore, toast, user, guest } = useGame();
   const s = store.settings;
   return (
     <Modal open={open} onClose={onClose} title={t.settings.title}>
@@ -161,6 +164,12 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         </label>
         <Toggle label={t.settings.skipSound} desc={t.settings.skipSoundDesc} checked={s.skipSound} onChange={(v) => setSettings({ skipSound: v })} />
         <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
+        {guest ? (
+          <div className="space-y-1 py-3">
+            <p className="text-sm text-paper">Guest</p>
+            <p className="text-xs text-ash">Nothing you play is saved: no stats, streaks or souls, and your locks are gone when you close this tab. <Link href="/auth/sign-in" className="text-brass underline-offset-4 hover:underline">Sign in</Link> to keep them.</p>
+          </div>
+        ) : (
         <div className="space-y-2 py-3">
           <p className="text-sm text-paper">Your progress</p>
           <p className="text-xs text-ash">
@@ -196,6 +205,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
             </label>
           </div>
         </div>
+        )}
         <div className="pt-4">
           <Button
             variant="ghost"
@@ -213,7 +223,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
 }
 
 export function Onboarding() {
-  const { store, hydrated, setOnboarded } = useGame();
+  const { store, hydrated, setOnboarded, gated } = useGame();
   const [i, setI] = useState(0);
   const [forced, setForced] = useState(false);
   useEffect(() => {
@@ -221,7 +231,7 @@ export function Onboarding() {
     window.addEventListener("guesslock:onboarding", on);
     return () => window.removeEventListener("guesslock:onboarding", on);
   }, []);
-  const open = forced || (hydrated && !store.onboarded);
+  const open = forced || (hydrated && !store.onboarded && !gated);
   const close = () => { setOnboarded(); setForced(false); };
   const card = t.onboarding[i];
   return (

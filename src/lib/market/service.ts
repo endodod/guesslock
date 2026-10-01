@@ -1,11 +1,12 @@
-// The Black Market, server side: balances, opening cases, equipping, trading. Accounts only: a signed-out player's souls
-// live in their browser and could be edited, so they can't be spent.
+// The Black Market, server side: balances, opening cases, selling, set bonuses and wearing flair. Accounts only: a
+// signed-out player's souls live in their browser and could be edited, so they can't be spent.
 import { randomInt } from "node:crypto";
+import { unstable_cache } from "next/cache";
 import { db } from "../db";
-import { nameKey } from "../accounts/rules";
+import { loadGameData } from "../engine/context";
 import {
-  CASE_BY_ID, COSMETIC_BY_KEY, DUPLICATE_REFUND, TRADE_MAX_ITEMS, TRADE_MAX_OPEN, TRADE_MAX_SOULS, rollCase,
-  type Cosmetic, type Slot,
+  CASES, CASE_BY_ID, COSMETIC_BY_KEY, RARITY_ORDER, buildCollectibles, buildSets, casePool, casePreview, expectedValue, rollCase, scrapValue, sellValue,
+  type Collectible, type Rarity, type Slot,
 } from "./catalog";
 
 export class MarketError extends Error {
@@ -13,6 +14,18 @@ export class MarketError extends Error {
 }
 
 const uniform = () => randomInt(0, 2 ** 32) / 2 ** 32;
+
+/** Every collectible, resolved from the current game data (cached; the shop, weapons and map change rarely). */
+const cachedCollectibles = unstable_cache(async () => buildCollectibles(await loadGameData()), ["collectibles"], { revalidate: 600, tags: ["catalog"] });
+export async function getCollectibles(): Promise<Collectible[]> {
+  try {
+    return await cachedCollectibles();
+  } catch (e) {
+    // Scripts (npm run check:market) run outside Next.js, which has no cache to offer: build it directly.
+    if (String(e).includes("incrementalCache")) return buildCollectibles(await loadGameData());
+    throw e;
+  }
+}
 
 /** Souls earned (ranked) and spendable. */
 export async function balance(userId: string): Promise<{ earned: number; spendable: number }> {
@@ -26,13 +39,13 @@ export async function balance(userId: string): Promise<{ earned: number; spendab
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 
+/** The wallet row, created race-free (ON CONFLICT DO NOTHING: Prisma's upsert can collide under parallel requests). */
+const ensureWallet = (tx: Tx, userId: string) => tx.wallet.createMany({ data: [{ userId }], skipDuplicates: true });
+
 /**
  * Takes `amount` souls if (and only if) the player has them. A single conditional UPDATE, so two parallel purchases can
  * never both spend the same souls. Returns false when the balance is too low.
  */
-/** The wallet row, created race-free (ON CONFLICT DO NOTHING: Prisma's upsert can collide under parallel requests). */
-const ensureWallet = (tx: Tx, userId: string) => tx.wallet.createMany({ data: [{ userId }], skipDuplicates: true });
-
 async function spend(tx: Tx, userId: string, amount: number, reason: string, ref?: string): Promise<boolean> {
   await ensureWallet(tx, userId);
   const n = await tx.$executeRaw`
@@ -50,50 +63,83 @@ async function credit(tx: Tx, userId: string, amount: number, reason: string, re
   await tx.soulLedger.create({ data: { userId, delta: amount, reason, ref } });
 }
 
-export async function marketState(userId: string) {
-  const [bal, items, profile, incoming, outgoing, ledger] = await Promise.all([
+/** What the browser needs to show a collectible. */
+export type ItemView = Collectible & { id: number; obtainedAt: string };
+
+function ownedViews(rows: { id: number; itemKey: string; obtainedAt: Date }[], byKey: Map<string, Collectible>): ItemView[] {
+  return rows.flatMap((r) => {
+    const c = byKey.get(r.itemKey);
+    return c ? [{ ...c, id: r.id, obtainedAt: r.obtainedAt.toISOString() }] : [];
+  });
+}
+
+/**
+ * The shop window: purse, the cases with their odds, and what's inside them. `preview` adds a sample of each case's
+ * contents for the opening animation (left out of the answers to purchases, which the page merges into what it has).
+ */
+export async function marketState(userId: string, preview = true) {
+  const [bal, collectibles, profile, ledger] = await Promise.all([
     balance(userId),
-    db.inventoryItem.findMany({ where: { userId }, orderBy: { obtainedAt: "desc" } }),
+    getCollectibles(),
     db.profile.findUnique({ where: { userId }, select: { equippedTitle: true, equippedColor: true, equippedTheme: true, displayName: true } }),
-    db.tradeOffer.findMany({ where: { toUser: userId, status: "open" }, orderBy: { createdAt: "desc" } }),
-    db.tradeOffer.findMany({ where: { fromUser: userId }, orderBy: { createdAt: "desc" }, take: 20 }),
     db.soulLedger.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 20 }),
   ]);
-  const names = await namesOf([...incoming.map((o) => o.fromUser), ...outgoing.map((o) => o.toUser)]);
-  const allItemIds = [...incoming, ...outgoing].flatMap((o) => [...o.giveItems, ...o.wantItems]);
-  const offerItems = new Map((await db.inventoryItem.findMany({ where: { id: { in: allItemIds } } })).map((i) => [i.id, i.itemKey]));
-  const view = (o: (typeof incoming)[number]) => ({
-    id: o.id, from: names.get(o.fromUser) ?? "?", to: names.get(o.toUser) ?? "?", status: o.status, message: o.message,
-    give: o.giveItems.map((id) => ({ id, key: offerItems.get(id) ?? null })), giveSouls: o.giveSouls,
-    want: o.wantItems.map((id) => ({ id, key: offerItems.get(id) ?? null })), wantSouls: o.wantSouls,
-    createdAt: o.createdAt.toISOString(),
-  });
+  const owned = new Set((await db.inventoryItem.findMany({ where: { userId }, select: { itemKey: true } })).map((r) => r.itemKey));
   return {
     ...bal,
     name: profile?.displayName ?? "",
     equipped: { title: profile?.equippedTitle ?? null, color: profile?.equippedColor ?? null, theme: profile?.equippedTheme ?? null },
-    items: items.map((i) => ({ id: i.id, key: i.itemKey, source: i.source, obtainedAt: i.obtainedAt.toISOString() })),
-    incoming: incoming.map(view),
-    outgoing: outgoing.map(view),
+    cases: CASES.map((c) => {
+      const pool = casePool(c, collectibles);
+      return {
+        ...c,
+        pool: Object.fromEntries(RARITY_ORDER.map((r) => [r, { total: pool[r].length, owned: pool[r].filter((x) => owned.has(x.key)).length }])) as Record<Rarity, { total: number; owned: number }>,
+        ev: Math.round(expectedValue(c, collectibles)),
+        preview: preview ? casePreview(c, collectibles) : ([] as Collectible[]),
+      };
+    }),
     ledger: ledger.map((l) => ({ delta: l.delta, reason: l.reason, at: l.createdAt.toISOString() })),
   };
 }
 
-async function namesOf(ids: string[]) {
-  const rows = await db.profile.findMany({ where: { userId: { in: [...new Set(ids)] } }, select: { userId: true, displayName: true } });
-  return new Map(rows.map((r) => [r.userId, r.displayName]));
+/** The collection page: everything owned, the sets with their progress, the purse. */
+export async function inventoryState(userId: string) {
+  const [bal, collectibles, rows, profile, claims] = await Promise.all([
+    balance(userId),
+    getCollectibles(),
+    db.inventoryItem.findMany({ where: { userId }, orderBy: { obtainedAt: "desc" } }),
+    db.profile.findUnique({ where: { userId }, select: { equippedTitle: true, equippedColor: true, equippedTheme: true, displayName: true } }),
+    db.soulLedger.findMany({ where: { userId, reason: "set" }, select: { ref: true } }),
+  ]);
+  const byKey = new Map(collectibles.map((c) => [c.key, c]));
+  const items = ownedViews(rows, byKey);
+  const have = new Set(items.map((i) => i.key));
+  const claimed = new Set(claims.map((c) => c.ref));
+  return {
+    ...bal,
+    name: profile?.displayName ?? "",
+    equipped: { title: profile?.equippedTitle ?? null, color: profile?.equippedColor ?? null, theme: profile?.equippedTheme ?? null },
+    items,
+    worth: items.reduce((a, i) => a + i.value, 0),
+    totals: { items: collectibles.length },
+    sets: buildSets(collectibles).map((s) => ({
+      id: s.id, name: s.name, category: s.category, reward: s.reward, total: s.keys.length, have: s.keys.filter((k) => have.has(k)).length, claimed: claimed.has(s.id),
+    })),
+  };
 }
 
-/** Opens a case: pays, draws one cosmetic (crypto-random), and refunds part of the price for a duplicate. */
-export async function openCase(userId: string, caseId: string, rand: () => number = uniform): Promise<{ item: Cosmetic; duplicate: boolean; refund: number; itemId: number | null }> {
+/** Opens a case: pays, draws one collectible (crypto-random), and scraps a duplicate for part of its value. */
+export async function openCase(
+  userId: string, caseId: string, rand: () => number = uniform,
+): Promise<{ item: Collectible; duplicate: boolean; refund: number; itemId: number | null }> {
   const c = CASE_BY_ID[caseId];
   if (!c) throw new MarketError("Unknown case.", 404);
-  const item = rollCase(c, rand(), rand());
+  const item = rollCase(c, await getCollectibles(), rand(), rand(), rand());
   return db.$transaction(async (tx) => {
     if (!(await spend(tx, userId, c.price, "case", c.id))) throw new MarketError("Not enough souls.", 402);
     const owned = await tx.inventoryItem.count({ where: { userId, itemKey: item.key } });
     if (owned > 0) {
-      const refund = Math.round(c.price * DUPLICATE_REFUND);
+      const refund = scrapValue(item);
       await credit(tx, userId, refund, "duplicate", item.key);
       return { item, duplicate: true, refund, itemId: null };
     }
@@ -102,9 +148,46 @@ export async function openCase(userId: string, caseId: string, rand: () => numbe
   });
 }
 
+/** Sells an owned item back for part of its value (the row is deleted and paid in one transaction). */
+export async function sellItem(userId: string, itemId: number): Promise<{ name: string; souls: number }> {
+  const byKey = new Map((await getCollectibles()).map((c) => [c.key, c]));
+  return db.$transaction(async (tx) => {
+    const row = await tx.inventoryItem.findFirst({ where: { id: itemId, userId } });
+    if (!row) throw new MarketError("You don't own that.", 404);
+    const c = byKey.get(row.itemKey);
+    if (!c) throw new MarketError("That item is no longer in the catalogue.", 409);
+    // Delete first: a second sale of the same row (double click, two tabs) finds nothing to delete.
+    const gone = await tx.inventoryItem.deleteMany({ where: { id: itemId, userId } });
+    if (gone.count !== 1) throw new MarketError("You don't own that.", 404);
+    const souls = sellValue(c);
+    await credit(tx, userId, souls, "sell", c.key);
+    if (c.kind === "flair" && c.slot) {
+      const field = EQUIP_FIELD[c.slot];
+      await tx.profile.updateMany({ where: { userId, [field]: c.key }, data: { [field]: null } });
+    }
+    return { name: c.name, souls };
+  });
+}
+
+/** Pays a set's bonus once: when every item of it is owned and it hasn't been claimed before. */
+export async function claimSet(userId: string, setId: string): Promise<{ name: string; souls: number }> {
+  const collectibles = await getCollectibles();
+  const set = buildSets(collectibles).find((s) => s.id === setId);
+  if (!set) throw new MarketError("Unknown set.", 404);
+  return db.$transaction(async (tx) => {
+    // Serialise claims of the same set by the same player, so two parallel requests can't both pay.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`set:${userId}:${setId}`}))`;
+    if (await tx.soulLedger.count({ where: { userId, reason: "set", ref: setId } })) throw new MarketError("Already claimed.", 409);
+    const owned = new Set((await tx.inventoryItem.findMany({ where: { userId, itemKey: { in: set.keys } }, select: { itemKey: true } })).map((r) => r.itemKey));
+    if (set.keys.some((k) => !owned.has(k))) throw new MarketError("The set isn't complete.", 409);
+    await credit(tx, userId, set.reward, "set", setId);
+    return { name: set.name, souls: set.reward };
+  });
+}
+
 const EQUIP_FIELD: Record<Slot, "equippedTitle" | "equippedColor" | "equippedTheme"> = { title: "equippedTitle", color: "equippedColor", theme: "equippedTheme" };
 
-/** Equips an owned cosmetic (by key), or clears a slot with key null. */
+/** Equips an owned flair (by key), or clears a slot with key null. */
 export async function equip(userId: string, slot: Slot, key: string | null): Promise<void> {
   if (!(slot in EQUIP_FIELD)) throw new MarketError("Unknown slot.");
   if (key !== null) {
@@ -113,86 +196,6 @@ export async function equip(userId: string, slot: Slot, key: string | null): Pro
     if (!(await db.inventoryItem.count({ where: { userId, itemKey: key } }))) throw new MarketError("You don't own that.", 403);
   }
   await db.profile.update({ where: { userId }, data: { [EQUIP_FIELD[slot]]: key } });
-}
-
-/** Clears equipped cosmetics the player no longer owns (after a trade). */
-async function unequipMissing(tx: Tx, userId: string) {
-  const p = await tx.profile.findUnique({ where: { userId } });
-  if (!p) return;
-  const owned = new Set((await tx.inventoryItem.findMany({ where: { userId }, select: { itemKey: true } })).map((i) => i.itemKey));
-  const clear: Record<string, null> = {};
-  for (const f of ["equippedTitle", "equippedColor", "equippedTheme"] as const) if (p[f] && !owned.has(p[f]!)) clear[f] = null;
-  if (Object.keys(clear).length) await tx.profile.update({ where: { userId }, data: clear });
-}
-
-export type OfferInput = { to: string; giveItems: number[]; giveSouls: number; wantItems: number[]; wantSouls: number; message?: string };
-
-/** Offers a trade to another player (by display name). Nothing moves until they accept. */
-export async function createOffer(userId: string, o: OfferInput): Promise<{ id: number }> {
-  const target = await db.profile.findUnique({ where: { nameKey: nameKey(o.to.trim()) }, select: { userId: true } });
-  if (!target) throw new MarketError("No player by that name.", 404);
-  if (target.userId === userId) throw new MarketError("You can't trade with yourself.");
-  const clean = (ids: number[]) => [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))];
-  const give = clean(o.giveItems), want = clean(o.wantItems);
-  if (give.length > TRADE_MAX_ITEMS || want.length > TRADE_MAX_ITEMS) throw new MarketError(`At most ${TRADE_MAX_ITEMS} items each way.`);
-  for (const s of [o.giveSouls, o.wantSouls]) if (!Number.isInteger(s) || s < 0 || s > TRADE_MAX_SOULS) throw new MarketError(`Souls must be 0 to ${TRADE_MAX_SOULS}.`);
-  if (!give.length && !want.length && !o.giveSouls && !o.wantSouls) throw new MarketError("Offer something.");
-  if (o.giveSouls && o.wantSouls) throw new MarketError("Souls can only go one way in a trade.");
-  if ((await db.inventoryItem.count({ where: { id: { in: give }, userId } })) !== give.length) throw new MarketError("You don't own all of those items.", 403);
-  if ((await db.inventoryItem.count({ where: { id: { in: want }, userId: target.userId } })) !== want.length) throw new MarketError("They don't own all of those items.");
-  if ((await db.tradeOffer.count({ where: { fromUser: userId, status: "open" } })) >= TRADE_MAX_OPEN) throw new MarketError(`You already have ${TRADE_MAX_OPEN} open offers.`, 429);
-  if (o.giveSouls && (await balance(userId)).spendable < o.giveSouls) throw new MarketError("Not enough souls.", 402);
-  const row = await db.tradeOffer.create({
-    data: { fromUser: userId, toUser: target.userId, giveItems: give, giveSouls: o.giveSouls, wantItems: want, wantSouls: o.wantSouls, message: o.message?.slice(0, 140) || null },
-  });
-  return { id: row.id };
-}
-
-/**
- * Accepts, declines or cancels an offer. Accepting re-checks everything inside one transaction (items still owned,
- * souls still there) and moves it all at once, or nothing: a stale offer is marked failed.
- */
-export async function respondOffer(userId: string, id: number, action: "accept" | "decline" | "cancel"): Promise<{ status: string }> {
-  const offer = await db.tradeOffer.findUnique({ where: { id } });
-  if (!offer || (offer.toUser !== userId && offer.fromUser !== userId)) throw new MarketError("No such offer.", 404);
-  if (offer.status !== "open") throw new MarketError("That offer is closed.", 409);
-  if (action === "cancel" && offer.fromUser !== userId) throw new MarketError("Only the sender can cancel.", 403);
-  if ((action === "accept" || action === "decline") && offer.toUser !== userId) throw new MarketError("Only the receiver can answer.", 403);
-  if (action !== "accept") {
-    await db.tradeOffer.update({ where: { id }, data: { status: action === "cancel" ? "cancelled" : "declined", resolvedAt: new Date() } });
-    return { status: action === "cancel" ? "cancelled" : "declined" };
-  }
-  try {
-    await db.$transaction(async (tx) => {
-      // Claim the offer first: a second accept (double click, two tabs) finds it no longer open.
-      const claimed = await tx.tradeOffer.updateMany({ where: { id, status: "open" }, data: { status: "accepted", resolvedAt: new Date() } });
-      if (claimed.count !== 1) throw new MarketError("That offer is closed.", 409);
-      const moveItems = async (ids: number[], from: string, to: string) => {
-        if (!ids.length) return;
-        const moved = await tx.inventoryItem.updateMany({ where: { id: { in: ids }, userId: from }, data: { userId: to, source: "trade" } });
-        if (moved.count !== ids.length) throw new MarketError("Some items in the offer changed hands meanwhile.", 409);
-      };
-      await moveItems(offer.giveItems, offer.fromUser, offer.toUser);
-      await moveItems(offer.wantItems, offer.toUser, offer.fromUser);
-      const ref = `trade:${id}`;
-      if (offer.giveSouls) {
-        if (!(await spend(tx, offer.fromUser, offer.giveSouls, "trade-out", ref))) throw new MarketError("The sender no longer has those souls.", 409);
-        await credit(tx, offer.toUser, offer.giveSouls, "trade-in", ref);
-      }
-      if (offer.wantSouls) {
-        if (!(await spend(tx, offer.toUser, offer.wantSouls, "trade-out", ref))) throw new MarketError("You don't have enough souls.", 402);
-        await credit(tx, offer.fromUser, offer.wantSouls, "trade-in", ref);
-      }
-      await unequipMissing(tx, offer.fromUser);
-      await unequipMissing(tx, offer.toUser);
-    });
-  } catch (e) {
-    if (e instanceof MarketError && e.status === 409 && e.message !== "That offer is closed.") {
-      await db.tradeOffer.update({ where: { id }, data: { status: "failed", resolvedAt: new Date() } });
-    }
-    throw e;
-  }
-  return { status: "accepted" };
 }
 
 /** Equipped title and name colour per player, for the leaderboards. */
@@ -204,17 +207,14 @@ export async function cosmeticsOf(userIds: string[]): Promise<Map<string, { titl
   }]));
 }
 
-/** Distinct cosmetics owned per player (the Collectors board). */
+/** Total worth (souls) of each player's collection (the Collectors board). */
 export async function collectionCounts(): Promise<{ userId: string; value: number }[]> {
-  const rows = await db.inventoryItem.groupBy({ by: ["userId", "itemKey"] });
+  const [rows, collectibles] = await Promise.all([db.inventoryItem.findMany({ select: { userId: true, itemKey: true } }), getCollectibles()]);
+  const value = new Map(collectibles.map((c) => [c.key, c.value]));
   const per = new Map<string, number>();
-  for (const r of rows) if (COSMETIC_BY_KEY[r.itemKey]) per.set(r.userId, (per.get(r.userId) ?? 0) + 1);
+  for (const r of rows) {
+    const v = value.get(r.itemKey);
+    if (v) per.set(r.userId, (per.get(r.userId) ?? 0) + v);
+  }
   return [...per].map(([userId, value]) => ({ userId, value }));
-}
-
-/** A player's collection by display name (shown to anyone signed in, like a profile), or null. */
-export async function collectionOf(name: string): Promise<{ id: number; key: string }[] | null> {
-  const p = await db.profile.findUnique({ where: { nameKey: nameKey(name.trim()) }, select: { userId: true } });
-  if (!p) return null;
-  return (await db.inventoryItem.findMany({ where: { userId: p.userId }, orderBy: { obtainedAt: "desc" } })).map((i) => ({ id: i.id, key: i.itemKey }));
 }

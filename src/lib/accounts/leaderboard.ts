@@ -7,7 +7,6 @@ import { boxOf } from "@/locks.config";
 import { foldPlays } from "../seance/scoring";
 import { tablesInPlay } from "../seance/library";
 import { collectionCounts, cosmeticsOf } from "../market/service";
-import { COSMETICS } from "../market/catalog";
 
 export type Board = "today" | "week" | "all" | "streak" | "collectors";
 export const BOARDS: { id: Board; label: string; sub: string }[] = [
@@ -15,7 +14,7 @@ export const BOARDS: { id: Board; label: string; sub: string }[] = [
   { id: "week", label: "This week", sub: "Souls since Monday" },
   { id: "all", label: "All time", sub: "Total souls" },
   { id: "streak", label: "Streaks", sub: "Days unlocked in a row" },
-  { id: "collectors", label: "Collectors", sub: "Different cosmetics owned (The Black Market)" },
+  { id: "collectors", label: "Collectors", sub: "Total worth of the collection (The Black Market)" },
 ];
 
 /** `title`/`color`: the player's equipped cosmetics (The Black Market). */
@@ -61,7 +60,7 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
       return { userId, value: f.souls, tie: -f.opened, detail: `${f.opened} locks opened` };
     });
   } else if (board === "collectors") {
-    entries = (await collectionCounts()).map((e) => ({ ...e, detail: `of ${COSMETICS.length}` }));
+    entries = (await collectionCounts()).map((e) => ({ ...e, detail: "souls of items" }));
   } else {
     const yesterday = addDays(today, -1);
     const stats = await db.userStats.findMany();

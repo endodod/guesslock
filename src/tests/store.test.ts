@@ -102,3 +102,35 @@ describe("progress backup", async () => {
     expect(m.progress["2026-10-02"].sigil.s).toBe("won");
   });
 });
+
+describe("guest mode", () => {
+  const memory = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+  };
+  const rec = { g: ["1"], s: "won" as const, w: 0, h: 0, souls: 100 };
+
+  it("keeps progress in the tab only, never touches what the device saved, but remembers settings", async () => {
+    const { vi } = await import("vitest");
+    const local = memory(), session = memory();
+    vi.stubGlobal("window", { localStorage: local, sessionStorage: session, dispatchEvent: () => true });
+    try {
+      const { loadStore, saveStore, emptyStore, STORE_KEY, GUEST_KEY } = await import("@/lib/client/store");
+      const device = emptyStore();
+      device.progress = { "2026-09-30": { reckoning: rec } };
+      saveStore(device);
+      const guest = loadStore(true);
+      expect(guest.progress).toEqual({});
+      saveStore({ ...guest, progress: { "2026-10-01": { visage: rec } }, settings: { ...guest.settings, sound: true } }, true);
+      // The device still holds only its own progress, plus the new setting.
+      const onDevice = JSON.parse(local.getItem(STORE_KEY)!);
+      expect(Object.keys(onDevice.progress)).toEqual(["2026-09-30"]);
+      expect(onDevice.settings.sound).toBe(true);
+      // The guest's progress is in the tab and comes back on reload.
+      expect(JSON.parse(session.getItem(GUEST_KEY)!)["2026-10-01"].visage.s).toBe("won");
+      expect(Object.keys(loadStore(true).progress)).toEqual(["2026-10-01"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
