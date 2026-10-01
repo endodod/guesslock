@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   turbopack: { root: path.resolve(__dirname) },
   output: "standalone",
   poweredByHeader: false,
+  // Two root layouts (game, admin): URLs that match no route get app/global-not-found.tsx.
+  experimental: { globalNotFound: true },
   // Bundled API backup (data/api-backup, see `npm run backup`) read at runtime by sync/generation.
   outputFileTracingIncludes: {
     "/api/cron/*": ["./data/api-backup/**", "./data/omens-seed.json.gz"],
