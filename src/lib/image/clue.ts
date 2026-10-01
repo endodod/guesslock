@@ -48,8 +48,9 @@ async function load(url: string): Promise<{ id: string; img: Rgba } | null> {
 
 async function save(tag: string, sourceId: string, op: string, img: Rgba): Promise<string> {
   const id = derivedId(tag, sourceId, op);
-  // The source URL column must be unique; it is never sent to players.
-  await storeAsset(id, `derived:${id}`, encodePng(img), "image/png");
+  // The source URL column must be unique; it is never sent to players. It names the tag so practice puzzles' images
+  // ("endless:<token>|…") can be pruned with them.
+  await storeAsset(id, `derived:${tag}:${id}`, encodePng(img), "image/png");
   return `/media/${id}`;
 }
 

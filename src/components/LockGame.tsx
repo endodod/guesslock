@@ -23,21 +23,37 @@ type Props = {
   site: string;
   available: string[]; // slugs with a playable puzzle that day
   rules: string;
+  /** Endless mode: a practice puzzle (its own record, never part of the daily progress). */
+  endless?: EndlessProps;
+};
+
+export type EndlessProps = {
+  token: string;
+  rec?: LockRecord;
+  onRecord(rec: LockRecord, answerKey?: string): void;
+  /** "Next puzzle" target. */
+  nextHref: string;
 };
 
 /** Signed-in responses carry the account's authoritative guess list. */
-type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean } };
+type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean }; answerKey?: string };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean; hard?: boolean }): Promise<PlayResponse> {
-  const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+type PlayBody = { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean; hard?: boolean };
+
+async function post(url: string, body: unknown): Promise<PlayResponse> {
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
 }
 
-export function LockGame({ slug, date, number, initialView, entries, site, available, rules }: Props) {
+export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless }: Props) {
   const lock = LOCK_BY_SLUG[slug];
-  const { store, hydrated, today, setRecord, play, toast, user } = useGame();
-  const rec = store.progress[date]?.[slug];
+  const { store, hydrated, today, setRecord, play, toast, user: account } = useGame();
+  // Practice puzzles are played anonymously against /api/endless, whoever is signed in.
+  const user = endless ? null : account;
+  const rec = endless ? endless.rec : store.progress[date]?.[slug];
+  const evaluateRemote = (body: PlayBody) =>
+    endless ? post("/api/endless", { token: endless.token, guesses: body.guesses, bonus: body.bonus, giveUp: body.giveUp, hard: body.hard }) : post("/api/play", body);
   const [view, setView] = useState<PlayView>(initialView);
   const [ranked, setRanked] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,7 +67,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const [wrongPulse, setWrongPulse] = useState(0);
   // The "Click." popup, shown when a guess opens the lock (not when a finished lock is restored).
   const [popup, setPopup] = useState<{ tries: number; souls: number } | null>(null);
-  const isArchive = date < today;
+  const isArchive = !endless && date < today;
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
@@ -85,10 +101,11 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         answer: v.answer ? { name: v.answer.name, image: v.answer.image } : undefined,
         at: done ? (rec?.at ?? Date.now()) : undefined,
       };
-      setRecord(date, slug, next);
+      if (endless) endless.onRecord(next, v.answerKey);
+      else setRecord(date, slug, next);
       return next;
     },
-    [rec, isArchive, setRecord, date, slug],
+    [rec, isArchive, setRecord, date, slug, endless],
   );
 
   // Restore saved guesses (local or account) once hydrated.
@@ -133,7 +150,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         play("click");
         setPopup({ tries: v.rows.length, souls: v.souls });
         const dayRecs = { ...(store.progress[date] ?? {}), [slug]: { s: "won" } };
-        if (available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
+        if (!endless && available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
         }
         return true;
@@ -181,17 +198,20 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
   // Next lock: next unsolved by numeral order, wrapping; vault when none left.
   const nextHref = useMemo(() => {
+    if (endless) return endless.nextHref;
     const day = store.progress[date] ?? {};
     const idx = LOCKS.findIndex((l) => l.slug === slug);
     const order = [...LOCKS.slice(idx + 1), ...LOCKS.slice(0, idx)];
     const next = order.find((l) => available.includes(l.slug) && !ignored.has(l.slug) && !["won", "lost"].includes(day[l.slug]?.s ?? ""));
     const q = isArchive ? `?d=${date}` : "";
     return next ? `/lock/${next.slug}${q}` : isArchive ? `/archive/${date}` : "/";
-  }, [store.progress, date, slug, available, isArchive, ignored]);
+  }, [store.progress, date, slug, available, isArchive, ignored, endless]);
 
   const stats = useMemo(() => lockStats(store.progress, slug, today), [store.progress, slug, today]);
   const souls = rec?.souls ?? view.souls;
-  const shareText = shareLock({ lock, number, result: { status: view.status === "won" ? "won" : "lost", guesses: view.rows.length, souls }, site });
+  const shareText = endless
+    ? `GUESSLOCK Endless — ${lock.name}\n${view.status === "won" ? `🔓 ${view.rows.length} ${view.rows.length === 1 ? "pick" : "picks"}` : "🔒 jammed"}\n${site}`
+    : shareLock({ lock, number, result: { status: view.status === "won" ? "won" : "lost", guesses: view.rows.length, souls }, site });
   const shareGridText = lock.attributeGrid && view.status === "won"
     ? shareLock({ lock, number, result: { status: "won", guesses: view.rows.length, souls }, site, grid: view.rows.map((r) => r.tiles ?? []) })
     : undefined;
@@ -260,6 +280,9 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       {lock.needsAudio && skipSound && (
         <div className="rounded-sm border border-brass/30 px-4 py-2 text-center text-sm text-ash">{t.lock.skippedBanner}</div>
       )}
+      {endless && (
+        <p className="text-center text-xs text-ash">Endless practice: souls here don&apos;t count for your tally, streak or the leaderboards.</p>
+      )}
       {user && !isArchive && ranked === false && (
         <p className="text-center text-xs text-ash">
           Unranked: this lock was started before you signed in, so it counts for your stats but not the <Link href="/hall" className="text-brass underline-offset-4 hover:underline">leaderboards</Link>.
@@ -313,7 +336,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       </AnimatePresence>
 
       {done ? (
-        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={shareGridText} dist={stats.dist} nextHref={nextHref} onBonus={onBonus} />
+        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={endless ? undefined : shareGridText} dist={endless ? {} : stats.dist} nextHref={nextHref} nextLabel={endless ? "Next puzzle" : undefined} practice={!!endless} onBonus={onBonus} />
       ) : boardInput ? null : lock.guess === "number" ? (
         <NumberInput placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (

@@ -23,13 +23,13 @@ export type GenResult = { date: string; slug: string; status: "created" | "exist
 
 export { todayDate, dayIndex };
 
-function memoAnalytics(): () => Promise<HeroItemStats> {
+export function memoAnalytics(): () => Promise<HeroItemStats> {
   let p: Promise<HeroItemStats> | null = null;
   return () => (p ??= fetchHeroItemStats());
 }
 
 /** Harvested match timelines still on file (The Cache), loaded once per run. */
-function memoMatches(): () => Promise<MatchTimeline[]> {
+export function memoMatches(): () => Promise<MatchTimeline[]> {
   let p: Promise<MatchTimeline[]> | null = null;
   return () => (p ??= db.omenMatch
     .findMany({ where: { status: "ready", timelineGz: { not: null } }, select: { timelineGz: true }, orderBy: { matchId: "asc" } })
@@ -40,7 +40,7 @@ function memoMatches(): () => Promise<MatchTimeline[]> {
 const matchesMemo = { current: memoMatches() };
 
 /** Approved Séance hero groups as Constellation categories. */
-async function heroCategories() {
+export async function heroCategories() {
   const lib = await loadLibrary("hero");
   return lib.categories.map((c) => ({ key: String(c.id), label: c.label, info: c.explanation ?? "", members: c.members }));
 }

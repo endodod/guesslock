@@ -33,6 +33,7 @@ export type BasePayload<C = unknown> = {
 export type BuildCtx = {
   data: GameData;
   rng: Rng;
+  /** The puzzle day (YYYY-MM-DD), or "endless:<token>" for a practice puzzle. Also tags its clue images. */
   date: string;
   dayIndex: number;
   analytics: () => Promise<HeroItemStats>;

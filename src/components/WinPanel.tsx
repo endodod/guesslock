@@ -89,10 +89,13 @@ function BonusCard({ bonus, onPick }: { bonus: BonusView; onPick: (id: string) =
 }
 
 export function WinPanel({
-  lock, view, souls, shareText, shareGridText, dist, nextHref, onBonus,
+  lock, view, souls, shareText, shareGridText, dist, nextHref, onBonus, nextLabel, practice = false,
 }: {
   lock: LockDef; view: PlayView; souls: number; shareText: string; shareGridText?: string;
   dist: Record<string, number>; nextHref: string; onBonus: (id: string) => void;
+  nextLabel?: string;
+  /** Endless practice: no distribution, the way back leads to the Endless list. */
+  practice?: boolean;
 }) {
   const won = view.status === "won";
   const a = view.answer!;
@@ -175,19 +178,21 @@ export function WinPanel({
         ) : null;
       })()}
 
-      <div className="mt-5">
-        <p className="mb-2 text-sm text-ash">{t.lock.distribution}</p>
-        <Distribution dist={dist} highlight={won ? (n >= 10 ? "10+" : String(n)) : "X"} maxRows={lock.maxTries ?? 6} />
-      </div>
+      {!practice && (
+        <div className="mt-5">
+          <p className="mb-2 text-sm text-ash">{t.lock.distribution}</p>
+          <Distribution dist={dist} highlight={won ? (n >= 10 ? "10+" : String(n)) : "X"} maxRows={lock.maxTries ?? 6} />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
         <ShareButton text={shareText} />
         {shareGridText && <ShareButton text={shareGridText} label={t.lock.shareGrid} variant="ghost" />}
         <Link href={nextHref} className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-ecto/60 bg-ecto/10 px-4 py-2 text-ecto hover:bg-ecto/20">
-          {t.lock.nextLock} <Icon name="arrow-right" className="h-4 w-4" />
+          {nextLabel ?? t.lock.nextLock} <Icon name="arrow-right" className="h-4 w-4" />
         </Link>
-        <Link href="/" className="inline-flex min-h-11 items-center px-4 py-2 text-ash hover:text-paper">
-          {t.nav.back}
+        <Link href={practice ? "/endless" : "/"} className="inline-flex min-h-11 items-center px-4 py-2 text-ash hover:text-paper">
+          {practice ? "All endless locks" : t.nav.back}
         </Link>
       </div>
       <p className="sr-only">{lock.name} complete.</p>

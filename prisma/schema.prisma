@@ -396,3 +396,17 @@ model VoiceEntry {
   @@unique([heroId, kind, fileKey])
   @@index([heroId, kind, status])
 }
+
+// ───────────── Endless mode (practice puzzles on demand) ─────────────
+
+// One practice puzzle, built on request and frozen like a DailyPuzzle. `id` is a random 128-bit token: knowing it is
+// what lets a browser play it (the payload never leaves the server). Pruned after ENDLESS_TTL_DAYS.
+model EndlessPuzzle {
+  id        String   @id
+  lock      String // lock slug
+  answerId  String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

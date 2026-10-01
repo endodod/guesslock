@@ -7,6 +7,7 @@ import { generateAhead } from "@/lib/engine/generate";
 import { dailySoundSync } from "@/lib/sounds/import";
 import { dailyWikiSync } from "@/lib/wiki/daily";
 import { snapshotCuration } from "@/lib/backup/curation";
+import { pruneEndless } from "@/lib/endless";
 
 export const maxDuration = 300;
 
@@ -25,11 +26,14 @@ export async function GET(req: Request) {
   // the last good data, and API fallbacks cover the rest (see README "API outage backup").
   // Generation harvests the Omens it needs first (replay queries take ~1 min): until ~4 min in.
   const gen = await generateAhead(undefined, { harvestUntil: started + 240_000 });
+  // Endless mode: practice puzzles (and their clue images) older than a week.
+  const endless = await pruneEndless().catch((e) => ({ error: String(e) }));
   return NextResponse.json({
     sync: { id: sync.id, status: sync.status, error: sync.error?.split("\n")[0] },
     sounds,
     wiki,
     backup,
+    endless,
     generated: gen.filter((g) => g.status === "created").length,
   }, { status: sync.status === "ok" ? 200 : 500 });
 }
