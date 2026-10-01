@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireAdminPage } from "@/lib/admin/auth";
 import { ECHO_MIN_LINES, soundEligible } from "@/lib/engine/modes/hero";
-import { markAllReviewed, markReviewed } from "../actions";
+import { acceptAllPendingReview, markAllReviewed, markReviewed } from "../actions";
 import { ActionButton } from "../ui";
 import { SEANCE_LOCKS } from "@/locks.config";
 import { todayDate } from "@/lib/day";
@@ -60,9 +60,11 @@ export default async function ReviewQueue() {
         title="Review Queue"
         subtitle="Unreviewed sync changes, incomplete data sets, and anomalies requiring curator attention."
         actions={
-          <span className="text-xs text-neutral-400">
-            {totalFlagged === 0 && incomplete.length === 0 ? "Everything in sync" : "Action items pending"}
-          </span>
+          totalFlagged === 0 && incomplete.length === 0 && totalPendingTexts === 0 && changed.length === 0 ? (
+            <span className="text-xs text-neutral-400">Everything in sync</span>
+          ) : (
+            <ActionButton action={acceptAllPendingReview} label="Accept all pending" confirm="Accept every flagged entity, pending text, and flagged Seance category currently shown in the review queue?" />
+          )
         }
       />
 

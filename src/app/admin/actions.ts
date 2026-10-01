@@ -76,6 +76,31 @@ export async function markAllReviewed(entity: "item" | "ability") {
   revalidatePath("/admin/review");
 }
 
+/** Accept every item currently represented in the review queue without changing its curated data. */
+export async function acceptAllPendingReview() {
+  await requireAdmin();
+  const result = await db.$transaction(async (tx) => {
+    const pendingTextCount = await tx.textEntry.count({ where: { OR: [{ status: "auto" }, { stale: true }] } });
+    const [heroes, items, abilities, categories] = await Promise.all([
+      tx.hero.updateMany({ where: { needsReview: true }, data: { needsReview: false, reviewReasons: [] } }),
+      tx.item.updateMany({ where: { needsReview: true }, data: { needsReview: false, reviewReasons: [] } }),
+      tx.ability.updateMany({ where: { needsReview: true }, data: { needsReview: false, reviewReasons: [] } }),
+      tx.seanceCategory.updateMany({ where: { flagged: true }, data: { flagged: false, flagReason: null } }),
+    ]);
+    await tx.textEntry.updateMany({ where: { status: "auto" }, data: { status: "approved", stale: false } });
+    await tx.textEntry.updateMany({ where: { stale: true }, data: { stale: false } });
+    return {
+      entities: heroes.count + items.count + abilities.count,
+      texts: pendingTextCount,
+      categories: categories.count,
+    };
+  });
+  revalidatePath("/admin/review");
+  revalidatePath("/admin/texts");
+  revalidatePath("/admin/seance");
+  return `Accepted ${result.entities} entities, ${result.texts} texts, and ${result.categories} Séance categories.`;
+}
+
 // ───────────── heroes ─────────────
 
 export async function saveHero(heroId: number, form: FormData) {
