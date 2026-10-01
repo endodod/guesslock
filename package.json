@@ -21,7 +21,8 @@
     "omens:harvest": "tsx --tsconfig tsconfig.json scripts/omens-harvest.ts",
     "omens:seed": "tsx --tsconfig tsconfig.json scripts/omens-seed.ts",
     "import:herovoice": "tsx --tsconfig tsconfig.json scripts/import-hero-voice.ts",
-    "import:castsounds": "tsx --tsconfig tsconfig.json scripts/import-cast-sounds.ts"
+    "import:castsounds": "tsx --tsconfig tsconfig.json scripts/import-cast-sounds.ts",
+    "backup:curation": "tsx --tsconfig tsconfig.json scripts/backup-curation.ts"
   },
   "dependencies": {
     "@neon/config": "^1.8.3",
