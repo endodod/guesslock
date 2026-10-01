@@ -1,6 +1,6 @@
 # Handoff: finish the admin redesign check + build the agent API
 
-> Written 2026-10-01 when the session was stopped on request. Branch: `feature/admin-ui-agent-api` (from `main` @ `2b5ecda`). Read the whole file before touching code.
+> Written 2026-10-01. The admin redesign and the agent-API groundwork are already merged into `main` (merge `1d2d2c3`); start a new branch from `main` for the rest. Read the whole file before touching code.
 
 ## 0. Vercel 404: SOLVED (live since commit 3501efd)
 

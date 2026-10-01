@@ -1,7 +1,7 @@
 # GUESSLOCK
 
 A fan-made daily guessing game for Valve's Deadlock: 18 "locks" per day (14 guessing games, 3 Omens and The Séance), same for every player, reset at 00:00 Europe/Zurich.
-Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
+Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/) (open work in [`prompts/todo/`](prompts/todo/), finished prompts in [`prompts/done/`](prompts/done/)): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
 [`guesslock-addendum-omens.md`](prompts/guesslock-addendum-omens.md) (The Omens; data findings in [`docs/omens-data-spike.md`](docs/omens-data-spike.md)),
