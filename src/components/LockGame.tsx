@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
 import { ignoredSlugs, lockStats, type LockRecord } from "@/lib/client/store";
-import { HARD_MULTIPLIER, shareLock } from "@/lib/game/scoring";
+import { shareLock } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
 import { ClueStage } from "./ClueStage";
@@ -71,10 +71,8 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
-  // Hard mode: picked before the first guess (default from Settings), then fixed for this lock.
-  const [hardPick, setHardPick] = useState<boolean | null>(null);
-  const started = (rec?.g.length ?? 0) > 0 || view.rows.length > 0;
-  const hard = !!lock.hard && (started ? !!(rec?.hard ?? view.hard) : hardPick ?? store.settings.hardMode);
+  // Hard mode is switched off for every lock for now (the server and the clue builders still support it).
+  const hard = false;
 
   const persist = useCallback(
     (v: PlayResponse, guessesIn: string[], bonusIn?: string, giveUp?: boolean) => {
@@ -130,22 +128,6 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
 
   const guessed = useMemo(() => new Set(view.rows.map((r) => r.id)), [view.rows]);
   const done = view.status === "won" || view.status === "lost";
-
-  /** Before the first guess: show the clue in the other mode (the server may refuse normal → hard once the normal clue was seen). */
-  const switchHard = async (on: boolean) => {
-    setHardPick(on);
-    setBusy(true);
-    try {
-      const v = await evaluateRemote({ date, slug, guesses: [], hard: on });
-      setView(v);
-      if (v.notice) toast(v.notice);
-      if (!!v.hard !== on) setHardPick(!!v.hard);
-    } catch {
-      toast(t.lock.error);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   /** Resolves to true when the guess opened the lock. */
   const onGuess = async (id: string): Promise<boolean> => {
@@ -305,25 +287,11 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
         </p>
       )}
 
-      {lock.hard && !done && (
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
-          {started ? (
-            <span className={hard ? "text-cursed" : "text-ash"}>{hard ? `Hard mode · ${HARD_MULTIPLIER}× souls` : "Normal mode"}</span>
-          ) : (
-            <label className="flex min-h-11 cursor-pointer flex-wrap items-center justify-center gap-x-2 text-center">
-              <input type="checkbox" checked={hard} onChange={(e) => switchHard(e.target.checked)} disabled={restoring || busy} className="h-5 w-5 shrink-0 accent-[var(--cursed)]" />
-              <span className={hard ? "text-cursed" : "text-paper/90"}>Hard mode</span>
-              <span className="text-ash">({t.lock.hardInfo[slug] ?? "a tougher clue"}, {HARD_MULTIPLIER}× souls)</span>
-            </label>
-          )}
-        </div>
-      )}
-
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
         {view.clue && (
           <ClueStage
             clue={view.clue} rows={view.rows} done={done} subject={lock.guess === "item" ? "item" : "hero"}
-            onGuess={boardInput ? onGuess : undefined} busy={busy} disabled={!hydrated || restoring}
+            onGuess={boardInput ? onGuess : undefined} entries={entries} busy={busy} disabled={!hydrated || restoring}
           />
         )}
       </motion.div>

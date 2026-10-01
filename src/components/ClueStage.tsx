@@ -2,7 +2,7 @@
 // Clue stage renderers for the 14 guessing locks (The Omens have their own stage in omens/). Clue images get neutral alt text so answers don't leak.
 import { Fragment, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { Clue, GuessRow } from "@/lib/engine/types";
+import type { CatalogEntry, Clue, GuessRow } from "@/lib/engine/types";
 import { CENSOR } from "@/lib/text/redact";
 import { DecoFrame, Icon, SlotDot } from "./ui";
 import { useGame } from "./GameProvider";
@@ -463,17 +463,19 @@ function GridLegend({ subject }: { subject: "hero" | "item" }) {
   );
 }
 
-export function ClueStage({ clue, rows, done = false, subject = "hero", onGuess, busy, disabled }: {
+export function ClueStage({ clue, rows, done = false, subject = "hero", onGuess, entries, busy, disabled }: {
   clue: Clue; rows: GuessRow[]; done?: boolean; subject?: "hero" | "item";
   /** Board locks (The Decoy, The Cache, The Constellation) take their guesses in the stage itself. */
   onGuess?: (id: string) => Promise<boolean>; busy?: boolean; disabled?: boolean;
+  /** Search suggestions for the board locks that take a typed name (The Constellation). */
+  entries?: CatalogEntry[];
 }) {
   const play = { onGuess, busy, disabled, done };
   switch (clue.kind) {
     case "stats": return <StatsStage clue={clue} />;
     case "decoy": return <DecoyStage clue={clue} picked={new Map(rows.map((r) => [r.id, r.correct]))} {...play} />;
     case "cache": return <CacheStage clue={clue} {...play} />;
-    case "constellation": return <ConstellationStage clue={clue} {...play} />;
+    case "constellation": return <ConstellationStage clue={clue} entries={entries ?? []} {...play} />;
     case "grid": return <GridLegend subject={subject} />;
     case "splash": return <SplashStage clue={clue} />;
     case "sigil": return <SigilStage clue={clue} />;

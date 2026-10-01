@@ -25,6 +25,7 @@
     "backup:curation": "tsx --tsconfig tsconfig.json scripts/backup-curation.ts",
     "check:market": "tsx --tsconfig tsconfig.json scripts/check-market.ts",
     "restore:curation": "tsx --tsconfig tsconfig.json scripts/restore-curation.ts",
+    "import:weapons": "tsx --tsconfig tsconfig.json scripts/import-weapons.ts",
     "sync:wiki": "tsx --tsconfig tsconfig.json scripts/sync-wiki.ts"
   },
   "dependencies": {

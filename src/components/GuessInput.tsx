@@ -26,6 +26,8 @@ type Props = {
   /** Resolves to true when the guess was right. */
   onGuess: (id: string) => Promise<boolean> | void;
   autoFocus?: boolean;
+  /** Desktop: the field also keeps focus after a right guess (The Constellation places several heroes in a row). */
+  keepFocus?: boolean;
 };
 
 /** Shakes the returned scope element whenever `trigger` changes (skipped with reduced motion). */
@@ -59,7 +61,7 @@ function rank(entries: CatalogEntry[], q: string) {
   return [...named, ...secondary];
 }
 
-export function GuessInput({ entries, guessed, placeholder, disabled, busy, shake, grouped, onGuess, autoFocus }: Props) {
+export function GuessInput({ entries, guessed, placeholder, disabled, busy, shake, grouped, onGuess, autoFocus, keepFocus }: Props) {
   const isMobile = useIsMobile();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -87,9 +89,9 @@ export function GuessInput({ entries, guessed, placeholder, disabled, busy, shak
     if (isMobile) setOpen(false);
     const right = await onGuess(pick);
     setQ("");
-    if (right) { setOpen(false); return; }
-    // Wrong guesses clear the submitted search while keeping the desktop field ready
-    // for the next guess.
+    if (right && !keepFocus) { setOpen(false); return; }
+    // Submitted searches are cleared while the desktop field stays ready for the next guess
+    // (after a right guess only with `keepFocus`).
     if (!isMobile) {
       const el = inputRef.current;
       el?.focus();

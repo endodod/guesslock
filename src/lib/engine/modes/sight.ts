@@ -13,7 +13,7 @@ function pool(data: GameData, mode: string, has: (h: HeroData) => boolean): Cand
   return data.heroes.filter((h) => h.eligible && !h.exclude.includes(mode) && has(h)).map((h) => ({ answerId: String(h.id), ref: h.id }));
 }
 
-/** Silhouette steps: `normal` zooms out to the whole shape; `hard` stays tight and never shows it all. */
+/** Silhouette steps: `normal` shows the whole shape from the start; `hard` stays tight (and zooms out) but never shows it all. */
 export type SightPayload = {
   normal: string[];
   hard: string[];
@@ -49,7 +49,7 @@ function sightClue(p: BasePayload<SightPayload>, wrong: number, done: boolean, h
 
 // ---------- The Shadow (hero silhouette) ----------
 
-const SHADOW_NORMAL = [2.6, 2.1, 1.7, 1.4, 1.15, 1];
+const SHADOW_NORMAL = [1];
 const SHADOW_HARD = [4.4, 3.8, 3.3, 2.9, 2.6, 2.4];
 
 export const shadow: ModeImpl<SightPayload> = {
@@ -73,9 +73,9 @@ export const shadow: ModeImpl<SightPayload> = {
 
 // ---------- The Arsenal (weapon silhouette) ----------
 
-const ARSENAL_NORMAL = [2.4, 1.8, 1.4, 1];
+const ARSENAL_NORMAL = [1];
 const ARSENAL_HARD = [3.6, 3.1, 2.7, 2.4];
-/** Normal mode: the coloured weapon after 4 wrong guesses (the whole silhouette was shown at 3). */
+/** Normal mode: the coloured weapon after 4 wrong guesses (the whole silhouette is shown from the start). */
 const ARSENAL_COLOUR_AFTER = 4;
 
 export const arsenal: ModeImpl<SightPayload> = {

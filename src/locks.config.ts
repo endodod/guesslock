@@ -166,7 +166,7 @@ export const LOCKS: LockDef[] = [
   },
   {
     slug: "calculus", mode: "ability-stats", numeral: "XXV", name: "The Calculus",
-    subtitle: "Guess the ability from its stats", group: "spirits", guess: "ability", picks: 6, hard: true,
+    subtitle: "Guess the hero from their abilities' stats", group: "spirits", guess: "hero", picks: 6, hard: true,
     hints: LETTER_HINTS(4, 6),
   },
   {

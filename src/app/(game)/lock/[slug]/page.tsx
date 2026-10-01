@@ -105,7 +105,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
             // pre-rendered in the normal mode, so a ranked hard play can't have seen the easier clue.
             return user && lock.hard ? { ...v, clue: null } : v;
           })()}
-          entries={lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item") ? [] : catalog[lock.guess]}
+          entries={lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item" || lock.guess === "grid") ? [] : catalog[lock.guess === "grid" ? "hero" : lock.guess]}
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}

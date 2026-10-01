@@ -34,7 +34,7 @@ export function poolRows(lock: LockDef, data: GameData, date: string): PoolRow[]
       const answerId = byRef.get(String(a.id)) ?? null;
       return {
         kind: "ability", id: String(a.id), answerId, name: a.name, sub: h.name, icon: a.icon, heroId: h.id, on: !a.exclude.includes(mode),
-        inPool: !!answerId, note: !on ? (h.exclude.includes(mode) ? `${h.name} turned off` : "Turned off") : answerId ? "In pool" : mode === "ability-stats" ? "Fewer than 4 stats" : "Missing an upgrade text",
+        inPool: !!answerId, note: !on ? (h.exclude.includes(mode) ? `${h.name} turned off` : "Turned off") : answerId ? "In pool" : "Missing an upgrade text",
       };
     });
   }

@@ -33,7 +33,7 @@ No accounts: player progress lives in `localStorage`.
 | XVIII | The Séance | sort 16 heroes into 4 hidden groups; four tables (Mechanics, Visuals, Lore, Mixed) in one box | **only approved categories** (/admin/seance) |
 | XXIII | The Shadow | hero silhouette, zooms out per wrong guess (server-rendered steps) | API (second transparent portrait) |
 | XXIV | The Arsenal | weapon silhouette, in colour after 4 wrong guesses | **only curated** weapon cut-outs (/admin/setup → The Arsenal); sealed until one exists |
-| XXV | The Calculus | guess the ability from its tooltip stats (cooldown, cast range, duration, charges…) | API (`abilityStats`, needs 4+ stats) |
+| XXV | The Calculus | guess the hero from the tooltip stats (cooldown, cast range, duration, charges…) of all four of their abilities | API (`abilityStats`, every ability needs 2+ stats) |
 | XXVI | The Decoy | spot the fake item in a hero's core build (3 picks) | analytics API (fake: < 1% on this hero, ≥ 3% elsewhere) |
 | XXVII | The Cache | match a real team's six final inventories to its heroes (4 submissions) | Omen match harvest |
 | XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (typed names, 4 lives) | Reckoning columns + approved Séance hero groups |
@@ -87,7 +87,7 @@ the pool has a value.
 **Hard mode** (`hard: true` in `locks.config.ts`, a `hard` variant in the mode): picked per lock before the first guess
 (default in Settings), worth 1.5× souls. Hidden categories (Reckoning, Appraisal), dark portrait (Visage), turned icon
 (Sigil), no ability path (Belongings), turned and dark (Relic), hidden stat values (Measure), tighter silhouettes (Shadow,
-Arsenal), an omitted stat (Calculus), no hero (Decoy), blank items (Cache). For a signed-in player
+Arsenal), one omitted stat per ability (Calculus), no hero (Decoy), blank items (Cache). For a signed-in player
 the first clue served is recorded, and a play that has seen the normal clue can't switch to hard.
 
 **Clue images** (`src/lib/image/`): every reveal step of The Visage, Sigil, Relic, Ascension, Shadow and Arsenal

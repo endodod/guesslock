@@ -3,8 +3,9 @@
 // and The Constellation (3x3 category grid). The last three are also their own input.
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import type { Clue } from "@/lib/engine/types";
+import type { CatalogEntry, Clue } from "@/lib/engine/types";
 import { DecoFrame } from "./ui";
+import { GuessInput } from "./GuessInput";
 
 /** `onGuess` resolves true when the lock opened; a refused move leaves the view unchanged. */
 type Play = { onGuess?: (id: string) => Promise<boolean>; busy?: boolean; disabled?: boolean; done?: boolean };
@@ -13,20 +14,21 @@ type Play = { onGuess?: (id: string) => Promise<boolean>; busy?: boolean; disabl
 
 export function StatsStage({ clue }: { clue: Extract<Clue, { kind: "stats" }> }) {
   return (
-    <DecoFrame className="clue-layer p-4 md:p-6">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="smallcaps text-xs text-brass">Ability card</p>
-        <span className={`rounded-sm border px-2 py-0.5 font-mono text-xs ${clue.slot ? "border-brass/60 text-brass" : "border-brass/20 text-ash"}`}>{clue.slot ?? "Slot ?"}</span>
-      </div>
-      <ul className="grid gap-1.5 font-mono sm:grid-cols-2">
-        {clue.stats.map((s, i) => (
-          <li key={i} className={`flex items-center justify-between gap-3 rounded-sm bg-ink/50 px-3 py-2 ${s.display === null ? "ring-1 ring-ecto/40" : ""}`}>
-            <span className="font-body text-paper/90">{s.label}</span>
-            <span className={s.display === null ? "text-ecto" : "text-brass"}>{s.display ?? "??"}</span>
-          </li>
-        ))}
-      </ul>
-    </DecoFrame>
+    <div className="clue-layer grid gap-3 sm:grid-cols-2">
+      {clue.abilities.map((a) => (
+        <DecoFrame key={a.slot} className="p-3 md:p-4">
+          <p className="smallcaps mb-2 text-xs text-brass">{a.slot}</p>
+          <ul className="grid gap-1.5 font-mono text-sm">
+            {a.stats.map((s, i) => (
+              <li key={i} className={`flex items-center justify-between gap-3 rounded-sm bg-ink/50 px-3 py-1.5 ${s.display === null ? "ring-1 ring-ecto/40" : ""}`}>
+                <span className="font-body text-paper/90">{s.label}</span>
+                <span className={s.display === null ? "text-ecto" : "text-brass"}>{s.display ?? "??"}</span>
+              </li>
+            ))}
+          </ul>
+        </DecoFrame>
+      ))}
+    </div>
   );
 }
 
@@ -86,6 +88,18 @@ export function CacheStage({ clue, onGuess, busy, disabled, done }: { clue: Extr
   return (
     <div className="clue-layer space-y-3">
       <p className="text-center text-sm text-ash">The {clue.team} team at the end of the match. Who carried which inventory?</p>
+      <ul className="flex flex-wrap justify-center gap-2" aria-label="Heroes on the team">
+        {clue.heroes.map((x) => {
+          const used = pick.includes(x.id);
+          return (
+            <li key={x.id} className={`flex w-16 flex-col items-center gap-1 rounded-sm border p-1 text-center ${used ? "border-ecto/50 bg-ecto/5 opacity-60" : "border-brass/30 bg-ink/40"}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {x.image ? <img src={x.image} alt="" className="h-12 w-12 rounded-sm object-cover" /> : <span className="h-12 w-12 rounded-sm bg-ink" />}
+              <span className="w-full truncate text-[0.65rem] text-paper/90">{x.name}</span>
+            </li>
+          );
+        })}
+      </ul>
       <ol className="grid gap-3 sm:grid-cols-2">
         {clue.inventories.map((inv, i) => {
           const locked = clue.locked[i];
@@ -142,17 +156,18 @@ export function CacheStage({ clue, onGuess, busy, disabled, done }: { clue: Extr
 
 // ───────────── The Constellation ─────────────
 
-export function ConstellationStage({ clue, onGuess, busy, disabled, done }: { clue: Extract<Clue, { kind: "constellation" }> } & Play) {
+export function ConstellationStage({ clue, entries, onGuess, busy, disabled, done }: { clue: Extract<Clue, { kind: "constellation" }>; entries: CatalogEntry[] } & Play) {
   const firstEmpty = useMemo(() => clue.cells.findIndex((c) => !c), [clue.cells]);
   const [cell, setCell] = useState<number | null>(null);
-  const [text, setText] = useState("");
   const active = cell !== null && !clue.cells[cell] ? cell : firstEmpty >= 0 ? firstEmpty : null;
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (active === null || !text.trim() || !onGuess) return;
-    await onGuess(`${active}:${text.trim()}`);
-    setText("");
+  const placed = useMemo(() => new Set(clue.cells.flatMap((c) => (c ? [c.id] : []))), [clue.cells]);
+  // The server resolves the typed name, so the picked suggestion is sent by its name.
+  const place = async (id: string) => {
+    const entry = entries.find((e) => e.id === id);
+    if (active === null || !entry || !onGuess) return false;
+    const ok = await onGuess(`${active}:${entry.name}`);
     setCell(null);
+    return ok;
   };
   const head = (f: { label: string; info: string }, i: number) => (
     <div key={i} title={f.info} className="flex min-h-14 items-center justify-center rounded-sm border border-cursed/40 bg-cursed/10 p-1.5 text-center text-[0.7rem] leading-tight text-paper sm:text-sm">
@@ -203,25 +218,14 @@ export function ConstellationStage({ clue, onGuess, busy, disabled, done }: { cl
         ))}
       </div>
       {onGuess && !done && active !== null && (
-        <form onSubmit={submit} className="mx-auto flex max-w-xl gap-2">
-          <label className="sr-only" htmlFor="constellation-name">Hero for the selected cell</label>
-          <input
-            id="constellation-name"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={40}
-            autoComplete="off"
-            spellCheck={false}
+        <div className="mx-auto max-w-xl">
+          <GuessInput
+            entries={entries} guessed={placed} onGuess={place} busy={busy} disabled={disabled} keepFocus autoFocus
             placeholder={`Cell ${active + 1}: ${clue.rows[Math.floor(active / 3)].label} × ${clue.cols[active % 3].label}`}
-            disabled={busy || disabled}
-            className="min-h-12 min-w-0 flex-1 rounded-[3px] border border-brass/50 bg-ink px-3 text-paper placeholder:text-ash/70"
           />
-          <button type="submit" disabled={busy || disabled || !text.trim()} className="min-h-12 rounded-[3px] border border-ecto/70 bg-ecto/10 px-5 text-ecto hover:bg-ecto/20 disabled:opacity-40">
-            Place
-          </button>
-        </form>
+        </div>
       )}
-      {!done && <p className="text-center text-xs text-ash">Type the name yourself: no suggestions. Each hero fits one cell only.</p>}
+      {!done && <p className="text-center text-xs text-ash">Each hero fits one cell only.</p>}
     </div>
   );
 }

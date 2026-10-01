@@ -83,24 +83,24 @@ describe("The Shadow and The Arsenal", () => {
     expect(arsenal.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([2]);
   });
 
-  it("zooms out per wrong guess, stays tight in hard mode and only shows colour when finished", async () => {
+  it("shows the whole silhouette from the start in normal mode, zooms out in hard mode and only shows colour when finished", async () => {
     const urls = { n: 0 };
     const images = {
       crops: async (_u: string, steps: unknown[]) => steps.map(() => `/media/${String(urls.n++).padStart(40, "0")}`),
       copy: async () => `/media/${"f".repeat(40)}`,
     };
     const p = await shadow.build({ answerId: "1", ref: 1 }, ctx(data, "s", { images }));
-    expect(p.clue.normal).toHaveLength(6);
-    expect(new Set([...p.clue.normal, ...p.clue.hard]).size).toBe(12);
+    expect(p.clue.normal).toHaveLength(1);
+    expect(new Set([...p.clue.normal, ...p.clue.hard]).size).toBe(7);
     const at = (w: number, hard = false, done = false) => shadow.clue(p, w, done, { hard }) as { image: string; silhouette?: boolean };
     expect(at(0).image).toBe(p.clue.normal[0]);
-    expect(at(3).image).toBe(p.clue.normal[3]);
-    expect(at(99).image).toBe(p.clue.normal[5]);
+    expect(at(3).image).toBe(p.clue.normal[0]);
+    expect(at(99).image).toBe(p.clue.normal[0]);
     expect(at(99, true).image).toBe(p.clue.hard[5]);
     expect(at(0).silhouette).toBe(true);
     expect(at(2, false, true).image).toBe(p.clue.reveal);
     // The coloured portrait never reaches the browser before the end.
-    for (let w = 0; w < 12; w++) expect(at(w).image).not.toBe(p.clue.reveal);
+    for (let w = 0; w < 8; w++) expect(at(w).image).not.toBe(p.clue.reveal);
     expect(checkLeaks(p)).toEqual([]);
   });
 
@@ -116,25 +116,24 @@ describe("The Shadow and The Arsenal", () => {
 
 describe("The Calculus", () => {
   const stats = (n: number) => Array.from({ length: n }, (_, i) => ({ key: `k${i}`, label: `Stat ${i}`, value: i + 1, display: `${i + 1}s` }));
-  const a1 = ability(11, 1, 2, "Sleep Dagger");
-  a1.src.stats = stats(5);
-  const a2 = ability(12, 1, 4, "Bullet Dance");
-  a2.src.stats = stats(CALCULUS_MIN_STATS - 1);
-  const data = makeData({ heroes: [hero(1, "Haze")], abilities: [a1, a2] });
+  const four = (heroId: number, base: number, n = CALCULUS_MIN_STATS + 1) =>
+    [1, 2, 3, 4].map((slot) => { const a = ability(base + slot, heroId, slot, `Ability ${base + slot}`); a.src.stats = stats(n); return a; });
+  const thin = four(2, 20, CALCULUS_MIN_STATS - 1);
+  const data = makeData({ heroes: [hero(1, "Haze"), hero(2, "Seven"), hero(3, "Paige")], abilities: [...four(1, 10), ...thin, ...four(3, 30).slice(0, 3)] });
 
-  it("abilities need enough stats", () => {
-    expect(calculus.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([11]);
+  it("heroes need all four abilities, each with enough stats", () => {
+    expect(calculus.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([1]);
   });
 
-  it("shows every stat, the slot after 3 wrong; hard mode omits one stat and the slot until finished", async () => {
-    const p = await calculus.build({ answerId: "11", ref: 11 }, ctx(data));
-    const c = (w: number, hard: boolean, done = false) => calculus.clue(p, w, done, { hard }) as { stats: { display: string | null }[]; slot: string | null };
-    expect(c(0, false).stats.every((s) => s.display)).toBe(true);
-    expect(c(2, false).slot).toBeNull();
-    expect(c(3, false).slot).toBe("Ability 2");
-    expect(c(9, true).stats.filter((s) => s.display === null)).toHaveLength(1);
-    expect(c(9, true).slot).toBeNull();
-    expect(c(9, true, true).stats.every((s) => s.display)).toBe(true);
+  it("shows all four abilities with every stat; hard mode omits one stat of each until finished", async () => {
+    const p = await calculus.build({ answerId: "1", ref: 1 }, ctx(data));
+    type C = { abilities: { slot: string; stats: { display: string | null }[] }[] };
+    const c = (hard: boolean, done = false) => calculus.clue(p, 0, done, { hard }) as C;
+    expect(c(false).abilities.map((a) => a.slot)).toEqual(["Ability 1", "Ability 2", "Ability 3", "Ultimate"]);
+    expect(c(false).abilities.every((a) => a.stats.every((s) => s.display))).toBe(true);
+    expect(c(true).abilities.every((a) => a.stats.filter((s) => s.display === null).length === 1)).toBe(true);
+    expect(c(true, true).abilities.every((a) => a.stats.every((s) => s.display))).toBe(true);
+    expect(p.answer.name).toBe("Haze");
     expect(checkLeaks(p)).toEqual([]);
   });
 

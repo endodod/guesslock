@@ -44,7 +44,7 @@ export const en = {
     hardInfo: {
       reckoning: "two categories hidden", appraisal: "two categories hidden", visage: "dark portrait", sigil: "turned icon",
       belongings: "no ability path", relic: "turned and darkened", measure: "every stat value hidden",
-      shadow: "tighter silhouette", arsenal: "tighter silhouette, no colour", calculus: "one stat and the slot hidden",
+      shadow: "tighter silhouette", arsenal: "tighter silhouette, no colour", calculus: "one stat of each ability hidden",
       decoy: "the hero isn't named", cache: "items and net worth partly hidden"
     } as Record<string, string>,
     hintRevealed: "Hint revealed",

@@ -19,7 +19,7 @@ export default async function EndlessLockPage({ params, searchParams }: { params
   const lock = getLock(slug);
   if (!lock || !isEndlessLock(slug)) notFound();
   const catalog = await getCatalog();
-  const entries = lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item") ? [] : catalog[lock.guess];
+  const entries = lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item" || lock.guess === "grid") ? [] : catalog[lock.guess === "grid" ? "hero" : lock.guess];
   return (
     <div className="mx-auto max-w-[760px] px-4 py-5 md:py-8">
       <div className="mb-5 flex items-center gap-3">

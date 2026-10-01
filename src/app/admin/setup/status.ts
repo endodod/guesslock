@@ -30,7 +30,7 @@ function reason(data: GameData, h: HeroData, mode: string): string {
     case "hero-sound": return "Needs an ability with an approved cast sound";
     case "silhouette": return "No portrait";
     case "weapon": return "No weapon picture (add one below)";
-    case "ability-stats": return abilities.length ? "No ability with 4+ stats" : "All abilities turned off";
+    case "ability-stats": return "Needs all 4 abilities, each with 2+ stats";
     default: return "Not eligible";
   }
 }
@@ -39,8 +39,8 @@ export function heroStatuses(data: GameData): Map<number, Record<string, ModeSta
   const pools = Object.fromEntries(
     HERO_MODES.map(([mode]) => {
       const ids = MODES[mode].candidates(data, { dayIndex: 0 }).map((c) => Number(c.answerId));
-      // The Ascension's and The Calculus' answers are abilities: count them per hero.
-      const heroIds = mode === "upgrades" || mode === "ability-stats" ? ids.map((id) => data.ability(id)?.heroId ?? -1) : ids;
+      // The Ascension's answers are abilities: count them per hero.
+      const heroIds = mode === "upgrades" ? ids.map((id) => data.ability(id)?.heroId ?? -1) : ids;
       const count = new Map<number, number>();
       for (const id of heroIds) count.set(id, (count.get(id) ?? 0) + 1);
       return [mode, count];
@@ -55,7 +55,7 @@ export function heroStatuses(data: GameData): Map<number, Record<string, ModeSta
       row[mode] = {
         on, inPool: n > 0,
         note: !on ? "Turned off" : n === 0 ? reason(data, h, mode)
-          : mode === "upgrades" || mode === "ability-stats" ? `${n} ${n === 1 ? "ability" : "abilities"}`
+          : mode === "upgrades" ? `${n} ${n === 1 ? "ability" : "abilities"}`
           : mode === "whose-build" || mode === "decoy" ? "Needs match data at generation" : "In pool",
       };
     }

@@ -161,7 +161,6 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         </label>
         <Toggle label={t.settings.skipSound} desc={t.settings.skipSoundDesc} checked={s.skipSound} onChange={(v) => setSettings({ skipSound: v })} />
         <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
-        <Toggle label="Hard mode by default" desc="Locks with a hard variant start in hard mode (switchable per lock before the first guess). 1.5× souls." checked={s.hardMode} onChange={(v) => setSettings({ hardMode: v })} />
         <div className="space-y-2 py-3">
           <p className="text-sm text-paper">Your progress</p>
           <p className="text-xs text-ash">
