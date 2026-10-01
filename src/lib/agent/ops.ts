@@ -4,6 +4,7 @@
 //  - returns a before/after summary object
 import { after } from "next/server";
 import { revalidateTag } from "next/cache";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "../db";
 import { loadGameData } from "../engine/context";
 import { generateDay, overridePuzzle } from "../engine/generate";
@@ -78,7 +79,7 @@ export async function patchEntity(
     if (!dryRun) {
       await db.hero.update({
         where: { id: rawId },
-        data: { aliases, excludeFromModes: excl, setup: newSetup as Record<string, unknown> },
+        data: { aliases, excludeFromModes: excl, setup: newSetup as unknown as Prisma.InputJsonValue },
       });
       if (patch.values) {
         const edits = Object.entries(patch.values).map(([key, val]) => ({
@@ -86,7 +87,7 @@ export async function patchEntity(
         }));
         await saveCategoryValues("hero", edits, data);
       }
-      revalidateTag("catalog");
+      revalidateTag("catalog", { expire: 0 });
       if (patch.aliases !== undefined) {
         after(async () => { try { await syncTexts(); } catch { /* best effort */ } });
       }
@@ -112,7 +113,7 @@ export async function patchEntity(
     }
     if (!dryRun) {
       await db.ability.update({ where: { id: BigInt(rawId) }, data: { aliases, excludeFromModes: excl } });
-      revalidateTag("catalog");
+      revalidateTag("catalog", { expire: 0 });
       if (patch.aliases !== undefined) {
         after(async () => { try { await syncTexts(); } catch { /* best effort */ } });
       }
@@ -143,7 +144,7 @@ export async function patchEntity(
         }));
         await saveCategoryValues("item", edits, data);
       }
-      revalidateTag("catalog");
+      revalidateTag("catalog", { expire: 0 });
     }
     return { entity: "item", id: rawId, name: item.name, dryRun, before, after: { aliases, excludeFromModes: excl } };
   }
@@ -172,7 +173,7 @@ export async function createAttributeCategory(body: CategoryCreate, dryRun: bool
     await db.category.create({
       data: { key: dbKey, entity, label, info: info ?? "", type: type ?? "exact", unit: unit ?? "", builtin: false, enabled: true, order },
     });
-    revalidateTag("catalog");
+    revalidateTag("catalog", { expire: 0 });
   }
   return { created: true, dryRun, entity, key: dbKey, label, type: type ?? "exact", unit: unit ?? null, info: info ?? null };
 }
@@ -190,7 +191,7 @@ export async function patchAttributeCategory(entity: Entity, key: string, body: 
   };
   if (!dryRun) {
     await db.category.update({ where: { key: dbKey }, data: updated });
-    revalidateTag("catalog");
+    revalidateTag("catalog", { expire: 0 });
   }
   return { dryRun, entity, key: dbKey, before, after: updated };
 }

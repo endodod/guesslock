@@ -29,12 +29,15 @@ export const CategoryCreate = z.strictObject({
   unit: z.string().trim().max(12).optional(),
   info: z.string().trim().max(200).optional(),
 });
+export type CategoryCreate = z.infer<typeof CategoryCreate>;
+
 export const CategoryPatch = z.strictObject({
   label: z.string().trim().min(1).max(40).optional(),
   info: z.string().trim().max(200).optional(),
   enabled: z.boolean().optional(),
   order: z.number().int().min(0).max(10000).optional(),
 });
+export type CategoryPatch = z.infer<typeof CategoryPatch>;
 
 export const MemberEdit = z.strictObject({
   /** Heroes that belong to the group. */
@@ -46,6 +49,8 @@ export const MemberEdit = z.strictObject({
   /** Every hero still unknown becomes "does not belong". Only do this when the member list is complete. */
   completeRest: z.boolean().optional(),
 });
+export type MemberEdit = z.infer<typeof MemberEdit>;
+
 export const SeanceCreate = z.strictObject({
   type: z.enum(["mechanics", "visuals", "lore"]),
   label: z.string().trim().min(2).max(60),
@@ -53,6 +58,8 @@ export const SeanceCreate = z.strictObject({
   difficulty: z.number().int().min(1).max(4).default(2),
   members: MemberEdit,
 });
+export type SeanceCreate = z.infer<typeof SeanceCreate>;
+
 export const SeancePatch = z.strictObject({
   label: z.string().trim().min(2).max(60).optional(),
   explanation: z.string().trim().max(200).nullable().optional(),
@@ -61,9 +68,12 @@ export const SeancePatch = z.strictObject({
   status: z.enum(["draft", "approved", "retired"]).optional(),
   members: MemberEdit.optional(),
 });
+export type SeancePatch = z.infer<typeof SeancePatch>;
 
 export const PuzzleAction = z.strictObject({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   action: z.enum(["regenerate", "override"]),
   answerId: z.string().max(40).optional(),
 });
+export type PuzzleAction = z.infer<typeof PuzzleAction>;
+
