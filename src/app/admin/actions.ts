@@ -236,3 +236,15 @@ export async function fillSealedToday() {
   revalidatePath("/admin");
   revalidatePath("/admin/calendar");
 }
+
+/**
+ * Lock every ready puzzle from today on: they are marked as overridden, so regenerating, the daily top-up and the
+ * agent API leave them exactly as they are (new data never changes a puzzle that is already scheduled).
+ */
+export async function lockPuzzles(): Promise<string> {
+  await requireAdmin();
+  const r = await db.dailyPuzzle.updateMany({ where: { date: { gte: todayDate() }, sealed: false, overridden: false }, data: { overridden: true } });
+  revalidatePath("/admin");
+  revalidatePath("/admin/calendar");
+  return `Locked ${r.count} puzzle${r.count === 1 ? "" : "s"}.`;
+}
