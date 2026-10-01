@@ -1,6 +1,9 @@
-# Hard Mode (later)
+# Hard Mode
 
-> The first hard mode (settings toggles: grayscale, rotated Relic, muffled Resonance, no hints, and the Echo/Resonance variants) was removed completely; a full hard mode is planned. Source: `my_findings.md`. Not scheduled; do not implement until asked.
+> **Implemented** (per lock, before the first guess, 1.5x souls; see README "Hard mode") for every row below except the
+> ones still open: The Testament and The Incantation need curated rewrites (many variants of the same text), The
+> Ascension is undecided, and the Omens have none. The Measure's hard mode hides the other stat values (the pool is
+> unchanged, since puzzles are frozen before anyone picks a mode).
 
 | Mode | Hard-mode idea |
 |---|---|

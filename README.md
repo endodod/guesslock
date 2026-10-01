@@ -1,6 +1,6 @@
 # GUESSLOCK
 
-A fan-made daily guessing game for Valve's Deadlock: 18 "locks" per day (14 guessing games, 3 Omens and The Séance), same for every player, reset at 00:00 Europe/Zurich.
+A fan-made daily guessing game for Valve's Deadlock: 29 "locks" per day (guessing games, 3 Omens, 3 sorting tables, a hero grid and a map), same for every player, reset at 00:00 Europe/Zurich. Plus Endless practice, hard mode and The Black Market for spending souls.
 Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/) (open work in [`prompts/todo/`](prompts/todo/), finished prompts in [`prompts/done/`](prompts/done/)): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
@@ -31,6 +31,15 @@ No accounts: player progress lives in `localStorage`.
 | XIV | The Measure | hidden stat value (5 tries) | API |
 | XV–XVII | The Clash / The Beast / The Rift | Omens: predict a real match | replays (see below) |
 | XVIII | The Séance | sort 16 heroes into 4 hidden groups; four tables (Mechanics, Visuals, Lore, Mixed) in one box | **only approved categories** (/admin/seance) |
+| XXIII | The Shadow | hero silhouette, zooms out per wrong guess (server-rendered steps) | API (second transparent portrait) |
+| XXIV | The Arsenal | weapon silhouette, in colour after 4 wrong guesses | **only curated** weapon cut-outs (/admin/setup → The Arsenal); sealed until one exists |
+| XXV | The Calculus | guess the ability from its tooltip stats (cooldown, cast range, duration, charges…) | API (`abilityStats`, needs 4+ stats) |
+| XXVI | The Decoy | spot the fake item in a hero's core build (3 picks) | analytics API (fake: < 1% on this hero, ≥ 3% elsewhere) |
+| XXVII | The Cache | match a real team's six final inventories to its heroes (4 submissions) | Omen match harvest |
+| XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (typed names, 4 lives) | Reckoning columns + approved Séance hero groups |
+| XXIX | The Wayfinder | find the spot on the minimap from a zoomed crop (3 pins) | Omen match harvest (real hero positions) |
+
+Numerals XXIII+ were added after the Séance family so existing ones never change; the Vault shows each with its group.
 
 Everything opens automatically; the admin is optional (corrections, rewrites, overrides). The exceptions are
 The Cipher, which stays **Sealed** until at least one hero has an emoji set; The Resonance, which stays Sealed
@@ -76,8 +85,28 @@ switch off the built-in (API) columns, fix single values per hero or item in a s
 categories (Role and Height ship empty). A category that isn't from the API joins the puzzle once every hero or item in
 the pool has a value.
 
+**Hard mode** (`hard: true` in `locks.config.ts`, a `hard` variant in the mode): picked per lock before the first guess
+(default in Settings), worth 1.5× souls. Hidden categories (Reckoning, Appraisal), dark portrait (Visage), turned icon
+(Sigil), no ability path (Belongings), turned and dark (Relic), hidden stat values (Measure), tighter silhouettes (Shadow,
+Arsenal), an omitted stat (Calculus), no hero (Decoy), blank items (Cache), no context (Wayfinder). For a signed-in player
+the first clue served is recorded, and a play that has seen the normal clue can't switch to hard.
+
+**Clue images** (`src/lib/image/`): every reveal step of The Visage, Sigil, Relic, Ascension, Shadow, Arsenal and
+Wayfinder is its own image rendered on the server (crop, blur, tile cover, silhouette) and stored under a salted,
+per-puzzle id. The browser only ever holds what the step shows, and a clue never shares a URL with the guess list.
+
+**Endless** (`/endless`, `src/lib/endless.ts`): any guessing lock, a new puzzle every time, frozen in `EndlessPuzzle` under
+a random token and played through the same evaluator. Never counted; pruned after 7 days by the daily cron.
+
+**The Black Market** (`/market`, `src/lib/market/`): signed-in players spend souls earned in ranked play on cases (odds
+shown, souls only, never money), titles, name colours and Vault themes, and trade with each other. The leaderboards rank
+souls earned, so spending never costs a place. `npm run check:market` checks the money paths against a local database.
+
 Hints are the same in every guessing lock: the answer's first letter, then its first two letters, at the unlock points
 set in `src/locks.config.ts` (`LETTER_HINTS`).
+
+Admin tools: **Data coverage** (`/admin/coverage`: answer pool, no-repeat window and sealed days per lock) and **Debug
+preview** (`/admin/debug`: any lock, any day, any reveal step, normal or hard, as players see it, with leak check).
 
 Set `ADMIN_SETUP_MODE=1` to turn on **Puzzle setup** (`/admin/setup`): a hero × mode overview of who is in each
 answer pool (and why not), and a per-hero editor to switch each mode (or single abilities) on or off and to edit, add
@@ -147,6 +176,12 @@ The site keeps running for at least a week if deadlock-api or the wiki goes down
 Refresh the backup with `npm run backup`: it fetches everything live, stores it in the database, rewrites
 `data/api-backup/`, and generates puzzles 8 days ahead. Commit the updated files.
 
+**Curation** (emojis, species, categories, voice entries, clip metadata, text edits, Séance groups) is snapshotted daily
+(`curation-latest`) and by `npm run backup:curation`; `npm run restore:curation [-- <file|key>] [--audio]` loads one back
+(additive upserts; `--audio` re-downloads approved clips whose audio isn't mirrored). **Players** without an account can
+download and restore a backup of their progress in Settings; accounts sync automatically. Player tables (`Profile`,
+`Play`, wallets, items) are covered by Neon's point-in-time restore, not by files in this repository.
+
 ### The Omens (XV–XVII)
 
 Omens freeze a moment from a real high-rank match and ask what happens next. They need exact per-second data
@@ -167,7 +202,7 @@ budget. So one Omen per mode per day is produced wherever generation runs: both 
 admin and `npm run generate`. `npm run omens:harvest` and *Harvest now* on `/admin/omens` run it on their own.
 Replay queries are limited to 20/h per IP; set `DEADLOCK_API_KEY` for 200/h (`OMEN_QUERIES_PER_HOUR` tunes the
 budget). Details and data findings: [`docs/omens-data-spike.md`](docs/omens-data-spike.md). `/admin/omens` has the
-7-day calendar, candidate pool, tuning and inspector. (A practice / endless mode is planned for later.)
+7-day calendar, candidate pool, tuning and inspector. The same harvested timelines feed The Cache and The Wayfinder.
 
 **Seed:** `data/omens-seed.json.gz` holds real scenarios from harvested matches. When an Omen has no harvested stock
 for a day (fresh install, a short harvest, an API outage), the unused seed scenarios are imported and used, so every
