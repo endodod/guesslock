@@ -2,21 +2,14 @@
 
 > Written 2026-10-01 when the session was stopped on request. Branch: `feature/admin-ui-agent-api` (from `main` @ `2b5ecda`). Read the whole file before touching code.
 
-## 0. Vercel 404 (diagnosed and fixed in code; one manual step left for the owner)
+## 0. Vercel 404: SOLVED (live since commit 3501efd)
 
-- **Symptom:** `guesslock.paulkuehn.ch` (every path, incl. `/api/health`) answers Vercel's plain-text `NOT_FOUND`.
-- **Cause:** *every* production build since the accounts merge failed (GitHub deployment statuses for `0830079` … `2b5ecda` all say "failure"), so no production deployment exists. Reproduced locally: with `NEON_AUTH_COOKIE_SECRET` / `NEON_AUTH_BASE_URL` unset, `next build` dies in "Collecting page data" with `Missing required config: cookies.secret`, because `src/lib/auth/server.ts` called `createNeonAuth()` at import time.
-- **Fix (done, commit "Make accounts optional at build time"):** the auth client is now created lazily; `authConfigured()` guards `currentUser()`, the `/api/auth/*` handlers (503 when off) and `src/proxy.ts` (redirects `/account` to `/` when off). Verified: `next build` succeeds with both variables blank.
-- **Owner step (needed for accounts to work in production):** in Vercel → Settings → Environment Variables add, for **Production** (and Preview if used):
-  - `NEON_AUTH_BASE_URL` (the Neon Auth URL, ends in `/neondb/auth`) and
-  - `NEON_AUTH_COOKIE_SECRET` (32+ random chars).
-  Both are in the git-ignored `.env.vercel` in the repo root. Then redeploy.
-- **Env checklist** (what the code reads; present in the owner's project as of the screenshot: PUZZLE_TIMEZONE, PUZZLE_SALT, LAUNCH_DATE, SITE_URL, DATABASE_URL, DIRECT_URL, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET):
-  - missing for accounts: `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`
-  - optional: `ALERT_WEBHOOK_URL`, `DEADLOCK_API_KEY` (raises replay limits), `ADMIN_SETUP_MODE`, `AGENT_API_READ_TOKEN`, `AGENT_API_WRITE_TOKEN`, `AGENT_API_ALLOW_APPROVE`
-  - **must NOT be set in production:** `ADMIN_DEBUG` (adds a login shortcut), `ENABLE_STYLEGUIDE`
-  - "Needs Attention" badges in Vercel only suggest marking secrets as *Sensitive*; they are not errors.
-- If the next build still fails, read its log: `npx vercel inspect <deployment id> --logs` (needs `vercel login`) or the Vercel dashboard → Deployments → the failed one. The build runs `prisma generate && node scripts/migrate-on-build.mjs && next build`; `migrate-on-build` needs `DIRECT_URL` or `DATABASE_URL` on Vercel.
+- **Symptom:** the domain answered Vercel's plain-text `NOT_FOUND` on every path.
+- **Real cause (from the Vercel build log):** the build itself succeeded; the deployment then failed with `No Output Directory named "dist" found`. The Vercel project had a wrong framework preset / output-directory override. **Fix:** `vercel.json` now pins `"framework": "nextjs"` and `"outputDirectory": ".next"` (overrides the dashboard). The deployment succeeded and `/` and `/api/health` return 200. Optional cleanup: in Vercel → Settings → Build & Development, set Framework Preset to Next.js and clear any Output Directory override.
+- **Also fixed, found while investigating (a real but separate problem):** `createNeonAuth()` ran at import time and threw `Missing required config: cookies.secret` whenever the Neon Auth variables were unset, which fails `next build`. The auth client is now lazy (`authConfigured()`; `/api/auth/*` answers 503 and `/account` redirects home when off).
+- **Owner step still open for accounts in production:** add `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` (both in the git-ignored `.env.vercel`) to Vercel for Production, then redeploy. Without them the game works but sign-in is unavailable.
+- **Env checklist** (what the code reads). Present in the project at the time: PUZZLE_TIMEZONE, PUZZLE_SALT, LAUNCH_DATE, SITE_URL, DATABASE_URL, DIRECT_URL, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET. Optional: `ALERT_WEBHOOK_URL`, `DEADLOCK_API_KEY`, `ADMIN_SETUP_MODE`, `AGENT_API_READ_TOKEN`, `AGENT_API_WRITE_TOKEN`, `AGENT_API_ALLOW_APPROVE`. **Never set in production:** `ADMIN_DEBUG`, `ENABLE_STYLEGUIDE`. "Needs Attention" badges only suggest marking secrets as Sensitive.
+- Reading a failed build: GitHub deployment statuses (`https://api.github.com/repos/endodod/guesslock/deployments`) show success/failure; the log is in the Vercel dashboard → Deployments, or `npx vercel inspect <id> --logs` after `vercel login`.
 
 ## 1. Admin redesign (code done, **not visually verified**)
 
