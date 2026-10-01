@@ -8,7 +8,8 @@ function getAdminCookie(): string | null {
   const secret = process.env.SESSION_SECRET;
   if (!secret) return null;
   const exp = String(Date.now() + 60 * 60 * 24 * 7 * 1000);
-  const sig = createHmac("sha256", secret).update(exp).digest("base64url");
+  // Same as src/lib/admin/auth.ts: the signature covers the expiry and the current admin password.
+  const sig = createHmac("sha256", secret).update(`${exp}|${process.env.ADMIN_PASSWORD ?? ""}`).digest("base64url");
   return `gl_admin=${exp}.${sig}`;
 }
 
