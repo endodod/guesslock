@@ -445,6 +445,18 @@ export const utterance: ModeImpl<CastPayload> = {
   displayed: (p) => p.clue.lines,
 };
 
+/** Split a conversation into bites: consecutive lines until a hero would speak a second time (a question and its answer). */
+export function convoBites<T extends { h: number }>(lines: T[]): T[][] {
+  const bites: T[][] = [];
+  let cur: T[] = [];
+  for (const l of lines) {
+    if (cur.some((x) => x.h === l.h)) { bites.push(cur); cur = []; }
+    cur.push(l);
+  }
+  if (cur.length) bites.push(cur);
+  return bites;
+}
+
 type ConvoPayload = { lines: { h: number; t: string }[]; heroId: number; other: { name: string; image: string | null; terms: string[] } };
 
 export const colloquy: ModeImpl<ConvoPayload> = {
@@ -453,8 +465,8 @@ export const colloquy: ModeImpl<ConvoPayload> = {
   build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
     const usable = data.voiceEntries(h.id, "convo").filter((e) => e.otherHeroId !== null && data.hero(e.otherHeroId));
-    // Prefer conversations of 3+ lines: each wrong guess reveals the next one.
-    const long = usable.filter((e) => (e.lines?.length ?? 0) >= 3);
+    // Prefer conversations with 2+ bites: each wrong guess reveals the next one.
+    const long = usable.filter((e) => convoBites(e.lines ?? []).length >= 2);
     const convo = rng.pick(long.length ? long : usable);
     const other = data.hero(convo.otherHeroId!)!;
     const lines = convo.lines!;
@@ -469,10 +481,12 @@ export const colloquy: ModeImpl<ConvoPayload> = {
   clue: (p, wrong, done, hard) => {
     const hide = hard && !done;
     const blank = (t: string) => (hide ? redact(t, p.clue.other.terms.map((term) => ({ term }))).text : t);
+    const bites = convoBites(p.clue.lines);
+    const shown = done ? bites.length : Math.min(bites.length, 1 + wrong);
     return {
       kind: "convo",
-      lines: p.clue.lines.slice(0, done ? p.clue.lines.length : Math.min(p.clue.lines.length, 1 + wrong)).map((l) => ({ mine: l.h === p.clue.heroId, text: blank(l.t) })),
-      total: p.clue.lines.length,
+      lines: bites.slice(0, shown).flat().map((l) => ({ mine: l.h === p.clue.heroId, text: blank(l.t) })),
+      shown, total: bites.length,
       other: hide ? null : { name: p.clue.other.name, image: p.clue.other.image },
     };
   },

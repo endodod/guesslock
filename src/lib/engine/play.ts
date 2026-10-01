@@ -92,7 +92,10 @@ export function evaluate(
   if (done) view.answer = payload.answer;
   // A jammed lock has no bonus round, so a bonus-protected reveal (The Resonance's ability) joins the answer.
   if (lost && payload.bonus?.reveal) view.answer = { ...payload.answer, extra: { ...payload.answer.extra, ability: payload.bonus.reveal } };
-  if (won && payload.bonus) {
+  // A bonus whose answer was already shown during the game (in the clue or a guess) is not asked.
+  const shown = JSON.stringify([view.clue, rows.map((r) => [r.name, r.sub])]).toLowerCase();
+  const bonusAnswer = payload.bonus?.options.find((o) => o.id === payload.bonus?.answerId)?.name.toLowerCase();
+  if (won && payload.bonus && !(bonusAnswer && shown.includes(bonusAnswer))) {
     const picked = bonusPick && payload.bonus.options.some((o) => o.id === bonusPick) ? bonusPick : undefined;
     view.bonus = {
       prompt: payload.bonus.prompt,

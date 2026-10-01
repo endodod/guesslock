@@ -293,7 +293,7 @@ function ConvoStage({ clue }: { clue: Extract<Clue, { kind: "convo" }> }) {
           })}
         </AnimatePresence>
       </ol>
-      {clue.total > clue.lines.length && <p className="text-center font-mono text-xs text-ash">{clue.lines.length} / {clue.total}</p>}
+      {clue.total > clue.shown && <p className="text-center font-mono text-xs text-ash">{clue.shown} / {clue.total}</p>}
     </div>
   );
 }

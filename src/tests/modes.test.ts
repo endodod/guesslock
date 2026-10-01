@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cipher, colloquy, echo, hideHalf, reckoning, slotName, utterance } from "@/lib/engine/modes/hero";
+import { cipher, colloquy, convoBites, echo, hideHalf, reckoning, slotName, utterance } from "@/lib/engine/modes/hero";
 import { CENSOR } from "@/lib/text/redact";
 import type { VoiceEntryData } from "@/lib/engine/context";
 import { measure, isCleanStat } from "@/lib/engine/modes/item";
@@ -127,8 +127,9 @@ describe("The Echo family", () => {
     const p = await colloquy.build({ answerId: "13", ref: 13 }, ctx(data));
     const easy = colloquy.clue(p, 0, false) as { kind: string; lines: { mine: boolean; text: string }[]; other: { name: string } | null };
     expect(easy.other?.name).toBe("Abrams");
-    expect(easy.lines).toHaveLength(1);
-    expect(easy.lines[0].mine).toBe(false);
+    // The first bite is a question and its answer: each hero speaks once.
+    expect(easy.lines.map((l) => l.mine)).toEqual([false, true]);
+    expect(convoBites([{ h: 1 }, { h: 2 }, { h: 1 }, { h: 1 }, { h: 2 }]).map((b) => b.length)).toEqual([2, 1, 2]);
     const hard = colloquy.clue(p, 2, false, true) as typeof easy;
     expect(hard.other).toBeNull();
     expect(hard.lines.map((l) => l.mine)).toEqual([false, true, false]);

@@ -63,3 +63,10 @@
 ## Not in findings (no change requested)
 
 The Testament, The Incantation, The Ascension, The Relic: only hard-mode notes, see `hard-mode.md`.
+
+## Second round (findings: bonus questions, select lines, Colloquy)
+
+- [x] No bonus question when its answer was already shown during the game (play.ts checks the clue and the guess rows).
+- [x] A bonus question for every puzzle that can have one: heroes "Which of these is X's ultimate?", The Ascension "Which slot is X?", items "How much does X cost?". The Sigil, Incantation, Utterance and Resonance keep "Name the ability". The Measure, the Omens and the Séance have none.
+- [x] Guess the hero from the printed select lines: this is The Echo (IX), no audio.
+- [x] The Colloquy reveals in bites (a question and its answer, each hero speaking once), at the start and after every wrong guess.

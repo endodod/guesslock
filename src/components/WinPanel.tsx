@@ -66,7 +66,7 @@ export function Distribution({ dist, highlight, maxRows = 6 }: { dist: Record<st
 function BonusCard({ bonus, onPick }: { bonus: BonusView; onPick: (id: string) => void }) {
   return (
     <div className="rounded-sm border border-cursed/60 bg-cursed/10 p-4">
-      <p className="smallcaps mb-3 text-sm text-cursed">{t.lock.bonusTitle}</p>
+      <p className="smallcaps mb-3 text-sm text-cursed">Bonus: {bonus.prompt}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {bonus.options.map((o) => {
           const state = !bonus.picked ? "" : o.id === bonus.answerId ? "border-ecto bg-ecto/15" : o.id === bonus.picked ? "border-[#c86a6a] bg-velvet" : "opacity-50";

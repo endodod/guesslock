@@ -41,7 +41,7 @@ export type Clue =
   | { kind: "build"; items: { name: string; image: string | null; slot: string }[]; total: number; /** Ability slots (1-4) in the order the points are spent. */ path?: number[] }
   | { kind: "emoji"; slots: (string | null)[] }
   | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number; note?: string }
-  | { kind: "convo"; lines: { mine: boolean; text: string }[]; total: number; other: { name: string; image: string | null } | null }
+  | { kind: "convo"; lines: { mine: boolean; text: string }[]; /** Bites (a question and its answer) shown / in total. */ shown: number; total: number; other: { name: string; image: string | null } | null }
   | { kind: "sound"; clips: SoundClipView[]; total: number; slot?: number | null }
   | { kind: "relic"; image: string; blur: number; rotation: number }
   | {

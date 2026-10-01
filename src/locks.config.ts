@@ -57,12 +57,14 @@ export const LOCKS: LockDef[] = [
   {
     slug: "reckoning", mode: "classic", numeral: "I", name: "The Reckoning",
     subtitle: "Guess the hero by attributes", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "visage", mode: "splash", numeral: "II", name: "The Visage",
     subtitle: "Guess the hero from their portrait", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true,
     hints: [],
   },
   {
@@ -74,6 +76,7 @@ export const LOCKS: LockDef[] = [
   {
     slug: "testament", mode: "lore", numeral: "IV", name: "The Testament",
     subtitle: "Guess the hero from their lore", group: "spirits", guess: "hero", picks: 7,
+    bonusRound: true,
     hints: LETTER_HINTS(4, 7),
   },
   {
@@ -85,22 +88,26 @@ export const LOCKS: LockDef[] = [
   {
     slug: "belongings", mode: "whose-build", numeral: "VI", name: "The Belongings",
     subtitle: "Guess the hero from their build", group: "spirits", guess: "hero", picks: 7,
+    bonusRound: true,
     hints: LETTER_HINTS(5, 7),
   },
   {
     slug: "ascension", mode: "upgrades", numeral: "VII", name: "The Ascension",
     subtitle: "Guess the ability from its upgrades", group: "spirits", guess: "ability", picks: 6,
+    bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "cipher", mode: "emoji", numeral: "VIII", name: "The Cipher",
     subtitle: "Guess the hero from emojis", group: "spirits", guess: "hero", picks: 8,
+    bonusRound: true,
     // 5 emojis per puzzle: all shown after 4 wrong guesses.
     hints: LETTER_HINTS(6, 8),
   },
   {
     slug: "echo", mode: "quote", numeral: "IX", name: "The Echo",
     subtitle: "Guess the hero from their select lines", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
@@ -112,6 +119,7 @@ export const LOCKS: LockDef[] = [
   {
     slug: "colloquy", mode: "quote-convo", numeral: "XI", name: "The Colloquy",
     subtitle: "Guess the hero from a conversation", group: "spirits", guess: "hero", picks: 6,
+    bonusRound: true,
     hints: LETTER_HINTS(3, 5),
   },
   {
@@ -124,17 +132,20 @@ export const LOCKS: LockDef[] = [
   {
     slug: "relic", mode: "item-picture", numeral: "XIII", name: "The Relic",
     subtitle: "Guess the item from its icon", group: "shop", guess: "item", picks: 6,
+    bonusRound: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "appraisal", mode: "item-classic", numeral: "XIV", name: "The Appraisal",
     subtitle: "Guess the item by attributes", group: "shop", guess: "item", picks: 6,
+    bonusRound: true,
     attributeGrid: true,
     hints: LETTER_HINTS(4, 6),
   },
   {
     slug: "lineage", mode: "build-path", numeral: "XV", name: "The Lineage",
     subtitle: "Guess what builds into what", group: "shop", guess: "item", picks: 6,
+    bonusRound: true,
     noRepeatDays: 10,
     hints: LETTER_HINTS(3, 5),
   },
