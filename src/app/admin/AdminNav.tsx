@@ -12,9 +12,10 @@ const GROUPS: { id: string; title: string }[] = [
   { id: "shop", title: "Curiosity Shop" },
   { id: "omens", title: "The Omens" },
   { id: "seance", title: "The Séance" },
+  { id: "stars", title: "More locks" },
 ];
 
-const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/calendar", "Calendar"]] as const;
+const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;
 
 function Brand() {
   return (

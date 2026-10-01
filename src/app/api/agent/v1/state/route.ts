@@ -4,7 +4,7 @@ import { globalState } from "@/lib/agent/state";
 
 export const dynamic = "force-dynamic";
 
-const VALID = new Set(["heroes", "abilities", "items", "categories", "seance", "members", "locks"]);
+const VALID = new Set(["heroes", "abilities", "items", "categories", "seance", "members", "locks", "coverage"]);
 const DEFAULT = new Set(["locks", "categories", "seance"]);
 
 export async function GET(req: Request) {

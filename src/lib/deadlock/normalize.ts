@@ -182,24 +182,29 @@ function extractStatBonuses(
 ): StatBonus[] {
   const out: StatBonus[] = [];
   const innate = sections.filter((s) => s.section_type === "innate");
-  for (const s of innate)
-    for (const attr of s.section_attributes ?? [])
-      for (const key of [...(attr.elevated_properties ?? []), ...(attr.properties ?? [])]) {
-        const p = props[key];
-        const value = num(p?.value);
-        if (!p || value === null || value === 0 || !p.label) continue;
-        const conditional = !!p.conditional || (p.usage_flags ?? []).includes("ConditionallyApplied");
-        out.push({
-          key,
-          label: p.label,
-          value,
-          display: formatValue(value, { prefix: p.prefix ?? "", postfix: p.postfix ?? "", units: p.display_units ?? undefined }),
-          prefix: p.prefix ?? "",
-          postfix: p.postfix ?? (p.display_units === "EDisplayUnit_Meters" ? "m" : ""),
-          conditional,
-          scales: !!p.scale_function,
-        });
-      }
+  const keys = innate.flatMap((s) => (s.section_attributes ?? []).flatMap((attr) => [...(attr.elevated_properties ?? []), ...(attr.properties ?? [])]));
+  // Items without innate stats (Compress Cooldown, Duration Extender) show their stat as the passive's highlighted
+  // property; only real stat modifiers count (a "Charge-Up Time" isn't a buff).
+  if (!keys.length)
+    for (const s of sections.filter((x) => x.section_type !== "innate"))
+      for (const attr of s.section_attributes ?? [])
+        for (const key of attr.elevated_properties ?? []) if (props[key]?.provided_property_type) keys.push(key);
+  for (const key of keys) {
+    const p = props[key];
+    const value = num(p?.value);
+    if (!p || value === null || value === 0 || !p.label) continue;
+    const conditional = !!p.conditional || (p.usage_flags ?? []).includes("ConditionallyApplied");
+    out.push({
+      key,
+      label: p.label,
+      value,
+      display: formatValue(value, { prefix: p.prefix ?? "", postfix: p.postfix ?? "", units: p.display_units ?? undefined }),
+      prefix: p.prefix ?? "",
+      postfix: p.postfix ?? (p.display_units === "EDisplayUnit_Meters" ? "m" : ""),
+      conditional,
+      scales: !!p.scale_function,
+    });
+  }
   return out;
 }
 

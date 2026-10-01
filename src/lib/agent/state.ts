@@ -7,6 +7,7 @@ import { checkLeaks } from "../engine/leaks";
 import type { BasePayload } from "../engine/mode";
 import { LOCKS, LOCK_BY_SLUG, type LockDef } from "@/locks.config";
 import { dayMeta } from "../server/puzzles";
+import { lockCoverage } from "../admin/coverage";
 import { poolRows } from "@/app/admin/puzzles/pool";
 import { completeness } from "../seance/rules";
 import { activeEntities, loadCategoryRows } from "../seance/library";
@@ -79,6 +80,8 @@ export async function globalState(include: Set<string>) {
   if (include.has("heroes")) out.heroes = data.heroes.map((h) => heroView(h, data));
   if (include.has("abilities")) out.abilities = data.abilities.map((a) => abilityView(a, data));
   if (include.has("items")) out.items = data.items.map((i) => itemView(i, data));
+  // Is there enough data per lock (pool size, no-repeat window, sealed days ahead)? Same as /admin/coverage.
+  if (include.has("coverage")) out.coverage = await lockCoverage(data);
   return out;
 }
 

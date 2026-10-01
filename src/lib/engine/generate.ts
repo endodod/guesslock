@@ -224,7 +224,7 @@ function countBy(rs: GenResult[]) {
 export async function overridePuzzle(date: string, slug: string, answerId: string): Promise<void> {
   const lock = LOCKS.find((l) => l.slug === slug);
   if (!lock) throw new Error("unknown lock");
-  if (!MODES[lock.mode]) throw new Error(`${lock.name} has no answer list; use its own admin page`);
+  if (!MODES[lock.mode] || MODES[lock.mode].selfPicked) throw new Error(`${lock.name} has no answer list to pick from; regenerate the day instead`);
   const data = await loadGameData();
   const pool = MODES[lock.mode].candidates(data, { dayIndex: dayIndex(date) });
   const candidate = pool.find((c) => c.answerId === answerId);

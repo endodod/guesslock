@@ -62,6 +62,7 @@ export const cache: ModeImpl<CacheClue> = {
   mode: "cache",
   hard: true,
   // The pool is the harvested matches, not game data: one candidate a day, the match is picked in build().
+  selfPicked: true,
   candidates: () => [{ answerId: "match", ref: 0 }],
   async build(_c, { data, rng, matches, recent = [] }) {
     const timelines = (await matches?.()) ?? [];

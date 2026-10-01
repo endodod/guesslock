@@ -66,7 +66,7 @@ curl -X GET https://guesslock.paulkuehn.ch/api/agent/v1 \
 - **Path:** `/api/agent/v1/state`
 - **Scope:** `read`
 - **Query Parameters:**
-  - `include` (comma-separated): `heroes`, `abilities`, `items`, `categories`, `seance`, `members`, `locks`. Default: `locks,categories,seance`.
+  - `include` (comma-separated): `heroes`, `abilities`, `items`, `categories`, `seance`, `members`, `locks`, `coverage` (answer pool size, no-repeat window and sealed days ahead per lock). Default: `locks,categories,seance`.
 
 #### Example
 ```bash

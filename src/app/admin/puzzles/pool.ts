@@ -21,22 +21,24 @@ export type PoolRow = {
 
 export function poolRows(lock: LockDef, data: GameData, date: string): PoolRow[] {
   const mode = lock.mode;
-  if (!MODES[mode]) return [];
+  if (!MODES[mode] || MODES[mode].selfPicked) return [];
   const cands = MODES[mode].candidates(data, { dayIndex: dayIndex(date) });
   const byRef = new Map(cands.map((c) => [String(c.ref), c.answerId]));
 
-  if (lock.guess === "ability") {
+  // The Decoy is guessed by item but built per hero.
+  const kind = lock.mode === "decoy" ? "hero" : lock.guess;
+  if (kind === "ability") {
     return data.abilities.map((a) => {
       const h = data.hero(a.heroId)!;
       const on = !a.exclude.includes(mode) && !h.exclude.includes(mode);
       const answerId = byRef.get(String(a.id)) ?? null;
       return {
         kind: "ability", id: String(a.id), answerId, name: a.name, sub: h.name, icon: a.icon, heroId: h.id, on: !a.exclude.includes(mode),
-        inPool: !!answerId, note: !on ? (h.exclude.includes(mode) ? `${h.name} turned off` : "Turned off") : answerId ? "In pool" : "Missing an upgrade text",
+        inPool: !!answerId, note: !on ? (h.exclude.includes(mode) ? `${h.name} turned off` : "Turned off") : answerId ? "In pool" : mode === "ability-stats" ? "Fewer than 4 stats" : "Missing an upgrade text",
       };
     });
   }
-  if (lock.guess === "hero") {
+  if (kind === "hero") {
     const status = heroStatuses(data);
     return data.heroes.map((h) => {
       const s = status.get(h.id)?.[mode] ?? { on: !h.exclude.includes(mode), inPool: false, note: "Not eligible" };

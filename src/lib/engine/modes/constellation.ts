@@ -107,6 +107,7 @@ const filled = (rows: { id: string; correct: boolean }[]) => rows.filter((r) => 
 
 export const constellation: ModeImpl<ConstellationClue> = {
   mode: "constellation",
+  selfPicked: true,
   candidates: () => [{ answerId: "grid", ref: 0 }],
   async build(_c, { data, rng, heroCategories, date }) {
     const pool = data.heroes.filter((h) => h.eligible && !h.exclude.includes("constellation"));

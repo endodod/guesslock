@@ -58,6 +58,7 @@ const originFor = (c: number, z: number) => Math.round(Math.min(100, Math.max(0,
 export const wayfinder: ModeImpl<WayfinderClue> = {
   mode: "wayfinder",
   hard: true,
+  selfPicked: true,
   candidates: () => [{ answerId: "spot", ref: 0 }],
   async build(_c, { rng, matches, images, mapImage, date }) {
     const timelines = (await matches?.()) ?? [];

@@ -77,6 +77,11 @@ export interface ModeImpl<C = unknown> {
   souls?(payload: BasePayload<C>, r: { won: boolean; rows: GuessRow[]; wrong: number; hintsUsed: number }): number;
   /** The mode has a hard variant (BasePayload is the same; only the rendering changes). */
   hard?: boolean;
+  /**
+   * The answer is picked in build() from data outside GameData (The Cache: a harvested team; The Constellation: a grid;
+   * The Wayfinder: a spot). candidates() returns one placeholder, so there is no answer list to override from.
+   */
+  selfPicked?: boolean;
   /** Attribute tiles for a guessed id (grid modes only). */
   tiles?(payload: BasePayload<C>, guessId: string, opts?: ClueOpts): Tile[] | null;
   /** Text shown to the player at maximum reveal, for leak validation. */

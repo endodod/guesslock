@@ -16,6 +16,7 @@ import { ENTITY_TYPES } from "../seance/types";
 import { HERO_COLUMNS, ITEM_COLUMNS } from "../engine/columns";
 import { todayDate, isDay } from "../day";
 import { LOCK_BY_SLUG, LOCKS, type SeanceEntity } from "@/locks.config";
+import { MODES } from "../engine/registry";
 import { config } from "../config";
 import { HttpError } from "./errors";
 import type { EntityPatch, CategoryCreate, CategoryPatch, MemberEdit, SeanceCreate, SeancePatch, PuzzleAction } from "./schemas";
@@ -310,8 +311,8 @@ export async function puzzleAction(slug: string, body: PuzzleAction, dryRun: boo
   if (!isDay(date)) throw new HttpError(422, "date must be YYYY-MM-DD");
   const today = todayDate();
   if (date <= today) throw new HttpError(422, `Agents may only act on future dates (after today ${today})`);
-  if ((!!lock.box || lock.group === "omens") && action === "override") {
-    throw new HttpError(422, "Override is not available for Séance tables or Omens (no single answer id)");
+  if ((!!lock.box || lock.group === "omens" || MODES[lock.mode]?.selfPicked) && action === "override") {
+    throw new HttpError(422, "Override is not available for this lock (no answer list: Séance tables, Omens, The Cache, The Constellation, The Wayfinder); use regenerate");
   }
   const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: slug } } });
 
