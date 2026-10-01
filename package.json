@@ -23,6 +23,7 @@
     "import:herovoice": "tsx --tsconfig tsconfig.json scripts/import-hero-voice.ts",
     "import:castsounds": "tsx --tsconfig tsconfig.json scripts/import-cast-sounds.ts",
     "backup:curation": "tsx --tsconfig tsconfig.json scripts/backup-curation.ts",
+    "restore:curation": "tsx --tsconfig tsconfig.json scripts/restore-curation.ts",
     "sync:wiki": "tsx --tsconfig tsconfig.json scripts/sync-wiki.ts"
   },
   "dependencies": {
