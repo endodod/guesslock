@@ -16,14 +16,12 @@ export function parseSubmission(entry: string): number[] | null {
 /** Canonical key of a submission (order doesn't matter for repeats). */
 export const submissionKey = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
 
-export type SeanceOpts = { noHints?: boolean };
-
 /**
  * Replays a table's entries against its frozen board. Returns the view and the accepted entries
  * (the canonical list the client and the account store: repeats and invalid picks dropped).
  */
 export function evaluateSeance(
-  lock: LockDef, row: PuzzleRow, number: number, entries: string[], opts: SeanceOpts = {},
+  lock: LockDef, row: PuzzleRow, number: number, entries: string[],
 ): { view: SeanceView; accepted: string[] } {
   const table = lock.table!.kind;
   const hintDef = { after: SEANCE_HINT_AFTER, available: false, used: false };
@@ -55,7 +53,7 @@ export function evaluateSeance(
     const entry = String(raw).trim();
     if (entry === HINT_ENTRY) {
       // One hint per table: the easiest group that isn't solved yet, once 2 mistakes are made.
-      if (opts.noHints || hintRank !== null || mistakes < SEANCE_HINT_AFTER) continue;
+      if (hintRank !== null || mistakes < SEANCE_HINT_AFTER) continue;
       hintRank = p.groups.find((g) => !solved.includes(g))!.rank;
       accepted.push(HINT_ENTRY);
       continue;
@@ -109,7 +107,7 @@ export function evaluateSeance(
     mistakes,
     hint: {
       after: SEANCE_HINT_AFTER,
-      available: !done && !opts.noHints && hintRank === null && mistakes >= SEANCE_HINT_AFTER,
+      available: !done && hintRank === null && mistakes >= SEANCE_HINT_AFTER,
       used: hintRank !== null,
       ...(hintGroup ? { label: hintGroup.label } : {}),
     },

@@ -47,7 +47,7 @@ export interface ModeImpl<C = unknown> {
   candidates(data: GameData, ctx: { dayIndex: number }): Candidate[];
   build(c: Candidate, ctx: BuildCtx): Promise<BasePayload<C>> | BasePayload<C>;
   /** Clue as shown after `wrong` wrong guesses. `done` = puzzle finished (full reveal allowed). */
-  clue(payload: BasePayload<C>, wrong: number, done: boolean, hard?: boolean): Clue;
+  clue(payload: BasePayload<C>, wrong: number, done: boolean): Clue;
   /** Attribute tiles for a guessed id (grid modes only). */
   tiles?(payload: BasePayload<C>, guessId: string): Tile[] | null;
   /** Text shown to the player at maximum reveal, for leak validation. */

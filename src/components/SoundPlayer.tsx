@@ -21,8 +21,8 @@ function Horn({ className = "" }: { className?: string }) {
 let tipShown = false;
 
 export function SoundPlayer({
-  src, gainDb, muffled, label, small = false, done = false,
-}: { src: string; gainDb: number; muffled: boolean; label: string; small?: boolean; done?: boolean }) {
+  src, gainDb, label, small = false, done = false,
+}: { src: string; gainDb: number; label: string; small?: boolean; done?: boolean }) {
   const { store, reducedMotion, toast } = useGame();
   const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
   const [progress, setProgress] = useState(0);
@@ -37,7 +37,7 @@ export function SoundPlayer({
     if (state === "loading") return;
     setState("loading");
     try {
-      const p = await playClip({ url: src, gainDb, muffled, volume: store.settings.soundVolume });
+      const p = await playClip({ url: src, gainDb, volume: store.settings.soundVolume });
       pb.current = p;
       setState("playing");
       setPlays((n) => n + 1);
@@ -69,7 +69,7 @@ export function SoundPlayer({
       <button
         type="button"
         onClick={toggle}
-        aria-label={`${action} ${label}${muffled ? " (muffled)" : ""}`}
+        aria-label={`${action} ${label}`}
         aria-pressed={playing}
         className="group relative inline-flex shrink-0 items-center justify-center rounded-full border-2 border-brass/70 bg-[repeating-radial-gradient(circle,#3a3129_0_2px,#1d1a16_2px_5px)] text-brass shadow-[inset_0_0_18px_rgba(0,0,0,0.8),0_0_0_4px_rgba(26,24,22,1),0_0_0_5px_rgba(201,164,92,0.35)] transition-colors hover:text-paper focus-visible:text-paper"
         style={{ width: size, height: size }}
@@ -81,7 +81,6 @@ export function SoundPlayer({
       </button>
       <span className={`flex items-center gap-2 ${small ? "text-sm" : "text-center"}`}>
         <span className="font-display text-paper">{label}</span>
-        {muffled && <span className="smallcaps rounded-sm border border-brass/30 px-1.5 text-[0.65rem] text-ash">muffled</span>}
         {plays > 0 && <span className="font-mono text-xs text-ash" aria-label={`played ${plays} times`}>×{plays}</span>}
       </span>
       {done && !small && (
@@ -95,8 +94,6 @@ export function SoundPlayer({
 
 /** Clue stage: one player per unlocked clip, placeholders for locked ones. */
 export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; total: number; slot?: number | null }; done: boolean }) {
-  const { store } = useGame();
-  const hard = store.settings.muffledOnly && !done;
   return (
     <DecoFrame className="clue-layer p-5 md:p-7">
       {clue.slot ? (
@@ -110,7 +107,7 @@ export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; tot
           return (
             <li key={i}>
               {clip ? (
-                <SoundPlayer key={clip.url} src={clip.url} gainDb={clip.gainDb} muffled={clip.muffled || hard} label={clip.label} done={done} />
+                <SoundPlayer key={clip.url} src={clip.url} gainDb={clip.gainDb} label={clip.label} done={done} />
               ) : (
                 <div className="flex flex-col items-center gap-2 opacity-60">
                   <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-brass/30 bg-ink/40">
@@ -124,7 +121,7 @@ export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; tot
         })}
       </ul>
       <p className="mt-5 text-center text-sm text-ash">
-        {done ? "Every sound, unfiltered." : clue.clips[0]?.muffled || hard ? "Heard through the vault door. Tap to listen." : "Tap to listen, as often as you like."}
+        Tap to listen, as often as you like.
       </p>
     </DecoFrame>
   );

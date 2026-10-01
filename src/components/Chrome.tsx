@@ -157,14 +157,6 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         </label>
         <Toggle label={t.settings.skipSound} desc={t.settings.skipSoundDesc} checked={s.skipSound} onChange={(v) => setSettings({ skipSound: v })} />
         <Toggle label={t.settings.colorEmoji} checked={s.colorEmoji} onChange={(v) => setSettings({ colorEmoji: v })} />
-        <div className="pt-3">
-          <p className="smallcaps text-sm text-brass">{t.settings.hard}</p>
-          <Toggle label={t.settings.grayscale} checked={s.grayscale} onChange={(v) => setSettings({ grayscale: v })} />
-          <Toggle label={t.settings.rotation} checked={s.rotation} onChange={(v) => setSettings({ rotation: v })} />
-          <Toggle label={t.settings.muffledOnly} checked={s.muffledOnly} onChange={(v) => setSettings({ muffledOnly: v })} />
-          <Toggle label={t.settings.hardMode} desc={t.settings.hardModeDesc} checked={s.hardMode} onChange={(v) => setSettings({ hardMode: v })} />
-          <Toggle label={t.settings.noHints} checked={s.noHints} onChange={(v) => setSettings({ noHints: v })} />
-        </div>
         <div className="pt-4">
           <Button
             variant="ghost"

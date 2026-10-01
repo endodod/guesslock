@@ -82,7 +82,7 @@ export type SeanceView = {
   history: { ids: number[]; result: SubmissionResult }[];
   mistakes: number;
   maxMistakes: number;
-  /** "Reveal a category name": offered after 2 mistakes (not in "no hints" mode). */
+  /** "Reveal a category name": offered after 2 mistakes. */
   hint: { after: number; available: boolean; used: boolean; label?: string };
   hintsUsed: number;
   /** Only once the table is finished: each submission's true group ranks, for the share grid. */

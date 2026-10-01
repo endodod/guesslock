@@ -1,6 +1,6 @@
 # Hard Mode (later)
 
-> Source: `my_findings.md`. Not scheduled; do not implement until asked.
+> The first hard mode (settings toggles: grayscale, rotated Relic, muffled Resonance, no hints, and the Echo/Resonance variants) was removed completely; a full hard mode is planned. Source: `my_findings.md`. Not scheduled; do not implement until asked.
 
 | Mode | Hard-mode idea |
 |---|---|

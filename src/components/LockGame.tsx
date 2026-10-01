@@ -28,7 +28,7 @@ type Props = {
 /** Signed-in responses carry the account's authoritative guess list. */
 type PlayResponse = PlayView & { account?: { guesses: string[]; bonus?: string; ranked: boolean } };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; noHints: boolean; hard?: boolean; giveUp?: boolean }): Promise<PlayResponse> {
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; bonus?: string; giveUp?: boolean }): Promise<PlayResponse> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -52,8 +52,6 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   // The "Click." popup, shown when a guess opens the lock (not when a finished lock is restored).
   const [popup, setPopup] = useState<{ tries: number; souls: number } | null>(null);
   const isArchive = date < today;
-  const noHints = store.settings.noHints;
-  const hard = store.settings.hardMode;
   // "Skip sound locks": those locks never count and are never suggested as the next lock.
   const skipSound = store.settings.skipSound;
   const ignored = useMemo(() => ignoredSlugs({ skipSound }), [skipSound]);
@@ -66,7 +64,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       if (v.account) setRanked(v.account.ranked);
       if (guesses.length === 0 && !bonus) return;
       const done = v.status === "won" || v.status === "lost";
-      const hintsUsed = noHints ? 0 : v.hintsUsed;
+      const hintsUsed = v.hintsUsed;
       const bonusCorrect = v.bonus?.correct ?? false;
       const next: LockRecord = {
         g: guesses,
@@ -85,7 +83,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       setRecord(date, slug, next);
       return next;
     },
-    [noHints, rec, isArchive, setRecord, date, slug],
+    [rec, isArchive, setRecord, date, slug],
   );
 
   // Restore saved guesses (local or account) once hydrated.
@@ -93,7 +91,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (!hydrated || restored.current) return;
     restored.current = true;
     if (user || (rec && (rec.g.length || rec.b))) {
-      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, noHints, hard, giveUp: rec?.gu })
+      evaluateRemote({ date, slug, guesses: rec?.g ?? [], bonus: rec?.b, giveUp: rec?.gu })
         .then((v) => { setView(v); persist(v, rec?.g ?? [], rec?.b); })
         .catch(() => toast(t.lock.error))
         .finally(() => setRestoreDone(true));
@@ -118,12 +116,12 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setRestoreDone(true);
     const guesses = [...view.rows.map((r) => r.id), id];
     try {
-      const v = await evaluateRemote({ date, slug, guesses, noHints, hard });
+      const v = await evaluateRemote({ date, slug, guesses });
       setView(v);
       persist(v, guesses);
       if (v.status === "won") {
         play("click");
-        setPopup({ tries: v.rows.length, souls: soulsFor({ won: true, guesses: v.rows.length, hintsUsed: noHints ? 0 : v.hintsUsed }) });
+        setPopup({ tries: v.rows.length, souls: soulsFor({ won: true, guesses: v.rows.length, hintsUsed: v.hintsUsed }) });
         const dayRecs = { ...(store.progress[date] ?? {}), [slug]: { s: "won" } };
         if (available.filter((s) => !ignored.has(s)).every((s) => ["won", "lost"].includes((dayRecs as Record<string, { s: string }>)[s]?.s))) {
           setTimeout(() => play("creak"), 500);
@@ -147,7 +145,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     setBusy(true);
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, noHints, hard, giveUp: true });
+      const v = await evaluateRemote({ date, slug, guesses, giveUp: true });
       setView(v);
       persist(v, guesses, undefined, true);
       play("tick");
@@ -162,7 +160,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     if (view.bonus?.picked) return;
     const guesses = view.rows.map((r) => r.id);
     try {
-      const v = await evaluateRemote({ date, slug, guesses, bonus: id, noHints, hard, giveUp: rec?.gu });
+      const v = await evaluateRemote({ date, slug, guesses, bonus: id, giveUp: rec?.gu });
       setView(v);
       persist(v, guesses, id, rec?.gu);
       play(v.bonus?.correct ? "click" : "tick");
@@ -189,8 +187,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     : undefined;
 
   const placeholder = t.lock.placeholder[lock.guess];
-  const hideHints = store.settings.noHints;
-  const hintAt = hideHints ? [] : lock.hints.map((h) => h.after);
+  const hintAt = lock.hints.map((h) => h.after);
   // Unlimited-guess locks can be given up once at least one guess is in.
   const canGiveUp = !done && !lock.maxTries && view.rows.length > 0 && !restoring;
   const triesLeft = lock.maxTries ? Math.max(0, lock.maxTries - view.wrong) : undefined;
@@ -293,7 +290,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       {/* Once the lock is done, only the hints that were actually used stay on the shelf. */}
-      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} hidden={hideHints} muffled={store.settings.muffledOnly && !done} />
+      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} />
 
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />

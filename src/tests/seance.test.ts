@@ -278,7 +278,7 @@ describe("Séance play (server)", () => {
   const pick = (ids: number[]) => ids.join(",");
   const wrong = pick([g2.members[0], g3.members[0], g4.members[0], g2.members[1]]);
   const oneAway = pick([...g2.members.slice(0, 3), g3.members[0]]);
-  const ev = (entries: string[], noHints = false) => evaluateSeance(lock, row, 7, entries, { noHints });
+  const ev = (entries: string[]) => evaluateSeance(lock, row, 7, entries);
 
   it("correct / one away / wrong", () => {
     const { view } = ev([pick(g1.members), oneAway, wrong]);
@@ -320,7 +320,7 @@ describe("Séance play (server)", () => {
     expect(view.souls).toBe(10);
   });
 
-  it("hint: only after 2 mistakes, once, easiest unsolved group, not in no-hints mode", () => {
+  it("hint: only after 2 mistakes, once, easiest unsolved group", () => {
     expect(ev([HINT_ENTRY]).view.hint.used).toBe(false);
     const w2 = pick([g2.members[0], g3.members[0], g4.members[0], g3.members[1]]);
     const base = [pick(g1.members), wrong, w2];
@@ -329,10 +329,6 @@ describe("Séance play (server)", () => {
     expect(view.hint.used).toBe(true);
     expect(view.hint.label).toBe(g2.label);
     expect(view.hintsUsed).toBe(1);
-    const off = ev([...base, HINT_ENTRY], true).view;
-    expect(off.hint.available).toBe(false);
-    expect(off.hint.used).toBe(false);
-    expect(JSON.stringify(off)).not.toContain(g2.label);
   });
 
   it("unsolved group memberships and labels never appear in any response", () => {

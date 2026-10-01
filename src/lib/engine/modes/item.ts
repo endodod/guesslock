@@ -17,20 +17,19 @@ function itemPool(data: GameData, mode: string, extra: (i: ItemData) => boolean 
 
 const BLUR_STEPS = [20, 14, 10, 7, 4.5, 2.5, 1.2, 0];
 
-export const relic: ModeImpl<{ image: string; rotation: number }> = {
+export const relic: ModeImpl<{ image: string }> = {
   mode: "item-picture",
   candidates: (data) => itemPool(data, "item-picture", (i) => !!i.image),
-  build(c, { data, rng }) {
+  build(c, { data }) {
     const i = data.item(c.ref as number)!;
     return {
       v: 1, mode: "item-picture", answer: itemAnswer(i), correctIds: [String(i.id)], leakTerms: itemLeak(i),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
-      // Rotation is only applied in hard mode; keep it well away from upright.
-      clue: { image: i.image!, rotation: Math.round(40 + rng.next() * 280) },
+      clue: { image: i.image! },
     };
   },
   clue: (p, wrong, done) => ({
-    kind: "relic", image: p.clue.image, rotation: p.clue.rotation,
+    kind: "relic", image: p.clue.image,
     blur: done ? 0 : BLUR_STEPS[Math.min(wrong, BLUR_STEPS.length - 1)],
   }),
   displayed: () => [],

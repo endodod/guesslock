@@ -28,8 +28,8 @@ export type HintView = {
   gainDb?: number;
 };
 
-/** One playable clip of The Resonance. Labels are neutral ("Sound 1"); `muffled` = play through the low-pass. */
-export type SoundClipView = { url: string; gainDb: number; label: string; muffled: boolean };
+/** One playable clip of The Resonance. Labels are neutral ("Sound 1"). */
+export type SoundClipView = { url: string; gainDb: number; label: string };
 
 export type ColumnMeta = { key: string; label: string; info: string; numeric?: boolean };
 
@@ -43,7 +43,7 @@ export type Clue =
   | { kind: "echo"; lines: { text: string; audio?: string | null }[]; total: number; note?: string }
   | { kind: "convo"; lines: { mine: boolean; text: string }[]; /** Bites (a question and its answer) shown / in total. */ shown: number; total: number; other: { name: string; image: string | null } | null }
   | { kind: "sound"; clips: SoundClipView[]; total: number; slot?: number | null }
-  | { kind: "relic"; image: string; blur: number; rotation: number }
+  | { kind: "relic"; image: string; blur: number }
   | {
       kind: "lineage";
       direction: "into" | "from";

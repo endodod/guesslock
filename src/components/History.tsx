@@ -112,9 +112,8 @@ export function GuessList({ rows, numeric }: { rows: GuessRow[]; numeric?: boole
   );
 }
 
-/** `muffled`: hard mode "Muffled only" keeps The Resonance's gun clip filtered too, until the win. */
-export function HintShelf({ hints, hidden, muffled = false }: { hints: HintView[]; hidden?: boolean; muffled?: boolean }) {
-  if (!hints.length || hidden) return null;
+export function HintShelf({ hints }: { hints: HintView[] }) {
+  if (!hints.length) return null;
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
       {hints.map((h) => (
@@ -137,7 +136,7 @@ export function HintShelf({ hints, hidden, muffled = false }: { hints: HintView[
                   <img src={h.image} alt="Hint image" className="h-14 w-14 rounded bg-ink object-contain p-1 blur-[4px]" />
                 )}
                 {h.audio && (h.gainDb !== undefined
-                  ? <SoundPlayer src={h.audio} gainDb={h.gainDb} muffled={muffled} label="Gun" small />
+                  ? <SoundPlayer src={h.audio} gainDb={h.gainDb} label="Gun" small />
                   : <AudioButton src={h.audio} />)}
               </div>
             ) : (

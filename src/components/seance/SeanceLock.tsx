@@ -27,7 +27,7 @@ type Props = {
 /** Anonymous responses carry the accepted entries; signed-in ones the account's list. */
 type PlayResponse = SeanceView & { entries?: string[]; account?: { guesses: string[]; ranked: boolean } };
 
-async function evaluateRemote(body: { date: string; slug: string; guesses: string[]; noHints: boolean }): Promise<PlayResponse> {
+async function evaluateRemote(body: { date: string; slug: string; guesses: string[] }): Promise<PlayResponse> {
   const res = await fetch("/api/play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`play ${res.status}`);
   return res.json();
@@ -56,7 +56,6 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
   const restored = useRef(false);
   const day = useMemo(() => store.progress[date] ?? {}, [store.progress, date]);
   const isArchive = date < today;
-  const noHints = store.settings.noHints;
   const inPlay = tables.filter((v) => v.status !== "sealed").length;
   const q = isArchive ? `?d=${date}` : "";
 
@@ -71,14 +70,14 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
       g: list,
       s: v.status === "won" ? "won" : v.status === "lost" ? "lost" : "playing",
       w: v.mistakes,
-      h: noHints ? 0 : v.hintsUsed,
+      h: v.hintsUsed,
       souls: done ? v.souls ?? 0 : 0,
       archive: prev?.archive ?? isArchive,
       ranked: v.account?.ranked,
       at: done ? (prev?.at ?? Date.now()) : undefined,
       tables: inPlay,
     });
-  }, [store.progress, date, noHints, isArchive, inPlay, setRecord]);
+  }, [store.progress, date, isArchive, inPlay, setRecord]);
 
   // Restore saved submissions (local or account) for every table once hydrated.
   useEffect(() => {
@@ -87,7 +86,7 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
     const todo = tables.filter((v) => v.status !== "sealed" && (user || (day[v.slug]?.g.length ?? 0) > 0));
     Promise.all(todo.map(async (v) => {
       const sent = day[v.slug]?.g ?? [];
-      const r = await evaluateRemote({ date, slug: v.slug, guesses: sent, noHints });
+      const r = await evaluateRemote({ date, slug: v.slug, guesses: sent });
       setViews((all) => ({ ...all, [v.slug]: r }));
       persist(v.slug, r, sent);
     }))
@@ -103,7 +102,7 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
   const submit = async (slug: string, entry: string): Promise<PlayResponse | null> => {
     const sent = [...(entries[slug] ?? day[slug]?.g ?? []), entry];
     try {
-      const v = await evaluateRemote({ date, slug, guesses: sent, noHints });
+      const v = await evaluateRemote({ date, slug, guesses: sent });
       setViews((all) => ({ ...all, [slug]: v }));
       persist(slug, v, sent);
       return v;
@@ -177,7 +176,6 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
             rules={rules}
             showRules={showRules}
             setShowRules={setShowRules}
-            noHints={noHints}
             noun={boxDef.noun}
             contain={boxDef.entity !== "hero"}
             onSubmit={(entry) => submit(active, entry)}
@@ -232,7 +230,6 @@ function SeanceTable({
   rules: string;
   showRules: boolean;
   setShowRules: (fn: (s: boolean) => boolean) => void;
-  noHints: boolean;
   onSubmit: (entry: string) => Promise<PlayResponse | null>;
   onSound: (s: "click" | "tick" | "creak") => void;
   footer: (v: SeanceView) => React.ReactNode;

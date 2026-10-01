@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cipher, colloquy, convoBites, echo, hideHalf, reckoning, slotName, utterance } from "@/lib/engine/modes/hero";
-import { CENSOR } from "@/lib/text/redact";
+import { cipher, colloquy, convoBites, echo, reckoning, slotName, utterance } from "@/lib/engine/modes/hero";
 import type { VoiceEntryData } from "@/lib/engine/context";
 import { measure, isCleanStat } from "@/lib/engine/modes/item";
 import { makeRng } from "@/lib/rng";
@@ -99,30 +98,17 @@ describe("The Echo family", () => {
     expect((echo.clue(p, 3, false) as { lines: unknown[] }).lines).toHaveLength(4);
   });
 
-  it("Select hard mode blacks out the start or end of each line, until the win", async () => {
-    const p = await echo.build({ answerId: "13", ref: 13 }, ctx(data));
-    const hard = echo.clue(p, 1, false, true) as { lines: { text: string }[] };
-    expect(hard.lines.every((l) => l.text.includes(CENSOR))).toBe(true);
-    expect(hard.lines[0].text.startsWith(CENSOR)).toBe(true);
-    expect(hard.lines[1].text.endsWith(CENSOR)).toBe(true);
-    expect((echo.clue(p, 1, true, true) as { lines: { text: string }[] }).lines.every((l) => !l.text.includes(CENSOR))).toBe(true);
-    expect(hideHalf("a b c d", 0)).toBe(`${CENSOR} c d`);
-    expect(hideHalf("a b c d", 1)).toBe(`a b ${CENSOR}`);
-  });
-
-  it("Utterance: lines of one ability, its slot shown; hard mode hides the slot", async () => {
+  it("Utterance: lines of one ability, its slot shown", async () => {
     expect(utterance.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([13]);
     const p = await utterance.build({ answerId: "13", ref: 13 }, ctx(data));
     expect(p.clue.lines).toHaveLength(5);
     expect(p.clue.slot).toBe(2);
     expect(p.bonus!.reveal!.name).toBe("Smoke Bomb");
     expect((utterance.clue(p, 0, false) as { note?: string }).note).toBe("Said when casting Ability 2");
-    expect((utterance.clue(p, 0, false, true) as { note?: string }).note).not.toContain("2");
-    expect((utterance.clue(p, 0, true, true) as { note?: string }).note).toContain("Ability 2");
     expect(slotName(4)).toBe("the Ultimate");
   });
 
-  it("Colloquy: names the other hero, hides them in hard mode and blanks their name in the lines", async () => {
+  it("Colloquy: names the other hero and reveals the conversation in bites", async () => {
     expect(colloquy.candidates(data, { dayIndex: 0 }).map((c) => c.ref).sort()).toEqual([1, 13]);
     const p = await colloquy.build({ answerId: "13", ref: 13 }, ctx(data));
     const easy = colloquy.clue(p, 0, false) as { kind: string; lines: { mine: boolean; text: string }[]; other: { name: string } | null };
@@ -130,11 +116,8 @@ describe("The Echo family", () => {
     // The first bite is a question and its answer: each hero speaks once.
     expect(easy.lines.map((l) => l.mine)).toEqual([false, true]);
     expect(convoBites([{ h: 1 }, { h: 2 }, { h: 1 }, { h: 1 }, { h: 2 }]).map((b) => b.length)).toEqual([2, 1, 2]);
-    const hard = colloquy.clue(p, 2, false, true) as typeof easy;
-    expect(hard.other).toBeNull();
-    expect(hard.lines.map((l) => l.mine)).toEqual([false, true, false]);
-    expect(JSON.stringify(hard)).not.toContain("Abrams");
-    expect(JSON.stringify(colloquy.clue(p, 2, true, true))).toContain("Abrams");
+    const more = colloquy.clue(p, 2, false) as typeof easy;
+    expect(more.lines.map((l) => l.mine)).toEqual([false, true, false]);
   });
 
   it("leak validation catches an unredacted name in a displayed line", async () => {

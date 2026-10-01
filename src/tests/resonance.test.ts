@@ -199,26 +199,24 @@ describe("The Resonance: reveal ladder, slot, hints and leaks", () => {
   };
   const wrongs = ["1", "2", "4", "5", "6", "7"];
 
-  it("0: first cast sound · 1: second · 2: third, never muffled · letter hints at 4 and 6", async () => {
+  it("0: first cast sound · 1: second · 2: third · letter hints at 4 and 6", async () => {
     const { row } = await build();
     const at = (w: number) => evaluate(lock, row, 2, wrongs.slice(0, w), undefined, lookup(data));
-    const clips = (w: number) => (at(w).clue as { clips: { muffled: boolean; url: string; label: string }[] }).clips;
+    const clips = (w: number) => (at(w).clue as { clips: { url: string; label: string }[] }).clips;
     expect(clips(0)).toHaveLength(1);
     expect(clips(1)).toHaveLength(2);
     expect(clips(2).map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Sound 3"]);
-    for (let w = 0; w <= 6; w++) expect(clips(w).every((c) => !c.muffled)).toBe(true);
     const unlocked = (w: number) => at(w).hints.filter((h) => h.unlocked).map((h) => [h.id, h.value]);
     expect(unlocked(3)).toEqual([]);
     expect(unlocked(4)).toEqual([["initial", "H"]]);
     expect(unlocked(6)).toEqual([["initial", "H"], ["initial2", "HA"]]);
   });
 
-  it("shows the ability slot; hard mode hides it until the win", async () => {
+  it("shows the ability slot from the start", async () => {
     const { row } = await build();
-    const slot = (opts: { hard?: boolean }, guesses: string[]) => (evaluate(lock, row, 2, guesses, undefined, lookup(data), opts).clue as { slot?: number | null }).slot;
-    expect(slot({}, [])).toBe(1);
-    expect(slot({ hard: true }, ["1"])).toBeNull();
-    expect(slot({ hard: true }, ["1", "13"])).toBe(1);
+    const slot = (guesses: string[]) => (evaluate(lock, row, 2, guesses, undefined, lookup(data)).clue as { slot?: number | null }).slot;
+    expect(slot([])).toBe(1);
+    expect(slot(["1"])).toBe(1);
   });
 
   it("a locked clip's URL is never sent early; only opaque audio URLs; no names or codenames before the win", async () => {
@@ -245,7 +243,7 @@ describe("The Resonance: reveal ladder, slot, hints and leaks", () => {
     expect(picked.bonus?.correct).toBe(false);
     expect(picked.bonus?.reveal?.name).toBe("Sleep Dagger");
     // After the win every clip plays unfiltered.
-    expect((picked.clue as { clips: { muffled: boolean; label: string }[] }).clips.map((c) => [c.label, c.muffled])).toEqual([["Sound 1", false], ["Sound 2", false], ["Sound 3", false]]);
+    expect((picked.clue as { clips: { label: string }[] }).clips.map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Sound 3"]);
     const jammed = evaluate(lock, row, 2, ["1"], undefined, lookup(data), { giveUp: true });
     expect(jammed.answer?.extra?.ability?.name).toBe("Sleep Dagger");
   });

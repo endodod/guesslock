@@ -61,7 +61,7 @@ export type RecordedPlay = {
 
 /**
  * Evaluates a guess request for a signed-in player and records it. Guesses are append-only,
- * finished plays are frozen, and the "no hints" choice is fixed at the first guess.
+ * finished plays are frozen.
  */
 export async function playAsUser(
   user: SessionUser,
@@ -69,9 +69,7 @@ export async function playAsUser(
   slug: string,
   incoming: string[],
   bonusIn: string | undefined,
-  noHintsIn: boolean,
   giveUpIn = false,
-  hard = false,
 ): Promise<RecordedPlay> {
   const lock = getLock(slug)!;
   await ensureProfile(user);
@@ -82,11 +80,10 @@ export async function playAsUser(
   const finished = existing && existing.status !== "playing";
 
   const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
-  const noHints = existing ? existing.noHints : noHintsIn;
   const bonus = existing?.bonus ?? bonusIn;
   // A finished "lost" play on a lock without a try limit can only be a give-up: keep it given up.
   const giveUp = giveUpIn || (!!finished && existing.status === "lost" && !lock.maxTries);
-  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { noHints, giveUp, hard });
+  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp });
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
 
@@ -102,7 +99,7 @@ export async function playAsUser(
       bonus: bonusPicked ?? null,
       status: view.status === "won" ? "won" : view.status === "lost" ? "lost" : "playing",
       hintsUsed: view.hintsUsed,
-      noHints,
+      noHints: false,
       souls: done ? soulsFor({ won: view.status === "won", guesses: view.rows.length, hintsUsed: view.hintsUsed, bonusCorrect: !!view.bonus?.correct }) : 0,
       bonusCorrect: !!view.bonus?.correct,
       source,
@@ -122,18 +119,17 @@ export async function playAsUser(
 
 /**
  * Records a signed-in Séance table, like playAsUser: submissions are append-only (a hint request is
- * an entry too), finished tables are frozen, and "no hints" is fixed at the first submission.
+ * an entry too), finished tables are frozen.
  */
 export async function playSeanceAsUser(
-  user: SessionUser, row: PuzzleRow & { date: string }, slug: string, incoming: string[], noHintsIn: boolean,
+  user: SessionUser, row: PuzzleRow & { date: string }, slug: string, incoming: string[],
 ): Promise<{ view: SeanceView; guesses: string[]; ranked: boolean; conflict: boolean }> {
   const lock = getLock(slug)!;
   await ensureProfile(user);
   const existing = await db.play.findUnique({ where: { userId_date_lock: { userId: user.id, date: row.date, lock: slug } } });
   const finished = existing && existing.status !== "playing";
   const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
-  const noHints = existing ? existing.noHints : noHintsIn;
-  const { view, accepted } = evaluateSeance(lock, row, numberFor(row.date), merged.guesses, { noHints });
+  const { view, accepted } = evaluateSeance(lock, row, numberFor(row.date), merged.guesses);
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
   const done = view.status === "won" || view.status === "lost";
@@ -143,7 +139,7 @@ export async function playSeanceAsUser(
     const data = {
       guesses: accepted,
       status: view.status === "won" ? "won" : view.status === "lost" ? "lost" : "playing",
-      hintsUsed: view.hintsUsed, noHints, souls: done ? view.souls ?? 0 : 0, source,
+      hintsUsed: view.hintsUsed, noHints: false, souls: done ? view.souls ?? 0 : 0, source,
       finishedAt: done ? (existing?.finishedAt ?? new Date()) : null,
     };
     await db.play.upsert({

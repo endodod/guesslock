@@ -67,10 +67,9 @@ For The Resonance, run `npm run import:sounds` (or *Import sound index now* on `
   *salted* id (`sha1("sound:" + PUZZLE_SALT + ":" + url#etag)`), so players only get opaque `/media/<sha1>` URLs that
   can't be looked up from the public index. Re-imports keep admin decisions; a changed ETag sends an approved clip back
   to review (review queue), and its old mirror keeps working for frozen puzzles.
-- **Puzzle**: an ability with ≥ 1 approved cast clip and ≥ 2 approved clips (no-repeat window on the hero). Clip 1
-  muffled (client-side 700 Hz low-pass) → clear after 1 wrong guess → clip 2 after 2 → slot (3), gun clip (4; the weapon
-  type as text if no gun clip is approved), archetype (6). Bonus: name the ability; its name is sent only after the
-  bonus pick. Settings: *Skip sound locks* (not counted anywhere), *Sound locks volume*, hard mode *Muffled only*.
+- **Puzzle**: an ability with ≥ 1 approved wiki cast clip (the ability slot is shown). Clip 1 → a second cast variant after 1 wrong
+  guess → a third after 2. Bonus: name the ability; its name is sent only after the bonus pick. Settings: *Skip sound locks*
+  (not counted anywhere), *Sound locks volume*.
 
 **Categories** (`/admin/categories`) holds the attribute columns of The Reckoning and The Appraisal: rename, reorder or
 switch off the built-in (API) columns, fix single values per hero or item in a spreadsheet-style grid, and add custom
@@ -108,7 +107,7 @@ newly generated puzzles; upcoming days with that hero can be rebuilt from the sa
 - **Sign-in:** email + password, or a one-time code by email (also used for password recovery). Pages under `/auth/*`,
   account page `/account` (protected by `src/proxy.ts`), leaderboards at `/hall`.
 - **Recording:** when signed in, `/api/play` records every guess server-side. Guesses are append-only, finished locks are frozen,
-  and the "no hints" choice is fixed at the first guess (hint values are then never sent).
+  and finished locks stay as they were.
 - **Ranked vs. unranked:** a lock counts for leaderboards only if it was played on its own day, one guess per request, while
   signed in. Plays brought in from a device's local history (`/api/account/sync`, runs once per browser session) count for
   personal stats only.

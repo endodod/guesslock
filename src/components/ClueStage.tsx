@@ -48,7 +48,6 @@ export function twemojiUrl(emoji: string): string {
 // ───────────── stages ─────────────
 
 function SplashStage({ clue }: { clue: Extract<Clue, { kind: "splash" }> }) {
-  const { store } = useGame();
   return (
     <Peephole>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -60,7 +59,6 @@ function SplashStage({ clue }: { clue: Extract<Clue, { kind: "splash" }> }) {
         style={{
           transform: `scale(${clue.zoom})`,
           transformOrigin: `${clue.originX}% ${clue.originY}%`,
-          filter: store.settings.grayscale ? "grayscale(1)" : undefined,
         }}
       />
     </Peephole>
@@ -261,7 +259,7 @@ export function EchoStage({ clue, showAudio = false, typewriter = true }: { clue
   );
 }
 
-/** The Colloquy: both sides of a conversation, the answer's lines marked "?" and the other hero named (or hidden in hard mode). */
+/** The Colloquy: both sides of a conversation, the answer's lines marked "?" and the other hero named. */
 function ConvoStage({ clue }: { clue: Extract<Clue, { kind: "convo" }> }) {
   const { reducedMotion } = useGame();
   const [seen] = useState(() => clue.lines.length);
@@ -327,8 +325,6 @@ export function AudioButton({ src, small = false, label = "Play voice clip" }: {
 }
 
 function RelicStage({ clue }: { clue: Extract<Clue, { kind: "relic" }> }) {
-  const { store } = useGame();
-  const f = [`blur(${clue.blur}px)`, store.settings.grayscale ? "grayscale(1)" : ""].join(" ");
   return (
     <Peephole size="md">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -337,7 +333,7 @@ function RelicStage({ clue }: { clue: Extract<Clue, { kind: "relic" }> }) {
         alt={CLUE_ALT}
         draggable={false}
         className="h-full w-full select-none object-contain p-8 transition-[filter,transform] duration-700"
-        style={{ filter: f, transform: store.settings.rotation && clue.blur > 0 ? `rotate(${clue.rotation}deg)` : undefined }}
+        style={{ filter: `blur(${clue.blur}px)` }}
       />
     </Peephole>
   );

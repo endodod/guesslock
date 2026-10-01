@@ -54,8 +54,8 @@ const clues: [string, Clue, GuessRow[]?][] = [
   ["The Cipher", { kind: "emoji", slots: ["🎩", "🐦", null, null, null, null] }],
   ["The Echo", { kind: "echo", lines: [{ text: "You know it's bad when they send a Sandman." }, { text: `Sleep well, ${CENSOR}.` }], total: 5 }],
   // Placeholder id: the players render, playback fails gracefully (toast).
-  ["The Resonance (1 of 2)", { kind: "sound", clips: [{ url: `/media/${"0".repeat(40)}`, gainDb: 0, label: "Sound 1", muffled: false }], total: 2, slot: 2 }],
-  ["The Relic", { kind: "relic", image: ICON, blur: 7, rotation: 120 }],
+  ["The Resonance (1 of 2)", { kind: "sound", clips: [{ url: `/media/${"0".repeat(40)}`, gainDb: 0, label: "Sound 1" }], total: 2, slot: 2 }],
+  ["The Relic", { kind: "relic", image: ICON, blur: 7 }],
   ["The Lineage", { kind: "lineage", direction: "into", shown: { name: "Extra Stamina", image: ICON, slot: "vitality" }, answerSlot: "vitality" }],
   ["The Measure", { kind: "measure", item: { name: "Kinetic Dash", image: ICON, slot: "weapon" }, stats: [{ label: "Stamina", display: "+1", postfix: "" }, { label: "Fire Rate", display: null, hidden: true, postfix: "%" }], hiddenLabel: "Fire Rate", postfix: "%" },
     [{ id: "10", name: "10", icon: null, correct: false, arrow: "up" }, { id: "40", name: "40", icon: null, correct: false, arrow: "down" }]],

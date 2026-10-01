@@ -3,7 +3,7 @@ import { config } from "../../config";
 import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData, SoundData } from "../context";
-import { CENSOR, redact } from "../../text/redact";
+
 import { SkipCandidate, SealedError, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta, SoundClipView, Tile } from "../types";
 
@@ -379,14 +379,6 @@ type EchoPayload = { lines: string[] };
 /** Puzzles frozen before The Echo moved to Select lines stored { text, audio } objects. */
 const lineText = (l: string | { text: string }) => (typeof l === "string" ? l : l.text);
 
-/** Hard mode for Select lines: the start or the end of every line is blacked out (alternating, so both occur). */
-export function hideHalf(text: string, index: number): string {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length < 3) return text;
-  const keep = Math.ceil(words.length / 2);
-  return index % 2 === 0 ? `${CENSOR} ${words.slice(words.length - keep).join(" ")}` : `${words.slice(0, keep).join(" ")} ${CENSOR}`;
-}
-
 const echoLeak = (h: HeroData, data: GameData) => [...heroLeakTerms(h), ...data.abilitiesOf(h.id).map((a) => a.name), ...data.soundCodenames(h.id)];
 
 export const echo: ModeImpl<EchoPayload> = {
@@ -403,9 +395,9 @@ export const echo: ModeImpl<EchoPayload> = {
       clue: { lines },
     };
   },
-  clue: (p, wrong, done, hard) => ({
+  clue: (p, wrong, done) => ({
     kind: "echo",
-    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l, i) => ({ text: hard && !done ? hideHalf(lineText(l), i) : lineText(l) })),
+    lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((l) => ({ text: lineText(l) })),
     total: p.clue.lines.length,
   }),
   displayed: (p) => p.clue.lines.map(lineText),
@@ -435,12 +427,11 @@ export const utterance: ModeImpl<CastPayload> = {
       clue: { lines, slot: ability.slot },
     };
   },
-  clue: (p, wrong, done, hard) => ({
+  clue: (p, wrong, done) => ({
     kind: "echo",
     lines: p.clue.lines.slice(0, done ? p.clue.lines.length : 1 + wrong).map((text) => ({ text })),
     total: p.clue.lines.length,
-    // Hard mode does not say which ability the hero is casting.
-    note: hard && !done ? "Said while casting an ability" : `Said when casting ${slotName(p.clue.slot)}`,
+    note: `Said when casting ${slotName(p.clue.slot)}`,
   }),
   displayed: (p) => p.clue.lines,
 };
@@ -457,7 +448,7 @@ export function convoBites<T extends { h: number }>(lines: T[]): T[][] {
   return bites;
 }
 
-type ConvoPayload = { lines: { h: number; t: string }[]; heroId: number; other: { name: string; image: string | null; terms: string[] } };
+type ConvoPayload = { lines: { h: number; t: string }[]; heroId: number; other: { name: string; image: string | null } };
 
 export const colloquy: ModeImpl<ConvoPayload> = {
   mode: "quote-convo",
@@ -475,19 +466,17 @@ export const colloquy: ModeImpl<ConvoPayload> = {
       answer: { ...heroAnswer(h), extra: { lines: lines.map((l) => ({ text: l.t })), partner: { name: other.name, image: other.card } } },
       correctIds: [String(h.id)], leakTerms: echoLeak(h, data),
       hints: {},
-      clue: { lines, heroId: h.id, other: { name: other.name, image: other.icon, terms: heroLeakTerms(other) } },
+      clue: { lines, heroId: h.id, other: { name: other.name, image: other.icon } },
     };
   },
-  clue: (p, wrong, done, hard) => {
-    const hide = hard && !done;
-    const blank = (t: string) => (hide ? redact(t, p.clue.other.terms.map((term) => ({ term }))).text : t);
+  clue: (p, wrong, done) => {
     const bites = convoBites(p.clue.lines);
     const shown = done ? bites.length : Math.min(bites.length, 1 + wrong);
     return {
       kind: "convo",
-      lines: bites.slice(0, shown).flat().map((l) => ({ mine: l.h === p.clue.heroId, text: blank(l.t) })),
+      lines: bites.slice(0, shown).flat().map((l) => ({ mine: l.h === p.clue.heroId, text: l.t })),
       shown, total: bites.length,
-      other: hide ? null : { name: p.clue.other.name, image: p.clue.other.image },
+      other: { name: p.clue.other.name, image: p.clue.other.image },
     };
   },
   displayed: (p) => p.clue.lines.map((l) => l.t),
@@ -528,15 +517,13 @@ export const resonance: ModeImpl<{ clips: SoundRef[]; slot: number }> = {
       clue: { clips: clips.map(soundRef), slot: ability.slot },
     };
   },
-  // 0 wrong: the first cast sound · 1: a second one · 2+: a third. Plain, unfiltered sound (the hard-mode setting can muffle it
-  // on the client). Locked clips' URLs are never sent.
-  // The ability slot is shown, except in hard mode.
-  clue: (p, wrong, done, hard) => {
+  // 0 wrong: the first cast sound · 1: a second one · 2+: a third. Locked clips' URLs are never sent; the ability slot is shown.
+  clue: (p, wrong, done) => {
     const n = done ? p.clue.clips.length : Math.min(p.clue.clips.length, 1 + wrong);
     const clips: SoundClipView[] = p.clue.clips.slice(0, n).map((c, i) => ({
-      url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`, muffled: false,
+      url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`,
     }));
-    return { kind: "sound", total: p.clue.clips.length, clips, slot: hard && !done ? null : p.clue.slot };
+    return { kind: "sound", total: p.clue.clips.length, clips, slot: p.clue.slot };
   },
   displayed: () => [],
   audio: (p) => p.clue.clips.map((c) => c.url),

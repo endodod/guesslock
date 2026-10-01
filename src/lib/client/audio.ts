@@ -2,8 +2,6 @@
 // volume setting, one clip at a time. Never starts on its own: every call comes from a tap or keypress.
 import { dbToGain } from "@/lib/sounds/loudness";
 
-/** Low-pass cutoff for muffled clips (Hz). */
-export const MUFFLE_HZ = 700;
 /** Long loops are cut off here, with a short fade. */
 export const MAX_PLAY_S = 8;
 const FADE_S = 0.3;
@@ -38,7 +36,7 @@ export type Playback = {
 
 let current: Playback | null = null;
 
-export async function playClip(o: { url: string; gainDb: number; muffled: boolean; volume: number }): Promise<Playback> {
+export async function playClip(o: { url: string; gainDb: number; volume: number }): Promise<Playback> {
   const a = ac();
   if (a.state === "suspended") await a.resume();
   const buf = await load(o.url);
@@ -55,13 +53,7 @@ export async function playClip(o: { url: string; gainDb: number; muffled: boolea
     gain.gain.setValueAtTime(level, t0 + duration - FADE_S);
     gain.gain.linearRampToValueAtTime(0.0001, t0 + duration);
   }
-  if (o.muffled) {
-    const lp = a.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = MUFFLE_HZ;
-    lp.Q.value = 0.7;
-    src.connect(lp).connect(gain);
-  } else src.connect(gain);
+  src.connect(gain);
   gain.connect(a.destination);
 
   let done = false;

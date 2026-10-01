@@ -14,15 +14,13 @@ const Body = z.object({
   slug: z.string(),
   guesses: z.array(z.string().max(64)).max(200),
   bonus: z.string().max(40).optional(),
-  noHints: z.boolean().optional(),
-  hard: z.boolean().optional(),
   giveUp: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  const { date, slug, guesses, bonus, noHints = false, hard = false, giveUp = false } = parsed.data;
+  const { date, slug, guesses, bonus, giveUp = false } = parsed.data;
   const lock = getLock(slug);
   if (!lock) return NextResponse.json({ error: "unknown lock" }, { status: 404 });
   // No peeking at future puzzles.
@@ -35,18 +33,18 @@ export async function POST(req: Request) {
   if (!!lock.box) {
     // The Séance: guesses are submissions ("id,id,id,id") and hint requests; see src/lib/seance/play.ts.
     if (user) {
-      const r = await playSeanceAsUser(user, row, slug, guesses, noHints);
+      const r = await playSeanceAsUser(user, row, slug, guesses);
       return NextResponse.json({ ...r.view, account: { guesses: r.guesses, ranked: r.ranked } }, { headers });
     }
-    const { view, accepted } = evaluateSeance(lock, row, numberFor(date), guesses, { noHints });
+    const { view, accepted } = evaluateSeance(lock, row, numberFor(date), guesses);
     return NextResponse.json({ ...view, entries: accepted }, { headers });
   }
   if (user) {
     // Signed in: the server records the play and its guess list is authoritative.
-    const r = await playAsUser(user, row, slug, guesses, bonus, noHints, giveUp, hard);
+    const r = await playAsUser(user, row, slug, guesses, bonus, giveUp);
     return NextResponse.json({ ...r.view, account: { guesses: r.guesses, bonus: r.bonus, ranked: r.ranked } }, { headers });
   }
   const catalog = await getCatalog();
-  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), { noHints, giveUp, hard });
+  const view = evaluate(lock, row, numberFor(date), guesses, bonus, lookupFor(catalog, lock.guess), { giveUp });
   return NextResponse.json(view, { headers });
 }
