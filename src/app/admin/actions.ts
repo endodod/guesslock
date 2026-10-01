@@ -6,6 +6,7 @@ import { checkPassword, createSession, destroySession, requireAdmin } from "@/li
 import { runAssetSync, syncTexts } from "@/lib/sync/assets";
 import { generateAhead, generateDay, overridePuzzle } from "@/lib/engine/generate";
 import { todayDate } from "@/lib/day";
+import { currentUser } from "@/lib/auth/server";
 import { importAllVoiceLines, importHeroVoiceLines } from "@/lib/wiki/voicelines";
 import { redact } from "@/lib/text/redact";
 import { heroTerms } from "@/lib/text/entries";
@@ -238,13 +239,14 @@ export async function fillSealedToday() {
 }
 
 /**
- * Lock every ready puzzle from today on: they are marked as overridden, so regenerating, the daily top-up and the
- * agent API leave them exactly as they are (new data never changes a puzzle that is already scheduled).
+ * Testing: lock today's solved puzzles again for the signed-in account (the one using this browser): its recorded
+ * plays for today are deleted, so every lock can be played from scratch. Other players are untouched.
  */
-export async function lockPuzzles(): Promise<string> {
+export async function relockToday(): Promise<string> {
   await requireAdmin();
-  const r = await db.dailyPuzzle.updateMany({ where: { date: { gte: todayDate() }, sealed: false, overridden: false }, data: { overridden: true } });
+  const user = await currentUser();
+  if (!user) return "Not signed in to the game in this browser: only the local progress was reset.";
+  const r = await db.play.deleteMany({ where: { userId: user.id, date: todayDate() } });
   revalidatePath("/admin");
-  revalidatePath("/admin/calendar");
-  return `Locked ${r.count} puzzle${r.count === 1 ? "" : "s"}.`;
+  return `Re-locked ${r.count} puzzle${r.count === 1 ? "" : "s"} for ${user.email ?? user.name}.`;
 }

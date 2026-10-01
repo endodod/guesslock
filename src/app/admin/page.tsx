@@ -4,8 +4,8 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import { LOCKS } from "@/locks.config";
 import { todayDate } from "@/lib/day";
 import { dayMeta } from "@/lib/server/puzzles";
-import { fillSealedToday, lockPuzzles, runGenerate, runSync, runVoiceImportAll } from "./actions";
-import { ActionButton } from "./ui";
+import { fillSealedToday, relockToday, runGenerate, runSync, runVoiceImportAll } from "./actions";
+import { ActionButton, RelockButton } from "./ui";
 import { Card, PageHeader, Pill, Stat } from "./kit";
 
 type Diff = { added: string[]; removed: string[]; changed: { name: string; fields: string[] }[] };
@@ -56,7 +56,7 @@ export default async function AdminStatus() {
           <ActionButton action={runGenerate} label="Generate next 7 days" />
           <ActionButton action={fillSealedToday} label="Fill today's sealed locks" />
           <ActionButton action={runVoiceImportAll} label="Import voice lines (background)" />
-          <ActionButton action={lockPuzzles} label="Lock puzzles" confirm="Lock every ready puzzle from today on? Regenerating and the daily top-up will leave them unchanged (shown as overrides in the calendar)." />
+          <RelockButton action={relockToday} today={today} />
         </div>
         {diff && (
           <div className="mt-5 grid gap-4 border-t border-neutral-200 pt-4 md:grid-cols-3">
