@@ -1,0 +1,106 @@
+/* Admin theme. Scoped to body.admin-ui: re-colors the Tailwind palettes the admin pages already use
+   (neutral/blue/red/green/amber), so every page picks up the design without per-page edits. */
+
+body.admin-ui {
+  /* cool slate neutrals */
+  --color-neutral-50: #f8f9fc;
+  --color-neutral-100: #f2f4f9;
+  --color-neutral-200: #e5e8f0;
+  --color-neutral-300: #d6dae6;
+  --color-neutral-400: #b4bacb;
+  --color-neutral-500: #6f7690;
+  --color-neutral-600: #565d75;
+  --color-neutral-700: #3b4157;
+  --color-neutral-800: #252a3b;
+  --color-neutral-900: #151827;
+  /* indigo accent for links/actions */
+  --color-blue-600: #4f46e5;
+  --color-blue-700: #4338ca;
+  --color-blue-800: #3730a3;
+  /* calmer status colors */
+  --color-red-600: #dc3a4a;
+  --color-red-700: #c22a3b;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-amber-700: #b45309;
+  --adm-ring: rgb(79 70 229 / 0.28);
+  --adm-brass: #b8913f;
+
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+html:has(body.admin-ui) { background: #f2f4f9; }
+
+.admin-ui a { text-underline-offset: 3px; }
+.admin-ui h1 { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.015em; font-weight: 650; }
+.admin-ui h2 { letter-spacing: -0.005em; }
+
+/* cards: the pages' "rounded border border-neutral-300 bg-white" boxes */
+.admin-ui .bg-white.rounded,
+.admin-ui .bg-white.rounded-sm {
+  border-radius: 14px;
+  border-color: var(--color-neutral-200);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.05);
+}
+.admin-ui li.bg-white.rounded { border-radius: 12px; }
+
+/* tables */
+.admin-ui table { border-collapse: separate; border-spacing: 0; }
+.admin-ui th {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-neutral-500); padding: 0.5rem 0.75rem; white-space: nowrap;
+  border-bottom: 1px solid var(--color-neutral-200); background: var(--color-neutral-50);
+}
+.admin-ui td { padding: 0.55rem 0.75rem; border-top: 1px solid var(--color-neutral-200); }
+.admin-ui thead tr:first-child th:first-child { border-top-left-radius: 10px; }
+.admin-ui thead tr:first-child th:last-child { border-top-right-radius: 10px; }
+.admin-ui tbody tr { transition: background-color 0.12s; }
+.admin-ui tbody tr:hover { background: var(--color-neutral-50); }
+.admin-ui td.border-t, .admin-ui tr.border-t > td { border-top-color: var(--color-neutral-200); }
+.admin-ui tr.border-t { border-top: 0; }
+
+/* form controls */
+.admin-ui input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.admin-ui select,
+.admin-ui textarea {
+  border-radius: 9px;
+  border-color: var(--color-neutral-300);
+  background: #fff;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.admin-ui input:not([type="checkbox"]):not([type="radio"]):focus,
+.admin-ui select:focus,
+.admin-ui textarea:focus {
+  outline: none; border-color: var(--color-blue-600); box-shadow: 0 0 0 3px var(--adm-ring);
+}
+.admin-ui input[type="checkbox"], .admin-ui input[type="radio"] { accent-color: var(--color-blue-600); }
+.admin-ui button { cursor: pointer; border-radius: 9px; transition: background-color 0.12s, border-color 0.12s, box-shadow 0.12s, transform 0.05s; }
+.admin-ui button:disabled { cursor: not-allowed; }
+.admin-ui button:not(:disabled):active { transform: translateY(1px); }
+.admin-ui button.bg-neutral-900 { background: var(--color-neutral-900); font-weight: 500; }
+.admin-ui button.bg-neutral-900:not(:disabled):hover { background: var(--color-neutral-700); }
+.admin-ui button.border:not(.bg-neutral-900):hover { border-color: var(--color-neutral-400); background: var(--color-neutral-50); }
+.admin-ui :focus-visible { outline: 2px solid var(--color-blue-600); outline-offset: 2px; border-radius: 6px; }
+
+/* scrollbars */
+.admin-ui *::-webkit-scrollbar { width: 10px; height: 10px; }
+.admin-ui *::-webkit-scrollbar-thumb { background: var(--color-neutral-300); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+
+/* sidebar */
+.adm-side { background: #11141f; color: #c8cde0; }
+.adm-side a, .adm-side button { color: inherit; }
+.adm-link {
+  display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 0.7rem; border-radius: 9px;
+  font-size: 0.875rem; color: #b7bdd3; transition: background-color 0.12s, color 0.12s; text-decoration: none;
+}
+.adm-link:hover { background: rgb(255 255 255 / 0.06); color: #fff; }
+.adm-link[aria-current="page"] { background: rgb(255 255 255 / 0.1); color: #fff; box-shadow: inset 2px 0 0 var(--adm-brass); }
+.adm-chip {
+  display: inline-block; min-width: 2.1rem; text-align: center; font-size: 0.64rem; letter-spacing: 0.06em;
+  padding: 0.08rem 0.3rem; border-radius: 6px; background: rgb(184 145 63 / 0.16); color: #d9b866; font-weight: 600;
+}
+.adm-group { font-size: 0.66rem; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: #6c738c; padding: 0 0.7rem; margin: 1.1rem 0 0.35rem; }
+.adm-side summary { list-style: none; cursor: pointer; }
+.adm-side summary::-webkit-details-marker { display: none; }

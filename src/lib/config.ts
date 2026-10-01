@@ -27,6 +27,11 @@ export const config = {
   adminDebug: ["1", "true", "on", "yes"].includes((process.env.ADMIN_DEBUG ?? "").toLowerCase()),
   sessionSecret: env("SESSION_SECRET", ""),
   cronSecret: process.env.CRON_SECRET ?? "",
+  /** Agent API (/api/agent/v1): two separate secrets, each 32+ chars. Unset = that access level is off. */
+  agentReadToken: process.env.AGENT_API_READ_TOKEN ?? "",
+  agentWriteToken: process.env.AGENT_API_WRITE_TOKEN ?? "",
+  /** Lets the write token approve Séance categories (otherwise agents can only create drafts). Off by default. */
+  agentMayApprove: ["1", "true", "on", "yes"].includes((process.env.AGENT_API_ALLOW_APPROVE ?? "").toLowerCase()),
   alertWebhookUrl: process.env.ALERT_WEBHOOK_URL ?? "",
   /** Optional deadlock-api key (X-API-KEY): raises replay query limits from 20/h to 200/h. */
   apiKey: process.env.DEADLOCK_API_KEY ?? "",
