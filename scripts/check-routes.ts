@@ -62,13 +62,14 @@ async function check(urlPath: string, options: { cookie?: string; authBearer?: s
       ok,
       problem,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     return {
       url: urlPath,
       status: 0,
       expected: "200",
       ok: false,
-      problem: err?.message || String(err),
+      problem: message,
     };
   }
 }

@@ -13,9 +13,9 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
-export function Card({ title, hint, children, className = "" }: { title?: string; hint?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ id, title, hint, children, className = "" }: { id?: string; title?: string; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded border border-neutral-200 bg-white p-5 ${className}`}>
+    <section id={id} className={`rounded border border-neutral-200 bg-white p-5 ${className}`}>
       {(title || hint) && (
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           {title && <h2 className="text-[0.95rem] font-semibold">{title}</h2>}
@@ -39,7 +39,7 @@ export function Pill({ tone = "slate", children }: { tone?: keyof typeof TONES; 
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}>{children}</span>;
 }
 
-export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: "green" | "red" | "amber" }) {
+export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: "green" | "red" | "amber" | "slate" }) {
   const bar = tone === "green" ? "bg-green-600" : tone === "red" ? "bg-red-600" : tone === "amber" ? "bg-amber-600" : "bg-neutral-300";
   return (
     <div className="relative overflow-hidden rounded border border-neutral-200 bg-white p-4">

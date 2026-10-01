@@ -4,7 +4,7 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import { approveTexts } from "../actions";
 import { ActionButton } from "../ui";
 import { TextRow } from "./TextRow";
-import { Card, PageHeader, Pill } from "../kit";
+import { Card, PageHeader } from "../kit";
 
 export const dynamic = "force-dynamic";
 

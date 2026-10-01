@@ -11,13 +11,13 @@ const TEST_WRITE_TOKEN = "test-agent-write-token-32chars-long-5678";
 describe("Agent API Authentication & Guard", () => {
   beforeEach(() => {
     // Reset test config tokens
-    (config as any).agentReadToken = TEST_READ_TOKEN;
-    (config as any).agentWriteToken = TEST_WRITE_TOKEN;
+    config.agentReadToken = TEST_READ_TOKEN;
+    config.agentWriteToken = TEST_WRITE_TOKEN;
   });
 
   it("returns 404 when both tokens are disabled/too short", async () => {
-    (config as any).agentReadToken = "too-short";
-    (config as any).agentWriteToken = "";
+    config.agentReadToken = "too-short";
+    config.agentWriteToken = "";
 
     const req = new Request("https://guesslock.local/api/agent/v1/state", {
       headers: { authorization: `Bearer ${TEST_READ_TOKEN}` },

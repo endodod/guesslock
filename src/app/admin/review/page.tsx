@@ -15,16 +15,14 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewQueue() {
   await requireAdminPage();
-  const [heroes, items, abilities, texts, voiceCounts, changedLines, soundMaps, soundCounts, changedClips] = await Promise.all([
+  const [heroes, items, abilities, texts, voiceCounts, soundMaps, soundCounts] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" }, include: { abilities: { where: { active: true }, select: { id: true } } } }),
     db.item.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { needsReview: true }, orderBy: { name: "asc" } }),
     db.textEntry.groupBy({ by: ["entityType", "status", "stale"], _count: true }),
     db.voiceLine.groupBy({ by: ["heroId"], where: { status: { not: "excluded" } }, _count: true }),
-    db.voiceLine.count({ where: { sourceChanged: true } }),
     db.heroSoundMap.findMany(),
     db.soundClip.groupBy({ by: ["abilityId", "status", "role"], where: { kind: "ability", abilityId: { not: null }, status: { not: "excluded" } }, _count: true }),
-    db.soundClip.findMany({ where: { OR: [{ changed: true }, { missing: true, status: "approved" }] }, select: { heroId: true, changed: true, missing: true } }),
   ]);
 
   const mapped = new Set(soundMaps.filter((m) => m.abilityFolders.length).map((m) => m.heroId));
@@ -38,8 +36,6 @@ export default async function ReviewQueue() {
     .filter((x) => x.n > 0);
   const flagged = heroes.filter((h) => h.needsReview);
   const approvedLines = new Map(voiceCounts.map((v) => [v.heroId, v._count]));
-  const missingClassic = heroes.filter((h) => !h.species || !h.releaseDate);
-  const missingEmoji = heroes.filter((h) => h.emojis.length < 10);
   const fewLines = heroes.filter((h) => !h.genericVoice && (approvedLines.get(h.id) ?? 0) < ECHO_MIN_LINES);
   const pendingTexts = texts.filter((t) => t.status === "auto" || t.stale);
 

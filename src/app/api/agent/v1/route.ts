@@ -1,5 +1,5 @@
 ﻿// Agent API v1 index: lists all endpoints. Requires read token.
-import { guard, json, fail } from "@/lib/agent/guard";
+import { guard, json } from "@/lib/agent/guard";
 import { LOCKS } from "@/locks.config";
 
 export const dynamic = "force-dynamic";

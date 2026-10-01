@@ -172,7 +172,7 @@ async function HeroSounds({ heroId, showAll }: { heroId: number; showAll: boolea
       </Card>
 
       <Card title="Clips" hint="★ preferred clip 1 · Audio normalized to −20 dBFS">
-        <ClipTable heroId={heroId} abilities={abilities} clips={clips.map(row)} />
+        <ClipTable abilities={abilities} rows={clips.map(row)} />
       </Card>
     </div>
   );
