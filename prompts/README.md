@@ -9,7 +9,7 @@
 When a `todo/` prompt is finished, move it to `done/`.
 
 ## Now in `todo/`
-- None.
+- [`game-consistency-qa.md`](todo/game-consistency-qa.md): test every game for complete flow, consistency, missing data, and general product feedback, starting with The Reckoning.
 
 ## Now in `done/`
 - [`fix-sealed-modes.md`](done/fix-sealed-modes.md): Cipher, Clash, Beast and Rift were sealed; all four are open in production now.
