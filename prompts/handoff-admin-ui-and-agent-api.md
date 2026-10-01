@@ -51,3 +51,34 @@ To build:
 6. Final checks: `npx tsc --noEmit`, `npx eslint src scripts`, `npx vitest run`, `npx next build` (use `DATABASE_URL` pointing to a local DB so `migrate-on-build` doesn't touch Neon; it only migrates when `VERCEL=1` or `MIGRATE_ON_BUILD=1`).
 
 Never run migrations, syncs or writes against the Neon database from a dev session unless the owner asks.
+
+## 3. Added requirements (from the owner, 2026-10-01)
+
+### 3a. Every admin page must have real visual design, not plain text
+
+The theme in `admin.css` only re-colors things; many pages are still bare tables, raw `<ul>`s and unstyled forms. For **each** page under `src/app/admin/**` (Status ✔ already done, Review queue, Calendar, Puzzles list + `[slug]`, Heroes + `[id]`, Abilities, Items, Categories, Texts, Sounds, Séance + `[id]` + preview, Omens + `[id]`, Setup + `[id]`, Login ✔):
+
+- Start each page with `PageHeader` (title, one-line subtitle, primary actions) and put content in `Card`s from `src/app/admin/kit.tsx`; use `Stat` tiles for counts and `Pill` for every status (sealed/open, approved/draft, ok/failed, needs review). No bare text status.
+- Lists of heroes/abilities/items: show the portrait or icon (`/media/<sha1>` URLs are already in the data), a name + secondary line, and tag chips (aliases, excluded modes) instead of comma-separated text.
+- Tables: sticky header, hover rows, sensible column widths, empty states ("Nothing to review") with a small illustration or icon, and loading/pending states on every `ActionButton`.
+- Forms: grouped in cards with labels, hints under inputs, and clear primary / secondary / destructive buttons; confirm destructive actions.
+- Puzzle pages (`/admin/puzzles/[slug]`): show the lock like a preview (answer, clue stage, hints) plus the answer pool as a searchable grid with on/off toggles.
+- Responsive down to 390 px (the sidebar already becomes a drawer); no horizontal page scroll.
+- Verify by screenshotting **every** admin page at 1440 px and 390 px and reviewing them (see §1), fix what looks plain, then re-check.
+
+### 3b. Make sure every puzzle page works: some are not reachable
+
+Reported by the owner: some puzzle pages can't be reached. Find out which and why, fix them, and add a regression check.
+
+1. **Enumerate** every lock slug from `LOCKS` in `src/locks.config.ts` (21 entries: 17 normal locks + the 4 internal Séance tables `seance-mechanics|visuals|lore|mixed`) and check all of these for HTTP 200, no console/page errors, and a rendered clue or a proper "Sealed" state:
+   - player pages: `/lock/<slug>` for today, a future-less archive day (`/lock/<slug>?d=<past date>`), and `/archive/<date>`
+   - the Vault (`/`) boxes: each box must link somewhere reachable, or show a clear reason (sealed / skipped), never a dead click
+   - admin: `/admin/puzzles/<slug>` for every slug, and every entry in the sidebar nav (`AdminNav.tsx`; the Séance tables appear as four entries, check their links and the active highlight)
+2. **Suspects to check first:**
+   - Vault: sealed boxes render without a link (`href={null}`); the "Skip sound locks" setting makes The Resonance non-clickable; the Séance box opens the *first unfinished table*; the Séance table locks have `box: "seance"` and are filtered out of `VAULT_UNITS`, so check their direct URLs, the tab bar and the "Next lock" links.
+   - `src/app/(game)/lock/[slug]/page.tsx`: how it treats `box`/`table` locks, sealed rows, and locks with no `DailyPuzzle` row (e.g. a lock added after the day was generated: `generateDay` never fills a day for a slug without a row unless "Fill today's sealed locks" runs).
+   - Locks that are **sealed today** show nothing playable (The Cipher, The Resonance, the Séance tables had no content). That is expected, but the page must explain it, and the admin must offer the fix (approve sounds/groups, then "Fill today's sealed locks").
+   - Routing: dynamic segments with special characters, `?d=` handling for invalid dates, and the `proxy.ts` matcher (only `/account/:path*`); make sure nothing else is intercepted.
+   - Admin: the Omens pages call `requireAdmin()` (throws) instead of `requireAdminPage()` (redirects), so a logged-out visitor sees an error page; switch them to `requireAdminPage()`.
+3. **Automate it:** a script (`scripts/check-routes.ts` or a Playwright script) that logs into the admin with `ADMIN_PASSWORD`, loops over all slugs and dates above, and prints a table of URL / status / problem. Run it against a **local** database after `npm run sync && npm run generate`, then once against the deployed site (read-only).
+4. Fix every unreachable page found and re-run until the table is all green. List anything that is intentionally unavailable (sealed with a reason) in the README.
