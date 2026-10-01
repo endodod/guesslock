@@ -528,12 +528,13 @@ export const resonance: ModeImpl<{ clips: SoundRef[]; slot: number }> = {
       clue: { clips: clips.map(soundRef), slot: ability.slot },
     };
   },
-  // 0 wrong: clip 1 muffled · 1: clip 1 clear · 2: a second cast sound · 3+: a third. Locked clips' URLs are never sent.
+  // 0 wrong: the first cast sound · 1: a second one · 2+: a third. Plain, unfiltered sound (the hard-mode setting can muffle it
+  // on the client). Locked clips' URLs are never sent.
   // The ability slot is shown, except in hard mode.
   clue: (p, wrong, done, hard) => {
-    const n = done ? p.clue.clips.length : wrong < 2 ? 1 : Math.min(p.clue.clips.length, wrong);
+    const n = done ? p.clue.clips.length : Math.min(p.clue.clips.length, 1 + wrong);
     const clips: SoundClipView[] = p.clue.clips.slice(0, n).map((c, i) => ({
-      url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`, muffled: !done && i === 0 && wrong === 0,
+      url: c.url, gainDb: c.gainDb, label: `Sound ${i + 1}`, muffled: false,
     }));
     return { kind: "sound", total: p.clue.clips.length, clips, slot: hard && !done ? null : p.clue.slot };
   },

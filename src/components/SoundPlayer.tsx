@@ -116,7 +116,7 @@ export function SoundStage({ clue, done }: { clue: { clips: SoundClipView[]; tot
                   <div className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-brass/30 bg-ink/40">
                     <span className="font-display text-3xl text-brass/60">?</span>
                   </div>
-                  <span className="text-center text-xs text-ash">{`Sound ${i + 1}`}<br />after {i + 1} wrong guesses</span>
+                  <span className="text-center text-xs text-ash">{`Sound ${i + 1}`}<br />after {i} wrong {i === 1 ? "guess" : "guesses"}</span>
                 </div>
               )}
             </li>

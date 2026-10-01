@@ -199,16 +199,14 @@ describe("The Resonance: reveal ladder, slot, hints and leaks", () => {
   };
   const wrongs = ["1", "2", "4", "5", "6", "7"];
 
-  it("0: clip 1 muffled · 1: clear · 2: second cast sound · 3: third · letter hints at 4 and 6", async () => {
+  it("0: first cast sound · 1: second · 2: third, never muffled · letter hints at 4 and 6", async () => {
     const { row } = await build();
     const at = (w: number) => evaluate(lock, row, 2, wrongs.slice(0, w), undefined, lookup(data));
     const clips = (w: number) => (at(w).clue as { clips: { muffled: boolean; url: string; label: string }[] }).clips;
     expect(clips(0)).toHaveLength(1);
-    expect(clips(0)[0].muffled).toBe(true);
-    expect(clips(1)).toHaveLength(1);
-    expect(clips(1)[0].muffled).toBe(false);
-    expect(clips(2)).toHaveLength(2);
-    expect(clips(3).map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Sound 3"]);
+    expect(clips(1)).toHaveLength(2);
+    expect(clips(2).map((c) => c.label)).toEqual(["Sound 1", "Sound 2", "Sound 3"]);
+    for (let w = 0; w <= 6; w++) expect(clips(w).every((c) => !c.muffled)).toBe(true);
     const unlocked = (w: number) => at(w).hints.filter((h) => h.unlocked).map((h) => [h.id, h.value]);
     expect(unlocked(3)).toEqual([]);
     expect(unlocked(4)).toEqual([["initial", "H"]]);
@@ -228,8 +226,8 @@ describe("The Resonance: reveal ladder, slot, hints and leaks", () => {
     const [, clip2, clip3] = p.clue.clips.map((c) => c.url);
     for (let w = 0; w <= 6; w++) {
       const json = JSON.stringify(evaluate(lock, row, 2, wrongs.slice(0, w), undefined, lookup(data)));
-      if (w < 2) expect(json).not.toContain(clip2);
-      if (w < 3) expect(json).not.toContain(clip3);
+      if (w < 1) expect(json).not.toContain(clip2);
+      if (w < 2) expect(json).not.toContain(clip3);
       for (const url of json.match(/"(?:url|audio)":"([^"]+)"/g) ?? []) expect(url.split('":"')[1].slice(0, -1)).toMatch(MEDIA_URL);
       for (const term of ["Haze", "haze", "Sandman", "Sleep Dagger", "hazey_folder", ".mp3", "http"]) expect(json).not.toContain(term);
     }

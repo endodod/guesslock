@@ -278,12 +278,11 @@ function ConvoStage({ clue }: { clue: Extract<Clue, { kind: "convo" }> }) {
       </div>
       <ol className="space-y-3">
         <AnimatePresence initial={false}>
-          {[...clue.lines].reverse().map((l, ri) => {
-            const i = clue.lines.length - 1 - ri;
+          {clue.lines.map((l, i) => {
             return (
               <motion.li
                 key={i}
-                initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
                 className={`paper relative rounded-sm py-3 pr-4 font-mono text-[0.95rem] shadow ${l.mine ? "ml-6 pl-5" : "mr-6 pl-5"}`}
               >
                 <span className="mb-0.5 block text-xs text-[#7a5a1c]">{l.mine ? "?" : clue.other?.name ?? "Someone else"}</span>
