@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated or vendored: not ours to lint.
+    "src/generated/**",
+    ".claude/**",
   ]),
 ]);
 
