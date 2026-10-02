@@ -1,5 +1,6 @@
 "use server";
 // Auth flows (Neon Auth / Managed Better Auth) as server actions. Session cookies are set by the SDK.
+import { safeNextPath } from "@/lib/auth/redirect";
 import { redirect } from "next/navigation";
 import { auth, currentUser } from "@/lib/auth/server";
 import { ensureProfile } from "@/lib/accounts/service";
@@ -23,8 +24,7 @@ const values = (f: FormData) => ({ email: str(f, "email"), name: str(f, "name") 
 
 /** Only same-site relative paths, so `next` can't redirect off-site. */
 function safeNext(f: FormData): string {
-  const n = str(f, "next");
-  return n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/auth") ? n : "/";
+  return safeNextPath(str(f, "next"), ["/auth"]);
 }
 
 function friendly(err: { message?: string; code?: string; status?: number } | null | undefined, fallback: string): string {

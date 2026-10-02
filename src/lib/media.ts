@@ -35,13 +35,18 @@ export async function storeAsset(id: string, sourceUrl: string, bytes: Uint8Arra
   return id;
 }
 
+const MAX_MIRROR_BYTES = 25 * 1024 * 1024;
+
 export async function mirror(url: string, headers: Record<string, string> = {}, id = mediaId(url)): Promise<string | null> {
   const existing = await db.mirroredAsset.findUnique({ where: { id }, select: { id: true } });
   if (existing) return id;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(30000), headers });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // A mirrored file lives in Postgres and in memory: refuse anything unreasonable before reading it.
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_MIRROR_BYTES) throw new Error("file too large");
     const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_MIRROR_BYTES) throw new Error("file too large");
     const contentType = res.headers.get("content-type")?.split(";")[0] ?? guessType(url);
     return await storeAsset(id, url, buf, contentType);
   } catch (e) {

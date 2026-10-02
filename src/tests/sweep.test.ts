@@ -49,3 +49,16 @@ describe("invite links are not signed with the public puzzle salt", () => {
     expect(parseInvite(inviteToken(id))).toBe(id);
   });
 });
+
+import { safeNextPath } from "@/lib/auth/redirect";
+describe("redirect targets after sign-in", () => {
+  it("keeps same-site paths and refuses anything that can leave the site", () => {
+    expect(safeNextPath("/market")).toBe("/market");
+    expect(safeNextPath("/lock/reckoning?d=2026-10-02")).toBe("/lock/reckoning?d=2026-10-02");
+    for (const bad of ["//evil.example", "/\\evil.example", "/\\\\evil.example","https://evil.example", "evil.example", "javascript:alert(1)", "/ok\r\nSet-Cookie: a=b", "", null, undefined]) {
+      expect(safeNextPath(bad as string | null | undefined), String(bad)).toBe("/");
+    }
+    expect(safeNextPath("/auth/sign-in", ["/auth"])).toBe("/");
+    expect(safeNextPath("/authors", ["/auth"])).toBe("/authors");
+  });
+});
