@@ -277,9 +277,12 @@ scheduler). Point `guesslock.paulkuehn.ch` at it.
 - `ADMIN_DEBUG` is ignored in production builds. The Docker image runs as the unprivileged `node` user.
 
 **Where it stops scaling, and what to do**
-- *Rate limits are per server instance* (in memory, `lib/server/ratelimit.ts`, the agent guard): with N instances the effective
-  limit is N times higher and it resets on deploy. Fine for one instance or a few; for a larger fleet move the counters to a shared
-  store (Redis/Upstash, or the database) behind the same `rateLimit()` function, or rate-limit at the edge.
+- *Rate limits*: the sensitive, low-volume paths (admin login, the agent API, market writes, account export and sync) are counted
+  in Postgres (`RateLimit` table, `lib/server/sharedlimit.ts`), so they hold across instances and deploys; if the database can't
+  be reached they fall back to the instance's own counter. The hot paths (`/api/play`, `/api/endless`, `/api/omen`, the
+  leaderboard) stay in memory (`lib/server/ratelimit.ts`): a database call per guess would cost more than the abuse it stops, so
+  with N instances their effective limit is N times higher. For a large fleet put those behind an edge rate limit or Redis.
+  The daily cron prunes finished counters.
 - *Leaderboards* are rankings over all players, computed once per 30 s per instance and shared by concurrent requests
   (`getBoard`), so the Hall page costs a few queries per half minute, not per visit. Beyond tens of thousands of players, move them
   to a precomputed table refreshed by cron.

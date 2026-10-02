@@ -470,3 +470,12 @@ model TradeOffer {
   @@index([toUser, status])
   @@index([fromUser, status])
 }
+
+// Shared rate-limit counters across server instances (the sensitive, low-volume endpoints). Rows are pruned daily.
+model RateLimit {
+  key     String   @id
+  count   Int      @default(1)
+  resetAt DateTime
+
+  @@index([resetAt])
+}

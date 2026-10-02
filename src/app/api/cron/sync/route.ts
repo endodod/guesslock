@@ -8,6 +8,7 @@ import { dailySoundSync } from "@/lib/sounds/import";
 import { dailyWikiSync } from "@/lib/wiki/daily";
 import { snapshotCuration } from "@/lib/backup/curation";
 import { pruneEndless } from "@/lib/endless";
+import { pruneRateLimits } from "@/lib/server/sharedlimit";
 
 export const maxDuration = 300;
 
@@ -28,7 +29,10 @@ export async function GET(req: Request) {
   const gen = await generateAhead(undefined, { harvestUntil: started + 240_000 });
   // Endless mode: practice puzzles (and their clue images) older than a week.
   const endless = await pruneEndless().catch((e) => ({ error: String(e) }));
+  // Rate-limit counters whose window has ended.
+  const limits = await pruneRateLimits().catch((e) => ({ error: String(e) }));
   return NextResponse.json({
+    limits,
     sync: { id: sync.id, status: sync.status, error: sync.error?.split("\n")[0] },
     sounds,
     wiki,

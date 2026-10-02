@@ -8,7 +8,8 @@ import { currentUser } from "@/lib/auth/server";
 import { ensureProfile } from "@/lib/accounts/service";
 import { claimSet, equip, inventoryState, marketState, MarketError, openCase, openCrate, sellItem, sellSpares } from "@/lib/market/service";
 import { claimDaily, dailyState, inviteState, redeemInvite } from "@/lib/market/earn";
-import { rateLimit, tooMany } from "@/lib/server/ratelimit";
+import { tooMany } from "@/lib/server/ratelimit";
+import { rateLimitShared } from "@/lib/server/sharedlimit";
 import { INVITE_COOKIE } from "@/lib/market/rewards";
 
 const headers = { "cache-control": "no-store" };
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "sign in" }, { status: 401, headers });
   const parsed = Action.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400, headers });
-  const limit = rateLimit(`market:${user.id}`, 40, 60_000);
+  const limit = await rateLimitShared(`market:${user.id}`, 40, 60_000);
   if (!limit.ok) return tooMany(limit.retryAfter);
   const a = parsed.data;
   try {

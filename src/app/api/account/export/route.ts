@@ -2,12 +2,13 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/server";
 import { exportAccount } from "@/lib/accounts/service";
-import { rateLimit, tooMany } from "@/lib/server/ratelimit";
+import { tooMany } from "@/lib/server/ratelimit";
+import { rateLimitShared } from "@/lib/server/sharedlimit";
 
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const limit = rateLimit(`export:${user.id}`, 5, 60_000);
+  const limit = await rateLimitShared(`export:${user.id}`, 5, 60_000);
   if (!limit.ok) return tooMany(limit.retryAfter);
   return new NextResponse(JSON.stringify(await exportAccount(user), null, 2), {
     headers: {

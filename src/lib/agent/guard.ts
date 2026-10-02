@@ -6,7 +6,8 @@
 //    API answers 404 as if it didn't exist.
 //  - Tokens are accepted in the Authorization header only (never in the URL, which ends up in logs).
 //  - Comparison is constant-time (SHA-256 digests); failed attempts are throttled per client address and slowed down.
-//  - Rate limits per token (best effort: in memory per server instance); request bodies are size-capped and parsed
+//  - Rate limits per token and failed attempts per address are counted in Postgres, so they hold across server instances
+//    (falling back to this instance's memory if the database is unreachable); request bodies are size-capped and parsed
 //    with strict schemas; responses are never cached; no CORS headers are sent, so browsers can't call it.
 //  - Every write is recorded in the audit log (SyncRun rows of kind "agent-api", visible on /admin).
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -14,6 +15,7 @@ import type { ZodType } from "zod";
 import { config } from "../config";
 import { db } from "../db";
 import { clientIp } from "../server/ratelimit";
+import { overLimit, rateLimitShared } from "../server/sharedlimit";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type Scope = "read" | "write";
@@ -34,29 +36,19 @@ export function json(data: unknown, status = 200, extra: Record<string, string> 
 }
 export const fail = (status: number, error: string, extra?: Record<string, unknown>, headers?: Record<string, string>) => json({ error, ...extra }, status, headers);
 
-// ---- throttling (in memory; resets on deploy/scale-out: a speed bump, not the main defence) ----
+// ---- throttling ----
+// Failed authentications per client address (10 per minute allowed): kept in this instance's memory as well as in the shared
+// store, so the limit still holds if the database is down.
 type Bucket = { n: number; reset: number };
-const buckets = new Map<string, Bucket>();
-function hit(key: string, limit: number, windowMs: number): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  if (buckets.size > 5000) for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
-  const b = buckets.get(key);
-  if (!b || b.reset < now) {
-    buckets.set(key, { n: 1, reset: now + windowMs });
-    return { ok: true, retryAfter: 0 };
-  }
-  b.n++;
-  return { ok: b.n <= limit, retryAfter: Math.ceil((b.reset - now) / 1000) };
-}
-
-// Failed authentications per client address (10 per minute allowed).
 const fails = new Map<string, Bucket>();
-function noteFailure(ip: string) {
+const MAX_FAILS = 10;
+async function noteFailure(ip: string) {
   const now = Date.now();
   if (fails.size > 5000) for (const [k, b] of fails) if (b.reset < now) fails.delete(k);
   const f = fails.get(ip);
   if (!f || f.reset < now) fails.set(ip, { n: 1, reset: now + 60_000 });
   else f.n++;
+  await rateLimitShared(`agent-fail:${ip}`, MAX_FAILS, 60_000);
 }
 
 const clientKey = (req: Request) => clientIp(req);
@@ -69,9 +61,11 @@ export async function guard(req: Request, scope: Scope): Promise<{ who: Who } | 
   // Clients with too many recent failures are rejected before any token is compared.
   const ip = clientKey(req);
   const failed = fails.get(ip);
-  if (failed && failed.reset > Date.now() && failed.n >= 10) {
+  if (failed && failed.reset > Date.now() && failed.n >= MAX_FAILS) {
     return { res: fail(429, "Too many failed attempts", {}, { "retry-after": String(Math.ceil((failed.reset - Date.now()) / 1000)) }) };
   }
+  const shared = await overLimit(`agent-fail:${ip}`, MAX_FAILS);
+  if (!shared.ok) return { res: fail(429, "Too many failed attempts", {}, { "retry-after": String(shared.retryAfter) }) };
 
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -81,14 +75,14 @@ export async function guard(req: Request, scope: Scope): Promise<{ who: Who } | 
     else if (readOn && same(token, config.agentReadToken)) who = { scope: "read", id: "read-token" };
   }
   if (!who) {
-    noteFailure(ip);
+    await noteFailure(ip);
     await new Promise((r) => setTimeout(r, 300)); // slow brute force
     return { res: fail(401, "Missing or invalid token", {}, { "www-authenticate": 'Bearer realm="guesslock-agent"' }) };
   }
   if (scope === "write" && who.scope !== "write") return { res: fail(403, "This token is read-only") };
 
   const limit = who.scope === "write" ? { n: 30, label: "write" } : { n: 120, label: "read" };
-  const rl = hit(`rl:${who.id}:${scope}`, limit.n, 60_000);
+  const rl = await rateLimitShared(`rl:${who.id}:${scope}`, limit.n, 60_000);
   if (!rl.ok) return { res: fail(429, `Rate limit exceeded (${limit.n}/min)`, {}, { "retry-after": String(rl.retryAfter) }) };
   return { who };
 }
