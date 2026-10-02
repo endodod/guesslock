@@ -4,8 +4,8 @@
 // four rarities: shop items, hero cards, hero weapons, abilities, map objects, lock seals and flair (titles, name
 // colours and Vault themes you can wear). Nothing here changes a puzzle, a score or a rank; the leaderboards rank by souls
 // *earned*, so spending never costs a place. Cases are bought with souls only, never with money, and their odds are shown
-// before buying. Every collectible has a value in souls: duplicates are scrapped for part of it, any item can be sold,
-// and completing a set pays a one-time bonus.
+// before buying. Every collectible has a value in souls: spare copies are kept and sell for more than a last copy, any item can be sold,
+// Collector's Crates only ever hold what you don't own yet, and completing a set pays a one-time bonus.
 import type { GameData } from "../engine/context";
 import { LOCKS, VAULT_UNITS } from "@/locks.config";
 import { scalePrice, scaleValue } from "../game/economy";
@@ -27,7 +27,7 @@ export type Collectible = {
   kind: Kind;
   name: string;
   rarity: Rarity;
-  /** Souls (in today's economy, see game/economy.ts): what a duplicate is scrapped for (part of it), what selling pays (part of it) and what set bonuses are made of. */
+  /** Souls (in today's economy, see game/economy.ts): what selling pays (part of it, more for a spare copy) and what set bonuses are made of. */
   value: number;
   /** A picture URL (shop items, heroes, weapons, abilities) or null. */
   image: string | null;
@@ -211,11 +211,24 @@ export const CASES: CaseDef[] = [
 ];
 export const CASE_BY_ID: Record<string, CaseDef> = Object.fromEntries(CASES.map((c) => [c.id, c]));
 
-/** A duplicate is scrapped for this share of its value; selling an item pays this share. */
-export const DUPLICATE_RATE = 0.5;
+/**
+ * What selling pays, as a share of an item's value. The last copy of something fetches SELL_RATE; a spare copy (one you own
+ * more than once) fetches a rising share by its place in the stack: the first spare 75%, the second 85%, from the third on
+ * 95%. A spare sells for more than the last copy, so a double is a small win, yet even the best rate stays below what a case
+ * pays back on average (tested), so hoarding and reselling doubles can never make cases free money.
+ */
 export const SELL_RATE = 0.6;
-export const scrapValue = (c: Pick<Collectible, "value">) => Math.round(c.value * DUPLICATE_RATE);
-export const sellValue = (c: Pick<Collectible, "value">) => Math.round(c.value * SELL_RATE);
+export const SPARE_RATES = [0.75, 0.85, 0.95] as const;
+/** The share paid for one copy when `copiesOwned` copies of it are owned (the copy sold is the top of the stack). */
+export const sellRate = (copiesOwned: number) => (copiesOwned <= 1 ? SELL_RATE : SPARE_RATES[Math.min(copiesOwned - 2, SPARE_RATES.length - 1)]);
+/** Souls for selling one copy of an item of which `copiesOwned` are owned (pure: the server pays it, the client shows it). */
+export const sellPrice = (c: Pick<Collectible, "value">, copiesOwned = 1) => Math.round(c.value * sellRate(copiesOwned));
+/** Souls for selling every copy beyond the first, top of the stack first (what "Sell spares" pays). */
+export function sparesPrice(c: Pick<Collectible, "value">, copiesOwned: number): number {
+  let sum = 0;
+  for (let n = copiesOwned; n >= 2; n--) sum += sellPrice(c, n);
+  return sum;
+}
 
 const poolCache = new WeakMap<Collectible[], Map<string, Record<Rarity, Collectible[]>>>();
 
@@ -289,6 +302,62 @@ export function casePreview(c: CaseDef, all: Collectible[], perRarity = 8): Coll
     for (let i = 0; i < Math.min(perRarity, items.length); i++) out.push(items[Math.floor(i * step)]);
   }
   return out;
+}
+
+/** The exact chance of every item a case can drop, as `rollCase` produces it (for tuning and the completion simulation). */
+export function caseOdds(c: CaseDef, all: Collectible[]): Map<string, number> {
+  const pool = casePool(c, all);
+  const out = new Map<string, number>();
+  let carry = 0; // the chance of a rarity the case has nothing of, which falls through to the next lower one
+  for (let i = RARITY_ORDER.length - 1; i >= 0; i--) {
+    const r = RARITY_ORDER[i];
+    const items = pool[r];
+    const p = c.odds[r] + carry;
+    if (!items.length) { carry = p; continue; }
+    carry = 0;
+    const kinds = [...new Set(items.map((x) => x.kind))];
+    const total = kinds.reduce((a, k) => a + (c.kinds[k] ?? 0), 0);
+    for (const k of kinds) {
+      const of = items.filter((x) => x.kind === k);
+      for (const x of of) out.set(x.key, (out.get(x.key) ?? 0) + (p * ((c.kinds[k] ?? 0) / total)) / of.length);
+    }
+  }
+  return out;
+}
+
+// ───────────── collector's crates ─────────────
+
+/** A Collector's Crate costs this many times the average value of what it can still give: it takes the luck (and the duplicate) away. */
+export const CRATE_MARKUP = 2;
+/** ...and never less than this many times the cheapest case, so early on a crate costs more per new item than opening cases would. */
+export const CRATE_FLOOR = 1.25;
+
+export type Crate = {
+  id: string;
+  rarity: Rarity;
+  name: string;
+  /** What is still missing of this rarity, the only things the crate can give. */
+  missing: number;
+  /** Every collectible of this rarity. */
+  total: number;
+  /** Souls, 0 when nothing of the tier is missing (the crate is then unavailable). */
+  price: number;
+};
+export const crateId = (r: Rarity) => `missing:${r}`;
+export const crateRarity = (id: string): Rarity | null => RARITY_ORDER.find((r) => crateId(r) === id) ?? null;
+
+/**
+ * The crate of one rarity for a collection: the collectibles of that rarity not owned (sorted by key, what the draw picks
+ * from uniformly) and the price: CRATE_MARKUP times their average value, never below the dearest of them (so a crate never
+ * sells an item for less than it is worth) or CRATE_FLOOR times the cheapest case, rounded up to 10. Pure, the same on server and client.
+ */
+export function collectorsCrate(rarity: Rarity, all: Collectible[], owned: ReadonlySet<string>): Crate & { pool: Collectible[] } {
+  const tier = all.filter((x) => x.rarity === rarity);
+  const pool = tier.filter((x) => !owned.has(x.key)).sort((a, b) => (a.key < b.key ? -1 : 1));
+  const avg = pool.reduce((a, x) => a + x.value, 0) / (pool.length || 1);
+  const dearest = pool.reduce((a, x) => Math.max(a, x.value), 0);
+  const price = pool.length ? Math.ceil(Math.max(avg * CRATE_MARKUP, dearest, CRATE_FLOOR * Math.min(...CASES.map((c) => c.price))) / 10) * 10 : 0;
+  return { id: crateId(rarity), rarity, name: `${RARITY_LABEL[rarity]} Collector's Crate`, missing: pool.length, total: tier.length, price, pool };
 }
 
 // ───────────── sets ─────────────

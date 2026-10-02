@@ -5,8 +5,8 @@ import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { loadGameData } from "../engine/context";
 import {
-  CASES, CASE_BY_ID, COSMETIC_BY_KEY, RARITY_ORDER, buildCollectibles, buildSets, casePool, casePreview, expectedValue, rollCase, scrapValue, sellValue,
-  type Collectible, type Rarity, type Slot,
+  CASES, CASE_BY_ID, COSMETIC_BY_KEY, RARITY_ORDER, buildCollectibles, buildSets, casePool, casePreview, collectorsCrate, crateRarity, expectedValue, rollCase,
+  sellPrice, sparesPrice, type Collectible, type Rarity, type Slot,
 } from "./catalog";
 
 export class MarketError extends Error {
@@ -66,14 +66,20 @@ export async function credit(tx: Tx, userId: string, amount: number, reason: str
   await tx.soulLedger.create({ data: { userId, delta: amount, reason, ref } });
 }
 
-/** What the browser needs to show a collectible. */
-export type ItemView = Collectible & { id: number; obtainedAt: string };
+/** What the browser needs to show a collectible: one entry per item owned, with how many copies of it. */
+export type ItemView = Collectible & { id: number; obtainedAt: string; copies: number };
 
+/** Rows (one per copy) folded into one stack per key. `id` is the newest copy: the one a sale takes first, so the oldest stays. */
 function ownedViews(rows: { id: number; itemKey: string; obtainedAt: Date }[], byKey: Map<string, Collectible>): ItemView[] {
-  return rows.flatMap((r) => {
+  const stacks = new Map<string, ItemView>();
+  for (const r of rows) {
     const c = byKey.get(r.itemKey);
-    return c ? [{ ...c, id: r.id, obtainedAt: r.obtainedAt.toISOString() }] : [];
-  });
+    if (!c) continue;
+    const at = stacks.get(r.itemKey);
+    if (!at) stacks.set(r.itemKey, { ...c, id: r.id, obtainedAt: r.obtainedAt.toISOString(), copies: 1 });
+    else { at.copies++; if (r.id > at.id) at.id = r.id; }
+  }
+  return [...stacks.values()].sort((a, b) => (a.obtainedAt < b.obtainedAt ? 1 : a.obtainedAt > b.obtainedAt ? -1 : b.id - a.id));
 }
 
 /**
@@ -101,6 +107,12 @@ export async function marketState(userId: string, preview = true) {
         preview: preview ? casePreview(c, collectibles) : ([] as Collectible[]),
       };
     }),
+    crates: RARITY_ORDER.map((r) => {
+      const { pool, ...crate } = collectorsCrate(r, collectibles, owned);
+      // A sample of what is still missing, for the opening animation (like a case's preview).
+      const step = Math.max(1, pool.length / 12);
+      return { ...crate, preview: preview ? Array.from({ length: Math.min(12, pool.length) }, (_, i) => pool[Math.floor(i * step)]) : ([] as Collectible[]) };
+    }),
     ledger: ledger.map((l) => ({ delta: l.delta, reason: l.reason, at: l.createdAt.toISOString() })),
   };
 }
@@ -123,7 +135,9 @@ export async function inventoryState(userId: string) {
     name: profile?.displayName ?? "",
     equipped: { title: profile?.equippedTitle ?? null, color: profile?.equippedColor ?? null, theme: profile?.equippedTheme ?? null },
     items,
+    // The collection is worth one copy of each item; spares are counted separately, at what they sell for.
     worth: items.reduce((a, i) => a + i.value, 0),
+    spares: items.reduce((a, i) => a + sparesPrice(i, i.copies), 0),
     totals: { items: collectibles.length },
     sets: buildSets(collectibles).map((s) => ({
       id: s.id, name: s.name, category: s.category, reward: s.reward, total: s.keys.length, have: s.keys.filter((k) => have.has(k)).length, claimed: claimed.has(s.id),
@@ -131,27 +145,59 @@ export async function inventoryState(userId: string) {
   };
 }
 
-/** Opens a case: pays, draws one collectible (crypto-random), and scraps a duplicate for part of its value. */
+/** Opens a case: pays and draws one collectible (crypto-random). A duplicate is kept as a spare copy, never scrapped. */
 export async function openCase(
   userId: string, caseId: string, rand: () => number = uniform,
-): Promise<{ item: Collectible; duplicate: boolean; refund: number; itemId: number | null }> {
+): Promise<{ item: Collectible; duplicate: boolean; copies: number; itemId: number }> {
   const c = CASE_BY_ID[caseId];
   if (!c) throw new MarketError("Unknown case.", 404);
   const item = rollCase(c, await getCollectibles(), rand(), rand(), rand());
   return marketTx(async (tx) => {
     if (!(await spend(tx, userId, c.price, "case", c.id))) throw new MarketError("Not enough souls.", 402);
-    const owned = await tx.inventoryItem.count({ where: { userId, itemKey: item.key } });
-    if (owned > 0) {
-      const refund = scrapValue(item);
-      await credit(tx, userId, refund, "duplicate", item.key);
-      return { item, duplicate: true, refund, itemId: null };
-    }
     const row = await tx.inventoryItem.create({ data: { userId, itemKey: item.key, source: "case" } });
-    return { item, duplicate: false, refund: 0, itemId: row.id };
+    const copies = await tx.inventoryItem.count({ where: { userId, itemKey: item.key } });
+    return { item, duplicate: copies > 1, copies, itemId: row.id };
   });
 }
 
-/** Sells an owned item back for part of its value (the row is deleted and paid in one transaction). */
+/**
+ * Buys a Collector's Crate: one random collectible of the tier's rarity that the player doesn't own. The price is the
+ * server's, worked out here from what is missing; `expectedPrice` is what the browser showed, and a mismatch (something was
+ * collected meanwhile) refuses the purchase so nobody pays more than they saw. Purchases by one player queue on an advisory
+ * lock, so two parallel ones can't both deliver the same item.
+ */
+export async function openCrate(
+  userId: string, crateId: string, expectedPrice: number, rand: () => number = uniform,
+): Promise<{ item: Collectible; duplicate: boolean; copies: number; itemId: number; price: number }> {
+  const rarity = crateRarity(crateId);
+  if (!rarity) throw new MarketError("Unknown crate.", 404);
+  const all = await getCollectibles();
+  const roll = rand();
+  return marketTx(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`crate:${userId}`}))`;
+    const owned = new Set((await tx.inventoryItem.findMany({ where: { userId }, select: { itemKey: true } })).map((r) => r.itemKey));
+    const crate = collectorsCrate(rarity, all, owned);
+    if (!crate.pool.length) throw new MarketError(`You own every ${rarity} collectible.`, 409);
+    if (crate.price !== expectedPrice) throw new MarketError(`The price is now ${crate.price} souls. Look again and confirm.`, 409);
+    if (!(await spend(tx, userId, crate.price, "crate-missing", crate.id))) throw new MarketError("Not enough souls.", 402);
+    const item = crate.pool[Math.min(crate.pool.length - 1, Math.floor(roll * crate.pool.length))];
+    const row = await tx.inventoryItem.create({ data: { userId, itemKey: item.key, source: "crate" } });
+    return { item, duplicate: false, copies: 1, itemId: row.id, price: crate.price };
+  });
+}
+
+/** Takes flair off its slot once the last copy is gone. */
+async function unequipIfGone(tx: Tx, userId: string, c: Collectible) {
+  if (c.kind !== "flair" || !c.slot) return;
+  if (await tx.inventoryItem.count({ where: { userId, itemKey: c.key } })) return;
+  const field = EQUIP_FIELD[c.slot];
+  await tx.profile.updateMany({ where: { userId, [field]: c.key }, data: { [field]: null } });
+}
+
+/**
+ * Sells one copy of an owned item (the row is deleted and paid in one transaction). The price depends on how many copies
+ * are owned: the last copy pays the base rate, a spare pays more (see `sellPrice`).
+ */
 export async function sellItem(userId: string, itemId: number): Promise<{ name: string; souls: number }> {
   const byKey = new Map((await getCollectibles()).map((c) => [c.key, c]));
   return marketTx(async (tx) => {
@@ -159,16 +205,33 @@ export async function sellItem(userId: string, itemId: number): Promise<{ name: 
     if (!row) throw new MarketError("You don't own that.", 404);
     const c = byKey.get(row.itemKey);
     if (!c) throw new MarketError("That item is no longer in the catalogue.", 409);
+    // Sales of one stack queue, so two parallel sales are never priced as the same copy.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stack:${userId}:${c.key}`}))`;
     // Delete first: a second sale of the same row (double click, two tabs) finds nothing to delete.
     const gone = await tx.inventoryItem.deleteMany({ where: { id: itemId, userId } });
     if (gone.count !== 1) throw new MarketError("You don't own that.", 404);
-    const souls = sellValue(c);
+    const copies = (await tx.inventoryItem.count({ where: { userId, itemKey: c.key } })) + 1;
+    const souls = sellPrice(c, copies);
     await credit(tx, userId, souls, "sell", c.key);
-    if (c.kind === "flair" && c.slot) {
-      const field = EQUIP_FIELD[c.slot];
-      await tx.profile.updateMany({ where: { userId, [field]: c.key }, data: { [field]: null } });
-    }
+    await unequipIfGone(tx, userId, c);
     return { name: c.name, souls };
+  });
+}
+
+/** Sells every copy of an item beyond the first (the oldest stays) in one transaction. */
+export async function sellSpares(userId: string, itemKey: string): Promise<{ name: string; souls: number; sold: number }> {
+  const c = (await getCollectibles()).find((x) => x.key === itemKey);
+  if (!c) throw new MarketError("That item is no longer in the catalogue.", 409);
+  return marketTx(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`stack:${userId}:${c.key}`}))`;
+    const rows = await tx.inventoryItem.findMany({ where: { userId, itemKey: c.key }, orderBy: { id: "asc" }, select: { id: true } });
+    if (rows.length < 2) throw new MarketError("You have no spare copies of that.", 409);
+    const spares = rows.slice(1).map((r) => r.id);
+    const gone = await tx.inventoryItem.deleteMany({ where: { userId, id: { in: spares } } });
+    if (gone.count !== spares.length) throw new MarketError("Your stack changed. Try again.", 409);
+    const souls = sparesPrice(c, rows.length);
+    await credit(tx, userId, souls, "sell-spares", c.key);
+    return { name: c.name, souls, sold: spares.length };
   });
 }
 
@@ -215,9 +278,12 @@ export async function collectionCounts(): Promise<{ userId: string; value: numbe
   const [rows, collectibles] = await Promise.all([db.inventoryItem.findMany({ select: { userId: true, itemKey: true } }), getCollectibles()]);
   const value = new Map(collectibles.map((c) => [c.key, c.value]));
   const per = new Map<string, number>();
+  // Distinct items only: a spare copy doesn't move you up the Collectors board.
+  const seen = new Set<string>();
   for (const r of rows) {
     const v = value.get(r.itemKey);
-    if (v) per.set(r.userId, (per.get(r.userId) ?? 0) + v);
+    const id = `${r.userId}|${r.itemKey}`;
+    if (v && !seen.has(id)) { seen.add(id); per.set(r.userId, (per.get(r.userId) ?? 0) + v); }
   }
   return [...per].map(([userId, value]) => ({ userId, value }));
 }

@@ -1,12 +1,12 @@
 // The Black Market API (signed in only). GET: the shop window; ?view=inventory the collection; ?view=earn the ways to
-// earn souls (daily reward, invitations); ?view=daily just the daily reward. POST: { action, … } — open a case, sell an
-// item, claim a set bonus, wear flair, claim the daily reward, claim an invitation.
+// earn souls (daily reward, invitations); ?view=daily just the daily reward. POST: { action, … } — open a case or a Collector's Crate, sell an
+// item (or every spare copy of it), claim a set bonus, wear flair, claim the daily reward, claim an invitation.
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { currentUser } from "@/lib/auth/server";
 import { ensureProfile } from "@/lib/accounts/service";
-import { claimSet, equip, inventoryState, marketState, MarketError, openCase, sellItem } from "@/lib/market/service";
+import { claimSet, equip, inventoryState, marketState, MarketError, openCase, openCrate, sellItem, sellSpares } from "@/lib/market/service";
 import { claimDaily, dailyState, inviteState, redeemInvite } from "@/lib/market/earn";
 import { rateLimit, tooMany } from "@/lib/server/ratelimit";
 import { INVITE_COOKIE } from "@/lib/market/rewards";
@@ -15,7 +15,9 @@ const headers = { "cache-control": "no-store" };
 
 const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("open"), caseId: z.string().max(40) }),
+  z.object({ action: z.literal("crate"), crateId: z.string().max(40), price: z.number().int().nonnegative() }),
   z.object({ action: z.literal("sell"), itemId: z.number().int().positive() }),
+  z.object({ action: z.literal("sellSpares"), itemKey: z.string().max(60) }),
   z.object({ action: z.literal("claim"), setId: z.string().max(40) }),
   z.object({ action: z.literal("equip"), slot: z.enum(["title", "color", "theme"]), key: z.string().max(60).nullable() }),
   z.object({ action: z.literal("daily") }),
@@ -55,7 +57,9 @@ export async function POST(req: Request) {
   try {
     const result =
       a.action === "open" ? await openCase(user.id, a.caseId)
+      : a.action === "crate" ? await openCrate(user.id, a.crateId, a.price)
       : a.action === "sell" ? await sellItem(user.id, a.itemId)
+      : a.action === "sellSpares" ? await sellSpares(user.id, a.itemKey)
       : a.action === "claim" ? await claimSet(user.id, a.setId)
       : a.action === "daily" ? await claimDaily(user.id)
       : a.action === "redeem" ? await redeemInvite(user.id, a.token)

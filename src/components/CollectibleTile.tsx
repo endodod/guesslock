@@ -18,13 +18,16 @@ export function Art({ c, size = "h-16 w-16" }: { c: Pick<Collectible, "image" | 
   );
 }
 
-export function CollectibleTile({ c, children }: { c: Collectible; children?: React.ReactNode }) {
+/** `copies` > 1 shows the stack count ("× 3"). */
+export function CollectibleTile({ c, copies = 1, children }: { c: Collectible; copies?: number; children?: React.ReactNode }) {
   return (
     <div className={`flex h-full flex-col gap-2 rounded-sm border bg-iron/60 p-3 ${RARITY_CLS[c.rarity]}`}>
       <div className="flex items-center gap-3">
         <Art c={c} />
         <div className="min-w-0">
-          <p className="truncate font-display text-base leading-tight text-paper">{c.name}</p>
+          <p className="truncate font-display text-base leading-tight text-paper">
+            {c.name}{copies > 1 && <span className="ml-2 rounded-sm border border-brass/50 px-1.5 font-mono text-xs text-brass" aria-label={`${copies} copies`}>× {copies}</span>}
+          </p>
           <p className={`smallcaps text-xs ${rarityText(c.rarity)}`}>{RARITY_LABEL[c.rarity]}</p>
           {c.sub && <p className="truncate text-xs text-ash">{c.sub}</p>}
         </div>

@@ -2,7 +2,7 @@
 // The inventory: everything you own (filter by kind and rarity), sell items, claim set bonuses and wear flair.
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { COSMETIC_BY_KEY, KIND_LABEL, KIND_ORDER, RARITY_LABEL, RARITY_ORDER, SET_CATEGORIES, sellValue, type Kind, type Rarity, type Slot } from "@/lib/market/catalog";
+import { COSMETIC_BY_KEY, KIND_LABEL, KIND_ORDER, RARITY_LABEL, RARITY_ORDER, SET_CATEGORIES, sellPrice, sparesPrice, type Kind, type Rarity, type Slot } from "@/lib/market/catalog";
 import type { inventoryState } from "@/lib/market/service";
 import { DecoFrame } from "./ui";
 import { PlayerName } from "./Hall";
@@ -10,7 +10,7 @@ import { CollectibleTile, rarityText } from "./CollectibleTile";
 import { useGame } from "./GameProvider";
 
 type State = Awaited<ReturnType<typeof inventoryState>>;
-type Paid = { name: string; souls: number };
+type Paid = { name: string; souls: number; sold?: number };
 
 async function call(body: unknown): Promise<{ inventory?: State; result?: Paid; error?: string }> {
   const res = await fetch("/api/market", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -52,7 +52,9 @@ export function Inventory({ initial }: { initial: State }) {
         <div>
           <p className="smallcaps text-sm text-brass">Your collection</p>
           <p className="font-mono text-3xl text-paper">{s.items.length} <span className="text-base text-ash">of {s.totals.items} collectibles</span></p>
-          <p className="text-xs text-ash">Worth {s.worth.toLocaleString("en-US")} souls · {s.spendable.toLocaleString("en-US")} souls to spend</p>
+          <p className="text-xs text-ash">
+            Worth {s.worth.toLocaleString("en-US")} souls{s.spares > 0 && <> (+ {s.spares.toLocaleString("en-US")} in spares)</>} · {s.spendable.toLocaleString("en-US")} souls to spend
+          </p>
         </div>
         <Link href="/market" className="min-h-11 rounded-[3px] border border-cursed/70 bg-cursed/15 px-5 py-2.5 text-paper hover:bg-cursed/25">Open cases in The Black Market</Link>
       </DecoFrame>
@@ -126,7 +128,7 @@ export function Inventory({ initial }: { initial: State }) {
               const cosmetic = COSMETIC_BY_KEY[i.key];
               return (
                 <li key={i.id}>
-                  <CollectibleTile c={i}>
+                  <CollectibleTile c={i} copies={i.copies}>
                     {slot && cosmetic && (
                       <p className="text-xs text-paper/90">
                         {slot === "color" ? <PlayerName name={s.name} color={cosmetic.value} />
@@ -146,11 +148,20 @@ export function Inventory({ initial }: { initial: State }) {
                       )}
                       <button
                         type="button" disabled={busy}
-                        onClick={() => { if (window.confirm(`Sell ${i.name} for ${sellValue(i)} souls?`)) void run({ action: "sell", itemId: i.id }, (r) => r && toast(`Sold ${r.name} for ${r.souls} souls.`)); }}
+                        onClick={() => { if (window.confirm(`Sell ${i.copies > 1 ? "a spare " : ""}${i.name} for ${sellPrice(i, i.copies)} souls?`)) void run({ action: "sell", itemId: i.id }, (r) => r && toast(`Sold ${r.name} for ${r.souls} souls.`)); }}
                         className="min-h-9 rounded-sm px-3 text-xs text-ash hover:text-paper"
                       >
-                        Sell for {sellValue(i)}
+                        Sell {i.copies > 1 ? "one" : ""} for {sellPrice(i, i.copies)}
                       </button>
+                      {i.copies > 1 && (
+                        <button
+                          type="button" disabled={busy}
+                          onClick={() => { if (window.confirm(`Sell ${i.copies - 1} spare${i.copies > 2 ? "s" : ""} of ${i.name} for ${sparesPrice(i, i.copies)} souls? You keep one.`)) void run({ action: "sellSpares", itemKey: i.key }, (r) => r && toast(`Sold ${r.sold} spare${r.sold === 1 ? "" : "s"} of ${r.name} for ${r.souls} souls.`)); }}
+                          className="min-h-9 rounded-sm border border-brass/30 px-3 text-xs text-brass hover:border-brass"
+                        >
+                          Sell spares for {sparesPrice(i, i.copies)}
+                        </button>
+                      )}
                     </div>
                   </CollectibleTile>
                 </li>

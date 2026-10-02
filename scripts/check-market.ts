@@ -4,8 +4,8 @@ import "dotenv/config";
 if (/neon\.tech/.test(process.env.DATABASE_URL ?? "") && !process.argv.includes("--yes")) { console.error("Refusing to run against a Neon database without --yes."); process.exit(1); }
 import assert from "node:assert/strict";
 import { db } from "../src/lib/db";
-import { balance, claimSet, equip, inventoryState, marketState, openCase, sellItem, MarketError } from "../src/lib/market/service";
-import { CASE_BY_ID, scrapValue, sellValue } from "../src/lib/market/catalog";
+import { balance, claimSet, collectionCounts, equip, getCollectibles, inventoryState, marketState, openCase, openCrate, sellItem, sellSpares, MarketError } from "../src/lib/market/service";
+import { CASE_BY_ID, collectorsCrate, sellPrice, sparesPrice, SELL_RATE } from "../src/lib/market/catalog";
 import { claimDaily, dailyState, inviteState, inviteToken, redeemInvite } from "../src/lib/market/earn";
 import { INVITE_NEW, INVITE_REFERRER, dailyReward } from "../src/lib/market/rewards";
 
@@ -26,31 +26,91 @@ const cleanup = async () => {
     await db.profile.create({ data: { userId: id, displayName: name, nameKey: name.toLowerCase() } });
     await db.userStats.create({ data: { userId: id, totalSouls: souls } });
   }
-  // 8 parallel scrapheap crates on enough souls for five (the pool holds 10 connections): never overspends, whatever the refunds turn out to be.
+  const all = await getCollectibles();
+  const by = (key: string) => all.find((c) => c.key === key)!;
+  // 8 parallel scrapheap crates on enough souls for five (the pool holds 10 connections): never overspends.
   const r = await Promise.allSettled(Array.from({ length: 8 }, () => openCase("u-a", "scrapheap")));
   const ok = r.filter((x) => x.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof openCase>>>[];
-  const refunds = ok.reduce((a, x) => a + x.value.refund, 0);
   const b = await balance("u-a");
-  console.log("opened", ok.length, "refunds", refunds, "balance", b);
-  assert.ok(b.spendable >= 0);
+  console.log("opened", ok.length, "balance", b);
+  assert.equal(ok.length, 5);
   assert.equal(b.earned, CRATE * 5 + 30);
-  assert.equal(b.spendable, (CRATE * 5 + 30) - ok.length * CRATE + refunds);
+  assert.equal(b.spendable, 30); // nothing comes back: a duplicate is kept, not scrapped
   for (const x of r) if (x.status === "rejected" && !(x.reason instanceof MarketError)) console.log("unexpected rejection:", String(x.reason).slice(0, 300));
-  assert.ok(r.filter((x) => x.status === "rejected").every((x) => (x as PromiseRejectedResult).reason instanceof MarketError));
-  // Duplicates are scrapped, never stored twice, and the refund is the published share of the value.
-  const keys = (await db.inventoryItem.findMany({ where: { userId: "u-a" } })).map((i) => i.itemKey);
-  assert.equal(new Set(keys).size, keys.length);
-  for (const x of ok) if (x.value.duplicate) assert.equal(x.value.refund, scrapValue(x.value.item));
-  // Selling pays a share of the value once; selling the same row again fails.
+  assert.ok(r.filter((x) => x.status === "rejected").every((x) => (x.reason as unknown) instanceof MarketError));
+  // Every draw is kept as a row; a duplicate is a stack with the right count.
+  const rows = await db.inventoryItem.findMany({ where: { userId: "u-a" } });
+  assert.equal(rows.length, 5);
+  const inv0 = await inventoryState("u-a");
+  assert.equal(inv0.items.reduce((a, i) => a + i.copies, 0), 5);
+  assert.equal(inv0.items.length, new Set(rows.map((x) => x.itemKey)).size);
+  for (const x of ok) assert.equal(x.value.duplicate, x.value.copies > 1);
+
+  // A stack of three, made on purpose: a spare sells for the spare rate, the last copy for the base rate.
+  const stackKey = "map:trooper";
+  const trooper = by(stackKey);
+  await db.inventoryItem.deleteMany({ where: { userId: "u-a", itemKey: stackKey } });
+  await db.inventoryItem.createMany({ data: [1, 2, 3].map(() => ({ userId: "u-a", itemKey: stackKey, source: "case" })) });
+  const stack = (await inventoryState("u-a")).items.find((i) => i.key === stackKey)!;
+  assert.equal(stack.copies, 3);
+  const w0 = (await balance("u-a")).spendable;
+  const s1 = await sellItem("u-a", stack.id); // three owned: the second spare
+  assert.equal(s1.souls, sellPrice(trooper, 3));
+  assert.ok(s1.souls > sellPrice(trooper, 1));
+  const left = await inventoryState("u-a");
+  assert.equal(left.items.find((i) => i.key === stackKey)!.copies, 2);
+  assert.ok(left.spares >= sparesPrice(trooper, 2));
+  const s2 = await sellSpares("u-a", stackKey); // two owned: the first spare, the last copy stays
+  assert.equal(s2.sold, 1);
+  assert.equal(s2.souls, sellPrice(trooper, 2));
+  await assert.rejects(sellSpares("u-a", stackKey), /spare/);
+  assert.equal((await balance("u-a")).spendable, w0 + s1.souls + s2.souls);
+  const last = (await inventoryState("u-a")).items.find((i) => i.key === stackKey)!;
+  assert.equal(last.copies, 1);
+  const s3 = await sellItem("u-a", last.id); // the last copy: the base rate
+  assert.equal(s3.souls, Math.round(trooper.value * SELL_RATE));
+  await assert.rejects(sellItem("u-a", last.id), /own/); // the same row twice
+  assert.equal((await inventoryState("u-a")).items.find((i) => i.key === stackKey), undefined);
+  // Someone else's item can't be sold.
   const inv = await inventoryState("u-a");
-  assert.equal(inv.items.length, keys.length);
-  const first = inv.items[0];
-  const before = (await balance("u-a")).spendable;
-  const sold = await sellItem("u-a", first.id);
-  assert.equal(sold.souls, sellValue(first));
-  assert.equal((await balance("u-a")).spendable, before + sold.souls);
-  await assert.rejects(sellItem("u-a", first.id), /own/);
-  await assert.rejects(sellItem("u-b", inv.items[1].id), /own/); // someone else's item
+  await assert.rejects(sellItem("u-b", inv.items[0].id), /own/);
+  // The Collectors board counts distinct items: a spare adds nothing.
+  const countOf = async () => (await collectionCounts()).find((x) => x.userId === "u-a")?.value ?? 0;
+  const before = await countOf();
+  await db.inventoryItem.create({ data: { userId: "u-a", itemKey: inv.items[0].key, source: "case" } });
+  assert.equal(await countOf(), before);
+
+  // Collector's Crates: the price is the server's, a wrong price is refused, and what comes out is never owned.
+  await db.userStats.update({ where: { userId: "u-a" }, data: { totalSouls: 1_000_000 } });
+  const ownedKeys = async () => new Set((await db.inventoryItem.findMany({ where: { userId: "u-a" }, select: { itemKey: true } })).map((x) => x.itemKey));
+  const common = collectorsCrate("common", all, await ownedKeys());
+  await assert.rejects(openCrate("u-a", "missing:common", common.price - 10), /price/);
+  await assert.rejects(openCrate("u-a", "missing:mythic", 1), /Unknown/);
+  const had = await ownedKeys();
+  const pay0 = (await balance("u-a")).spendable;
+  const got = await openCrate("u-a", "missing:common", common.price);
+  assert.equal(got.price, common.price);
+  assert.equal(got.item.rarity, "common");
+  assert.equal(had.has(got.item.key), false);
+  assert.equal(got.duplicate, false);
+  assert.equal((await balance("u-a")).spendable, pay0 - common.price);
+  // Parallel purchases never deliver the same item twice or take more than the price: each one is a fresh item and
+  // pays the price of the moment (a purchase made at a stale price is refused).
+  const had2 = await ownedKeys();
+  const par = await Promise.allSettled(Array.from({ length: 4 }, () => openCrate("u-a", "missing:common", collectorsCrate("common", all, had2).price)));
+  const bought = par.filter((x) => x.status === "fulfilled") as PromiseFulfilledResult<Awaited<ReturnType<typeof openCrate>>>[];
+  assert.ok(bought.length >= 1);
+  assert.equal(new Set(bought.map((x) => x.value.item.key)).size, bought.length);
+  for (const x of bought) assert.equal(had2.has(x.value.item.key), false);
+  assert.ok(par.filter((x) => x.status === "rejected").every((x) => (x.reason as unknown) instanceof MarketError));
+  const after = await ownedKeys();
+  assert.equal(after.size, had2.size + bought.length);
+  // The market window reports the crates with what is missing.
+  const ms = await marketState("u-a", false);
+  const mc = ms.crates.find((c) => c.id === "missing:common")!;
+  assert.equal(mc.missing, collectorsCrate("common", all, after).missing);
+  assert.equal(mc.price, collectorsCrate("common", all, after).price);
+
   // Flair can be worn when owned, and not when it isn't.
   const flair = inv.items.find((i) => i.kind === "flair" && i.slot);
   if (flair) {
@@ -60,7 +120,7 @@ const cleanup = async () => {
   // An incomplete set can't be claimed.
   await assert.rejects(claimSet("u-a", "map:all"), /complete/);
   const st = await marketState("u-a");
-  console.log("state ok", st.spendable, st.cases.length, st.ledger.length);
+  console.log("state ok", st.spendable, st.cases.length, st.crates.length, st.ledger.length);
   // Daily reward: once a day, 20 souls on day 1, and a parallel double click pays once.
   const wallet0 = (await balance("u-b")).spendable;
   const claims = await Promise.allSettled([claimDaily("u-b"), claimDaily("u-b"), claimDaily("u-b")]);
@@ -84,8 +144,9 @@ const cleanup = async () => {
   assert.equal((await inviteState("u-a")).joined, 1);
   await assert.rejects(redeemInvite("u-b", tokenA), /already/);
   await assert.rejects(redeemInvite("u-b", "garbage"), /valid/);
-  // Bob can't buy what he can't afford.
+  // Bob can't buy what he can't afford, crates included.
   await assert.rejects(openCase("u-b", "coffer").then(() => openCase("u-b", "cursed")), /Not enough/);
+  await assert.rejects(openCrate("u-b", "missing:legendary", collectorsCrate("legendary", all, new Set()).price), /Not enough/);
   await cleanup();
   console.log("market OK");
   await db.$disconnect();

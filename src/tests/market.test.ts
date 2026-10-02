@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  CASES, COSMETICS, KIND_ORDER, MAP_OBJECTS, RARITY_ORDER, SET_CATEGORIES, buildCollectibles, buildSets, casePool, casePreview, expectedValue, rollCase, scrapValue,
-  sellValue, type Collectible, type Kind,
+  CASES, COSMETICS, KIND_ORDER, MAP_OBJECTS, RARITY_ORDER, SET_CATEGORIES, buildCollectibles, buildSets, casePool, casePreview, caseOdds, collectorsCrate, crateId, crateRarity, CRATE_MARKUP, expectedValue,
+  rollCase, sellPrice, sellRate, sparesPrice, SELL_RATE, SPARE_RATES, type Collectible, type Kind, type Rarity,
 } from "@/lib/market/catalog";
 import { makeRng } from "@/lib/rng";
 import { DAILY_INCOME, scaleValue } from "@/lib/game/economy";
@@ -107,11 +107,44 @@ describe("The Black Market catalogue", () => {
     }
   });
 
-  it("scrapping and selling pay a share of the value", () => {
-    const x = { value: 400 } as Pick<Collectible, "value">;
-    expect(scrapValue(x)).toBe(200);
-    expect(sellValue(x)).toBe(240);
-    expect(sellValue(x)).toBeGreaterThan(scrapValue(x));
+  it("caseOdds is the exact distribution rollCase draws from", () => {
+    for (const c of CASES) {
+      const odds = caseOdds(c, all);
+      expect([...odds.values()].reduce((a, p) => a + p, 0), c.id).toBeCloseTo(1);
+      const rng = makeRng(`odds:${c.id}`);
+      const n = 30000;
+      const seen = new Map<string, number>();
+      for (let i = 0; i < n; i++) { const k = rollCase(c, all, rng.next(), rng.next(), rng.next()).key; seen.set(k, (seen.get(k) ?? 0) + 1); }
+      // Per rarity (single items are too rare to check at this sample size).
+      for (const r of RARITY_ORDER) {
+        const p = [...odds].filter(([k]) => all.find((x) => x.key === k)!.rarity === r).reduce((a, [, q]) => a + q, 0);
+        const got = [...seen].filter(([k]) => all.find((x) => x.key === k)!.rarity === r).reduce((a, [, q]) => a + q, 0) / n;
+        expect(Math.abs(p - got), `${c.id} ${r}`).toBeLessThan(0.015);
+      }
+    }
+  });
+});
+
+describe("The Black Market selling", () => {
+  const x = { value: 400 } as Pick<Collectible, "value">;
+
+  it("a spare copy sells for more than the last copy, rising with the stack, and the last copy keeps the base rate", () => {
+    expect(sellPrice(x, 1)).toBe(Math.round(400 * SELL_RATE));
+    expect(sellPrice(x, 2)).toBe(300);
+    expect(sellPrice(x, 3)).toBe(340);
+    expect(sellPrice(x, 4)).toBe(380);
+    expect(sellPrice(x, 9)).toBe(380); // from the third spare on, the rate stays
+    for (let n = 2; n < 8; n++) expect(sellPrice(x, n)).toBeGreaterThan(sellPrice(x, 1));
+    for (let n = 2; n < 8; n++) expect(sellRate(n)).toBeGreaterThanOrEqual(sellRate(n - 1));
+    // Selling every spare of a stack of three: the second spare (85%) then the first (75%); the last copy stays.
+    expect(sparesPrice(x, 3)).toBe(340 + 300);
+    expect(sparesPrice(x, 1)).toBe(0);
+  });
+
+  it("even the best spare rate stays below what a case pays back on average, so reselling doubles can never make cases free money", () => {
+    const best = Math.max(...SPARE_RATES);
+    expect(best).toBeLessThan(1);
+    for (const c of CASES) expect(expectedValue(c, all) * best, c.id).toBeLessThan(c.price);
   });
 });
 
@@ -163,5 +196,55 @@ describe("The Black Market sets", () => {
     // The grand sets pay the most.
     expect(by("grand:vault").reward).toBeGreaterThan(by("grand:shop").reward);
     expect(by("grand:shop").reward).toBeGreaterThan(by("slot:weapon").reward);
+  });
+});
+
+describe("Collector's Crates", () => {
+  const none = new Set<string>();
+  const tier = (r: Rarity) => all.filter((x) => x.rarity === r);
+
+  it("one per rarity, priced at the markup over the average value of what is missing, never below the dearest item", () => {
+    for (const r of RARITY_ORDER) {
+      const c = collectorsCrate(r, all, none);
+      expect(c.id).toBe(crateId(r));
+      expect(crateRarity(c.id)).toBe(r);
+      expect(c.missing).toBe(tier(r).length);
+      expect(c.pool.every((x) => x.rarity === r)).toBe(true);
+      const avg = tier(r).reduce((a, x) => a + x.value, 0) / tier(r).length;
+      expect(c.price).toBeGreaterThanOrEqual(avg * CRATE_MARKUP);
+      expect(c.price).toBeGreaterThanOrEqual(Math.max(...tier(r).map((x) => x.value)));
+      // Early in a collection a crate costs more per new item than the cheapest case.
+      expect(c.price).toBeGreaterThan(Math.min(...CASES.map((k) => k.price)));
+    }
+    expect(crateRarity("missing:mythic")).toBeNull();
+  });
+
+  it("never offers an owned item, is unavailable (price 0) when the tier is complete and gets dearer as the cheap items are collected", () => {
+    for (const r of RARITY_ORDER) {
+      const ascending = [...tier(r)].sort((a, b) => a.value - b.value || (a.key < b.key ? -1 : 1));
+      const owned = new Set<string>();
+      let last = collectorsCrate(r, all, owned).price;
+      for (const it of ascending.slice(0, -1)) {
+        owned.add(it.key);
+        const c = collectorsCrate(r, all, owned);
+        expect(c.pool.some((x) => owned.has(x.key))).toBe(false);
+        expect(c.missing).toBe(tier(r).length - owned.size);
+        expect(c.price, `${r} after ${owned.size}`).toBeGreaterThanOrEqual(last);
+        expect(c.price).toBeGreaterThanOrEqual(Math.max(...c.pool.map((x) => x.value)));
+        last = c.price;
+      }
+      owned.add(ascending[ascending.length - 1].key);
+      const done = collectorsCrate(r, all, owned);
+      expect(done.missing).toBe(0);
+      expect(done.price).toBe(0);
+    }
+  });
+
+  it("an item from a crate is worth at least what it costs to the player in luck: price per new item stays above the item value", () => {
+    for (const r of RARITY_ORDER) {
+      const c = collectorsCrate(r, all, new Set(tier(r).slice(0, 3).map((x) => x.key)));
+      const avg = c.pool.reduce((a, x) => a + x.value, 0) / c.pool.length;
+      expect(c.price).toBeGreaterThan(avg);
+    }
   });
 });

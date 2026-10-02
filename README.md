@@ -282,3 +282,12 @@ Deadlock and all related assets © Valve Corporation.
 `locks.config.ts`) earns about 1,900 souls by finishing every lock of a day. A Cursed Vault costs about that; the other cases a
 share of it (a tenth to two thirds), and item values, set bonuses, the daily reward and invitations scale with it, so every
 case keeps its payout ratio (about 70-82% in items). Change an assumption there and everything follows.
+
+**Duplicates and Collector's Crates** (`src/lib/market/catalog.ts`): a duplicate is kept as a spare copy (a stack, "× 3") instead of
+being scrapped. Selling the last copy pays 60% of an item's value, a spare more: 75% for the first spare, 85% for the second,
+95% from the third on ("Sell spares" sells all but the oldest copy at once). The best spare rate stays below what any case
+pays back on average (tested), so reselling doubles never makes cases free money. The collection and the Collectors board
+count distinct items only. A Collector's Crate (one per rarity) only holds items you don't own yet and costs 2× their average
+value (never less than the dearest of them or 1.25× the cheapest case), re-priced on the server at purchase. `npm run
+sim:collection` simulates the cheapest way to own everything: about 3.7 million souls before (about 5 years of full days), about
+0.77 million now (about 1.1 years).
