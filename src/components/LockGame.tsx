@@ -240,7 +240,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
   const boardInput = lock.input === "choice" || lock.guess === "match" || lock.guess === "grid";
   const hintAt = lock.hints.map((h) => h.after);
   // Unlimited-guess locks can be given up once at least one guess is in.
-  const canGiveUp = !done && !lock.maxTries && view.rows.length > 0 && !restoring;
+  const canGiveUp = !done && view.rows.length > 0 && !restoring;
   const triesLeft = lock.maxTries ? Math.max(0, lock.maxTries - view.wrong) : undefined;
 
   if (view.status === "sealed") {

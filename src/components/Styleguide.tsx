@@ -23,20 +23,20 @@ const ICON = "data:image/svg+xml;utf8," + encodeURIComponent(
 const rows: GuessRow[] = [
   { id: "1", name: "Infernus", icon: IMG, correct: false, tiles: [
     { key: "gender", display: "Male", result: "match" }, { key: "species", display: "Demon", result: "partial" },
-    { key: "complexity", display: "★", result: "miss" }, { key: "weapon", display: "Rapid Fire", result: "miss" },
+    { key: "weapon", display: "Rapid Fire", result: "miss" },
     { key: "health", display: "830", result: "miss", arrow: "down" }, { key: "dps", display: "52.4", result: "miss", arrow: "up" },
     { key: "release", display: "Aug 2024", result: "match" },
   ] },
   { id: "2", name: "Haze", icon: IMG, correct: true, tiles: [
     { key: "gender", display: "Female", result: "match" }, { key: "species", display: "Human", result: "match" },
-    { key: "complexity", display: "★", result: "match" }, { key: "weapon", display: "Rapid Fire", result: "match" },
+    { key: "weapon", display: "Rapid Fire", result: "match" },
     { key: "health", display: "730", result: "match" }, { key: "dps", display: "50.1", result: "match" },
     { key: "release", display: "Aug 2024", result: "match" },
   ] },
 ];
 const columns = [
   { key: "gender", label: "Gender", info: "The hero's gender." }, { key: "species", label: "Species", info: "What the hero is." },
-  { key: "complexity", label: "Complexity", info: "1-4 stars." }, { key: "weapon", label: "Weapon", info: "Weapon type." },
+  { key: "weapon", label: "Weapon", info: "Weapon type." },
   { key: "health", label: "Health", info: "Base health.", numeric: true }, { key: "dps", label: "Gun DPS", info: "Base DPS.", numeric: true },
   { key: "release", label: "Released", info: "Release date.", numeric: true },
 ];

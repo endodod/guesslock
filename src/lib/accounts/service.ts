@@ -105,11 +105,11 @@ export async function playAsUser(
 
   const merged = finished ? { guesses: existing.guesses, added: 0, conflict: false } : mergeGuesses(existing?.guesses ?? [], incoming);
   const bonus = existing?.bonus ?? bonusIn;
-  // A finished "lost" play on a lock without a try limit can only be a give-up: keep it given up.
-  const giveUp = giveUpIn || (!!finished && existing.status === "lost" && !lock.maxTries);
   // Hard puzzles are their own locks (see HARD_LOCKS), always played hard: nothing to pick, nothing to peek at.
   const hard = !!lock.hardPlay;
-  const view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp, hard });
+  let view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp: giveUpIn, hard });
+  // A finished "lost" play the guesses alone don't explain (tries left, or no try limit) can only be a give-up: keep it given up.
+  if (!giveUpIn && finished && existing.status === "lost" && view.status === "playing") view = evaluate(lock, row, number, merged.guesses, bonus, lookup, { giveUp: true, hard });
   if (row.sealed) return { view, guesses: [], ranked: false, conflict: false };
   const archive = existing ? existing.archive : row.date < todayDate();
 
