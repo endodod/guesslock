@@ -61,7 +61,7 @@ export function Hall({ boards, results, signedIn }: { boards: BoardInfo[]; resul
           <p className="py-6 text-center text-ash">Nothing in this box yet. Be the first.</p>
         ) : (
           <ol className="space-y-1">
-            {result.rows.map((r) => <Row key={r.userId} r={r} unit={unit} />)}
+            {result.rows.map((r) => <Row key={r.name} r={r} unit={unit} />)}
           </ol>
         )}
         {meOutside && (

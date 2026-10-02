@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   title: { default: "GUESSLOCK — Pick today's lock", template: "%s · GUESSLOCK" },
   description: `A daily Deadlock guessing game. ${VAULT_UNITS.length} locks every day: guessing games, Omens from real matches, sorting tables and more.`,
   metadataBase: new URL(`https://${config.siteUrl}`),
+  openGraph: { type: "website", siteName: "GUESSLOCK", title: "GUESSLOCK — a daily Deadlock guessing game", description: "A new set of locks every day: guess the hero, item or ability, read the Omens, sort the tables. One shared puzzle for everyone.", locale: "en_GB" },
+  twitter: { card: "summary", title: "GUESSLOCK", description: "A daily Deadlock guessing game." },
 };
 
 export const viewport: Viewport = { themeColor: "#0e0d0b", width: "device-width", initialScale: 1 };

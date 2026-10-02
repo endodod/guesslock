@@ -18,12 +18,15 @@ export const BOARDS: { id: Board; label: string; sub: string }[] = [
 ];
 
 /** `title`/`color`: the player's equipped cosmetics (The Black Market). */
-export type BoardRow = { rank: number; userId: string; name: string; value: number; detail?: string; me?: boolean; title?: string | null; color?: string | null };
+export type BoardRow = { rank: number; name: string; value: number; detail?: string; me?: boolean; title?: string | null; color?: string | null };
 export type BoardResult = { board: Board; rows: BoardRow[]; me: BoardRow | null; total: number };
 
 const LIMIT = 50;
 
-function rank(entries: { userId: string; value: number; tie?: number; detail?: string }[], names: Map<string, string>, meId?: string): BoardResult["rows"] {
+/** A ranked player before the public view: the internal id stays on the server and never reaches the browser. */
+type Ranked = BoardRow & { userId: string };
+
+function rank(entries: { userId: string; value: number; tie?: number; detail?: string }[], names: Map<string, string>, meId?: string): Ranked[] {
   const sorted = entries
     .filter((e) => names.has(e.userId) && e.value > 0)
     .sort((a, b) => b.value - a.value || (a.tie ?? 0) - (b.tie ?? 0) || names.get(a.userId)!.localeCompare(names.get(b.userId)!));
@@ -37,7 +40,7 @@ function rank(entries: { userId: string; value: number; tie?: number; detail?: s
 }
 
 /** The whole ranking of a board (every player), the same for everybody; `getBoard` adds who is looking. */
-async function ranking(board: Board): Promise<BoardResult["rows"]> {
+async function ranking(board: Board): Promise<Ranked[]> {
   const today = todayDate();
   // Hidden players never take a rank, not even in their own view.
   const profiles = await db.profile.findMany({ where: { showOnBoards: true }, select: { userId: true, displayName: true } });
@@ -85,8 +88,8 @@ async function ranking(board: Board): Promise<BoardResult["rows"]> {
 // for everybody, so it is computed once per TTL per server instance (concurrent requests share one computation); a play
 // shows on the boards within the TTL. Failures are not cached.
 const BOARD_TTL_MS = 30_000;
-const memo = new Map<Board, { at: number; value: Promise<BoardResult["rows"]> }>();
-function cachedRanking(board: Board): Promise<BoardResult["rows"]> {
+const memo = new Map<Board, { at: number; value: Promise<Ranked[]> }>();
+function cachedRanking(board: Board): Promise<Ranked[]> {
   const hit = memo.get(board);
   if (hit && Date.now() - hit.at < BOARD_TTL_MS) return hit.value;
   const value = ranking(board);
@@ -102,6 +105,6 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
   const rows = all.slice(0, LIMIT);
   const me = all.find((r) => r.me) ?? null;
   const looks = await cosmeticsOf([...rows, ...(me ? [me] : [])].map((r) => r.userId));
-  const dress = (r: BoardRow): BoardRow => ({ ...r, ...looks.get(r.userId) });
+  const dress = ({ userId, ...r }: Ranked): BoardRow => ({ ...r, ...looks.get(userId) });
   return { board, rows: rows.map(dress), me: me && dress(me), total: all.length };
 }
