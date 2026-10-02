@@ -6,8 +6,8 @@ import { MotionConfig } from "motion/react";
 import { adoptServerProgress, emptyStore, loadStore, mergeStores, saveStore, type LockRecord, type Settings, type StoreData } from "@/lib/client/store";
 import { sfx } from "@/lib/client/sound";
 import { setEndlessGuest } from "@/lib/client/endless";
+import { GUEST_COOKIE } from "@/lib/guest";
 
-export const GUEST_COOKIE = "gl_guest";
 
 type Toast = { id: number; text: string };
 

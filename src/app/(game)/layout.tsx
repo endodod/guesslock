@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Limelight, Noto_Emoji, Spectral } from "next/font/google";
 import "../globals.css";
-import { GameProvider, GUEST_COOKIE } from "@/components/GameProvider";
+import { GameProvider } from "@/components/GameProvider";
+import { GUEST_COOKIE } from "@/lib/guest";
 import { Footer, Header, Onboarding } from "@/components/Chrome";
 import { GuestBanner, GuestGate } from "@/components/GuestGate";
 import { config } from "@/lib/config";

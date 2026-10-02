@@ -79,9 +79,9 @@ export function SignInForm({ next, adminLink = false }: { next: string; adminLin
           Admin login
         </Link>
       )}
-      <div className="mt-5 space-y-2 text-center text-sm">
-        <p><Link className={link} href={`/auth/code?next=${encodeURIComponent(next)}`}>Email me a sign-in code instead</Link></p>
-        <p><Link className={link} href="/auth/reset">Forgot your password?</Link></p>
+      <div className="mt-3 text-center text-sm">
+        <p><Link className={`${link} inline-flex min-h-11 items-center`} href={`/auth/code?next=${encodeURIComponent(next)}`}>Email me a sign-in code instead</Link></p>
+        <p><Link className={`${link} inline-flex min-h-11 items-center`} href="/auth/reset">Forgot your password?</Link></p>
         <p className="text-ash">New here? <Link className={link} href={`/auth/sign-up?next=${encodeURIComponent(next)}`}>Create an account</Link></p>
       </div>
     </Shell>

@@ -66,13 +66,12 @@ export function Footer() {
   return (
     <footer className="mt-16 border-t border-brass/15 px-4 pt-8 pb-28 text-center text-sm text-ash md:pb-8">
       <p className="mx-auto max-w-2xl">{t.footer.disclaimer}</p>
-      <p className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
-        <Link href="/endless" className="hover:text-paper">Endless</Link>
-        <Link href="/market" className="hover:text-paper">The Black Market</Link>
-        <Link href="/yesterday" className="hover:text-paper">{t.vault.yesterday}</Link>
-        <Link href="/how-to-play" className="hover:text-paper">{t.nav.rules}</Link>
-        <Link href="/about" className="hover:text-paper">{t.footer.credits}</Link>
-      </p>
+      {/* Each link is at least 44px tall: the footer is where thumbs end up on a phone. */}
+      <nav aria-label="More" className="mt-2 flex flex-wrap justify-center gap-x-5">
+        {[["/endless", "Endless"], ["/market", "The Black Market"], ["/yesterday", t.vault.yesterday], ["/how-to-play", t.nav.rules], ["/about", t.footer.credits]].map(([href, label]) => (
+          <Link key={href} href={href} className="inline-flex min-h-11 items-center hover:text-paper">{label}</Link>
+        ))}
+      </nav>
     </footer>
   );
 }
