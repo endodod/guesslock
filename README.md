@@ -9,7 +9,8 @@ Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/) (open work in 
 [`guesslock-addendum-seance.md`](prompts/guesslock-addendum-seance.md) (The Séance).
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 7 + Postgres (Neon) · Motion · Zod · Vitest.
-No accounts: player progress lives in `localStorage`.
+Accounts are optional (Neon Auth): signed-in players get server-recorded plays, streaks, leaderboards and The Black Market; guests and
+signed-out players keep their progress in `localStorage`. Agent API for puzzle state and curation: [`docs/agent-api.md`](docs/agent-api.md).
 
 ## Locks
 
@@ -50,7 +51,7 @@ attribute columns in `src/lib/engine/columns.ts`; strings in `src/lib/i18n/`.
 
 ```bash
 npm install                 # also runs prisma generate (.npmrc sets legacy-peer-deps: @neondatabase/auth beta peer ranges conflict)
-cp .env.example .env        # fill in DATABASE_URL, DIRECT_URL, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET
+cp .env.example .env        # fill in DATABASE_URL, DIRECT_URL, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET (production: see "Security and scaling notes")
 npm run db:migrate          # apply migrations
 npm run sync                # fetch heroes/items from api.deadlock-api.com, mirror images
 npm run generate            # create today's + next 7 days' puzzles
@@ -107,9 +108,17 @@ per-puzzle id. The browser only ever holds what the step shows, and a clue never
 **Endless** (`/endless`, `src/lib/endless.ts`): any guessing lock, a new puzzle every time, frozen in `EndlessPuzzle` under
 a random token and played through the same evaluator. Never counted; pruned after 7 days by the daily cron.
 
-**The Black Market** (`/market`, `src/lib/market/`): signed-in players spend souls earned in ranked play on cases (odds
-shown, souls only, never money), titles, name colours and Vault themes, and trade with each other. The leaderboards rank
-souls earned, so spending never costs a place. `npm run check:market` checks the money paths against a local database.
+**The Black Market** (`/market`, `/inventory`, `src/lib/market/`): signed-in players spend souls earned in ranked play on cases (odds
+shown, souls only, never money) and Collector's Crates, and collect shop items, hero cards, weapons, abilities, map objects, lock
+seals and flair (titles, name colours, Vault themes). Duplicates are kept as spares, any item can be sold, sets pay a one-time
+bonus, and the Collectors board ranks the worth of a collection (see "Duplicates and Collector's Crates" below). There is no
+trading between players. The other leaderboards rank souls earned, so spending never costs a place. `npm run check:market -- --yes`
+checks the money paths (parallel purchases, stacks, crates, daily and invite rewards) against a database: it creates and
+removes two throwaway profiles, so run it on a development branch, never on production.
+
+**Guests:** a visitor who is neither signed in nor a guest sees a welcome screen first ("Sign in", "Create an account", "Play as guest").
+Guests (a `gl_guest` session cookie, kept in `src/lib/guest.ts`) can play every lock and Endless, but nothing is saved to an account;
+the Black Market and the leaderboards need an account.
 
 Hints are the same in every guessing lock: the answer's first letter, then its first two letters, at the unlock points
 set in `src/locks.config.ts` (`LETTER_HINTS`).
@@ -149,7 +158,8 @@ newly generated puzzles; upcoming days with that hero can be rebuilt from the sa
 - **Ranked vs. unranked:** a lock counts for leaderboards only if it was played on its own day, one guess per request, while
   signed in. Plays brought in from a device's local history (`/api/account/sync`, runs once per browser session) count for
   personal stats only.
-- **Boards:** Today, This week (Mon–Sun), All time (total souls), Streaks. Players can hide themselves.
+- **Boards:** Today, This week (Mon–Sun), All time (total souls), Streaks, Collectors (worth of the collection). Players can hide
+  themselves. Rankings are cached for 30 s per server instance; the public API never returns internal user ids.
 - **Data rights:** `/api/account/export` (JSON download) and account deletion (profile, plays, stats and the Neon Auth user,
   in one transaction).
 - **Before production:** add the site origin as a trusted domain (`neon neon-auth domain add https://…`; done for
@@ -267,7 +277,13 @@ scheduler). Point `guesslock.paulkuehn.ch` at it.
 
 ## Security and scaling notes
 
-**Before production**
+**Before production** (the checklist)
+- Environment on the host: `DATABASE_URL` (pooled), `DIRECT_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `ADMIN_PASSWORD`,
+  `SESSION_SECRET`, `CRON_SECRET`, `PUZZLE_SALT`, `TRUSTED_PROXY_HOPS`, `DB_POOL_MAX`; optional `AGENT_API_*` tokens (the agent API is off
+  without them) and `ALERT_WEBHOOK_URL`. All are listed in `.env.example`; secrets should be 32+ random characters.
+- Migrations run on the Vercel build (`prisma migrate deploy`); with Docker run `npm run db:migrate` first.
+- After a deploy: `/api/health` is 200, the daily crons are listed in the Vercel dashboard, and `[ratelimit] shared store unavailable`
+  does not appear in the logs (it means the `RateLimit` table is missing).
 - Set a private `PUZZLE_SALT` (the default is in the repository, so upcoming puzzles could be derived from it) and a long
   `SESSION_SECRET`. Invite links are signed with `SESSION_SECRET` (or `NEON_AUTH_COOKIE_SECRET`), never with the salt; changing
   either secret invalidates links already shared.
@@ -295,9 +311,11 @@ scheduler). Point `guesslock.paulkuehn.ch` at it.
 ## Scripts
 
 `npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `omens:harvest [-- --minutes N]` · `validate:leaks [-- --all]` ·
-`import:voicelines [-- --hero <id>]` · `import:sounds [-- --measure <s>]` · `make:grain`
+`import:voicelines [-- --hero <id>]` · `import:sounds [-- --measure <s>]` · `make:grain` · `check:market -- --yes` · `check:hard` ·
+`sim:collection` (Monte Carlo of finishing the collection)
 
-`/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production).
+`/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production). `robots.txt` and
+`sitemap.xml` are generated (`src/app/robots.ts`, `sitemap.ts`); the admin, the API and the account pages are disallowed.
 
 ## Credits & license notes
 
