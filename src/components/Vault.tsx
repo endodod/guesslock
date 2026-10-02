@@ -50,7 +50,7 @@ export function VaultStrip({ lock, state, rec, href }: { lock: LockDef; state: B
   const omen = lock.group === "omens";
   const open = state === "opened" || state === "jammed";
   const status =
-    state === "locked" ? <span className="text-ash">{t.vault.states.locked}</span>
+    state === "locked" ? null
     : state === "progress" ? <span className="text-ecto">{t.vault.states.progress(rec!.g.length)}</span>
     : state === "opened" ? <span className="text-ecto">{omen ? `${rec!.souls} / 100` : `${rec!.g.length} · ${rec!.souls} souls`}</span>
     : state === "jammed" ? <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>
@@ -173,9 +173,8 @@ export function VaultBox({
       </div>
 
       {/* status tag */}
-      <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
+      <div hidden={state === "locked"} className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
         {open && rec?.answer?.name && <span className="mb-0.5 block truncate font-body text-[0.8rem] text-paper">{rec.answer.name}</span>}
-        {state === "locked" && <span className="text-ash">{t.vault.states.locked}</span>}
         {state === "progress" && <span className="text-ecto">{t.vault.states.progress(rec!.g.length)}</span>}
         {state === "opened" && <span className="text-ecto">{omen ? `Opened · ${rec!.souls} souls` : `${rec!.g.length} · ${rec!.souls} souls`}</span>}
         {state === "jammed" && <span className="text-[#d08a8a]">{t.vault.states.jammed}</span>}
@@ -252,8 +251,7 @@ export function SeanceBox({ box: boxId, metaBy, day, q }: { box: SeanceBoxId; me
           </ul>
         </div>
       </div>
-      <div className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
-        {state === "locked" && <span className="text-ash">{t.vault.states.locked}</span>}
+      <div hidden={state === "locked"} className="absolute inset-x-1.5 bottom-1.5 rounded-[2px] bg-ink/85 px-1.5 py-1 text-center font-mono text-[0.68rem] leading-tight text-paper">
         {state === "progress" && <span className="text-ecto">{done.length} / {live.length} tables</span>}
         {state === "opened" && <span className="text-ecto">Opened · {souls} souls</span>}
         {state === "sealed" && <span className="text-ash">{t.vault.sealed}</span>}
