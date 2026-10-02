@@ -79,8 +79,10 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
   return (
     <div className="flex justify-center py-2">
       <div className="clue-layer relative h-56 w-56 overflow-hidden rounded-sm border border-brass/50 bg-[radial-gradient(circle,#2a2520,#0e0d0b)] md:h-64 md:w-64">
+        {/* Hard mode turns picture and cover together, so the uncovered area is the same as on normal. */}
+        <div className="absolute inset-0 transition-transform duration-500" style={clue.rotate ? { transform: `rotate(${clue.rotate}deg)` } : undefined}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={clue.image} alt={CLUE_ALT} draggable={false} className="absolute inset-0 h-full w-full select-none object-contain p-6 transition-transform duration-500" style={clue.rotate ? { transform: `rotate(${clue.rotate}deg)` } : undefined} />
+        <img src={clue.image} alt={CLUE_ALT} draggable={false} className="absolute inset-0 h-full w-full select-none object-contain p-6" />
         <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
           {Array.from({ length: n * n }, (_, i) => (
             <div key={i} className="relative">
@@ -97,6 +99,7 @@ function SigilStage({ clue }: { clue: Extract<Clue, { kind: "sigil" }> }) {
               </AnimatePresence>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>

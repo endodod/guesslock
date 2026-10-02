@@ -106,7 +106,7 @@ export function activeColumns<T>(columns: ColumnDef<T>[], pool: T[], ctx: { buil
 }
 
 /** Stat bonus names in tooltip order (the first one is the item's main bonus). */
-const buffLabels = (i: ItemData): string[] => [...new Set(i.src.statBonuses.map((s) => s.label.replace(/[,/]/g, " ").replace(/\s+/g, " ").trim()))];
+export const buffLabels = (i: ItemData): string[] => [...new Set(i.src.statBonuses.map((s) => s.label.replace(/[,/]/g, " ").replace(/\s+/g, " ").trim()))];
 
 export const ITEM_COLUMNS: ColumnDef<ItemData>[] = [
   { key: "slot", label: "Slot", info: "Weapon, Vitality or Spirit.", type: "exact", get: (i) => i.src.slot, format: (v) => cap(String(v)) },
