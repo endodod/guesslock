@@ -4,7 +4,7 @@ import { activeColumns, formatCell, type CellValue } from "../columns";
 import { compareCell } from "../compare";
 import type { AbilityData, GameData, HeroData, SoundData } from "../context";
 
-import { hardHiddenColumns, SkipCandidate, SealedError, type BasePayload, type Candidate, type ClueOpts, type ModeImpl } from "../mode";
+import { hardHiddenColumns, pickHiddenColumns, SkipCandidate, SealedError, type BasePayload, type Candidate, type ClueOpts, type ModeImpl } from "../mode";
 import type { ColumnMeta, SoundClipView, Tile } from "../types";
 
 // ---------- helpers ----------
@@ -69,13 +69,15 @@ export function chunkText(text: string, n: number): string[] {
 type GridClue = {
   columns: (ColumnMeta & { type: string })[];
   table: Record<string, { v: CellValue; d: string }[]>;
+  /** Hard mode: the two columns that show "?" (drawn when the puzzle was built; absent on older puzzles). */
+  hidden?: number[];
 };
 
 export function gridTiles(p: BasePayload<GridClue>, guessId: string, opts: ClueOpts = {}): Tile[] | null {
   const row = p.clue.table[guessId];
   const answer = p.clue.table[p.correctIds[0]];
   if (!answer) return null;
-  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0]) : [];
+  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0], p.clue.hidden) : [];
   return p.clue.columns.map((c, i) => {
     const g = row?.[i];
     if (hidden.includes(i)) return { key: c.key, display: "?", result: "hidden" as const };
@@ -93,7 +95,7 @@ function reckoningColumns(data: GameData) {
 
 /** Grid clue; hard mode marks the hidden columns. */
 export function gridClue(p: BasePayload<GridClue>, opts: ClueOpts = {}) {
-  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0]) : [];
+  const hidden = opts.hard ? hardHiddenColumns(p.clue.columns.length, p.correctIds[0], p.clue.hidden) : [];
   return {
     kind: "grid" as const,
     columns: p.clue.columns.map(({ key, label, info, numeric }, i) => ({ key, label, info, numeric, ...(hidden.includes(i) ? { hidden: true } : {}) })),
@@ -107,7 +109,7 @@ export const reckoning: ModeImpl<GridClue> = {
     const cols = reckoningColumns(data);
     return heroPool(data, "classic", (h) => cols.every((c) => c.get(h, data) !== null));
   },
-  build(c, { data }) {
+  build(c, { data, rng }) {
     const h = data.hero(c.ref as number)!;
     const cols = reckoningColumns(data);
     const table: GridClue["table"] = {};
@@ -122,6 +124,7 @@ export const reckoning: ModeImpl<GridClue> = {
       clue: {
         columns: cols.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
         table,
+        hidden: pickHiddenColumns(cols.length, rng),
       },
     };
   },

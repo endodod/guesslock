@@ -45,7 +45,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   if (!lock) notFound();
   const today = todayDate();
   const date = isDay(d) && d < today ? d : today;
-  const [row, meta, catalog, hard] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog(), lock.hard ? hardMeta(date) : null]);
+  const [row, meta, catalog, hard] = await Promise.all([getPuzzle(date, slug), dayMeta(date), getCatalog(), lock.hard || lock.hardPlay ? hardMeta(date) : null]);
   if (date === today) healToday(date, meta);
   const number = numberFor(date);
   const available = meta.filter((m) => m.state === "available").map((m) => m.slug);
@@ -71,7 +71,10 @@ export default async function LockPage({ params, searchParams }: { params: Promi
         </Link>
         <div className="min-w-0 flex-1">
           <p className="smallcaps text-xs text-brass">{lock.numeral} · {date === today ? "Today" : date} · #{number}</p>
-          <h1 className="font-display text-2xl leading-tight text-paper md:text-3xl">{lock.name}</h1>
+          <h1 className="font-display text-2xl leading-tight text-paper md:text-3xl">
+            {lock.name}
+            {lock.group === "omens" && <span className="ml-2 inline-block rounded-[2px] border border-cursed/60 px-1.5 align-middle font-mono text-[0.62rem] tracking-widest text-[#c7b2ff]">{t.earlyAccess.toUpperCase()}</span>}
+          </h1>
           <p className="text-sm text-ash">{lock.subtitle}</p>
         </div>
       </div>
@@ -108,6 +111,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           available={available}
           rules={RULES[slug]}
           hardReady={hard?.find((m) => m.slug === `${slug}-hard`)?.state === "available"}
+          hardAvailable={hard?.filter((m) => m.state === "available").map((m) => m.slug)}
         />
       ) : (
         <DecoFrame className="p-8 text-center">

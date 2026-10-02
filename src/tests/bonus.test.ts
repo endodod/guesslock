@@ -46,6 +46,26 @@ describe("Bonus questions", () => {
     expect(evaluate(lock, echoed, 1, ["2"], undefined, lookup).bonus).toBeUndefined();
   });
 
+  it("the ability behind a bonus question stays out of the answer until the bonus is answered", async () => {
+    const base = await withBonus(relic).build({ answerId: "2", ref: 2 }, ctx);
+    const reveal = { name: "Dazzling Trick", image: null };
+    const payload = { ...base, answer: { ...base.answer, extra: { ability: reveal } }, bonus: { ...base.bonus!, reveal } };
+    const lock = LOCK_BY_SLUG.relic;
+    const row = { date: "2026-10-01", mode: "relic", sealed: false, sealedReason: null, payload };
+    const lookup = (id: string) => ({ id, name: id === "2" ? "B" : "A", icon: null });
+    const ability = (v: ReturnType<typeof evaluate>) => (v.answer?.extra as { ability?: unknown } | undefined)?.ability;
+    // Won, bonus still to answer: neither the answer nor the bonus view names the ability.
+    const asked = evaluate(lock, row, 1, ["2"], undefined, lookup);
+    expect(asked.bonus?.reveal).toBeUndefined();
+    expect(ability(asked)).toBeUndefined();
+    expect(JSON.stringify(asked)).not.toContain("Dazzling Trick");
+    // Answered: the bonus view carries it.
+    const answered = evaluate(lock, row, 1, ["2"], payload.bonus!.options[0].id, lookup);
+    expect(answered.bonus?.reveal).toEqual(reveal);
+    // No bonus round (a given-up lock): the answer shows it.
+    expect(ability(evaluate(lock, row, 1, ["1"], undefined, lookup, { giveUp: true }))).toEqual(reveal);
+  });
+
   it("item locks never show or send a tier", async () => {
     const p = await relic.build({ answerId: "2", ref: 2 }, ctx);
     expect(JSON.stringify(p.answer)).not.toMatch(/tier/i);

@@ -373,31 +373,30 @@ export function Vault({
           <p className="font-mono text-3xl text-paper" suppressHydrationWarning>{hydrated ? souls : 0} <span className="text-base text-ash">souls</span></p>
           <p className="text-sm text-ash" suppressHydrationWarning>{t.vault.progress(hydrated ? openCount : 0, displayedUnitCount)}</p>
         </div>
-        {!isArchive && (
-          <div className="flex max-w-md flex-1 flex-col items-center gap-3">
-            {/* Both texts sit in the same grid cell: the taller one sets the height, so switching changes no layout. */}
-            <div className="grid text-center text-sm leading-relaxed">
-              <p className={`col-start-1 row-start-1 text-paper/85 ${hardOn ? "invisible" : ""}`} aria-hidden={hardOn || undefined}>
-                Each puzzle is a lock in the Vault. Choose a lock, use the clues to find its answer, and open it for souls.
-              </p>
-              <p className={`col-start-1 row-start-1 text-[#f0b3b0] ${hardOn ? "" : "invisible"}`} aria-hidden={!hardOn || undefined}>
-                Hard mode: each lock shows its second, tougher puzzle (1.5× souls), open once the normal lock is finished. Locks greyed out have no hard mode.
-              </p>
-            </div>
-            <button
-              type="button" role="switch" aria-checked={hardOn}
-              // No `disabled` here: it differs between the server and the first client render. Before hydration a click does nothing.
-              onClick={() => { if (hydrated) setSettings({ hardMode: !hardOn }); }}
-              // `relative top-3` nudges the switch down visually without changing the layout, so nothing else moves.
-              className={`relative top-3 flex min-h-11 items-center gap-3 rounded-[3px] border px-3 text-sm ${hardOn ? "border-[#b0433f]/70 bg-[#b0433f]/10 text-[#f0b3b0]" : "border-brass/30 text-ash hover:text-paper"}`}
-            >
-              <span aria-hidden className={`relative h-5 w-9 rounded-full ${hardOn ? "bg-[#b0433f]" : "bg-ash/30"}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-paper transition-all ${hardOn ? "left-[1.1rem]" : "left-0.5"}`} />
-              </span>
-              <span className="text-left leading-tight">Hard mode<span className="block text-xs text-ash">A second, tougher puzzle for each finished lock · 1.5× souls</span></span>
-            </button>
+        {/* Replays have the switch too: a past day's hard puzzles open like today's. */}
+        <div className="flex max-w-md flex-1 flex-col items-center gap-3">
+          {/* Both texts sit in the same grid cell: the taller one sets the height, so switching changes no layout. */}
+          <div className="grid text-center text-sm leading-relaxed">
+            <p className={`col-start-1 row-start-1 text-paper/85 ${hardOn ? "invisible" : ""}`} aria-hidden={hardOn || undefined}>
+              Each puzzle is a lock in the Vault. Choose a lock, use the clues to find its answer, and open it for souls.
+            </p>
+            <p className={`col-start-1 row-start-1 text-[#f0b3b0] ${hardOn ? "" : "invisible"}`} aria-hidden={!hardOn || undefined}>
+              Hard mode: each lock shows its second, tougher puzzle (1.5× souls), open once the normal lock is finished. Locks greyed out have no hard mode.
+            </p>
           </div>
-        )}
+          <button
+            type="button" role="switch" aria-checked={hardOn}
+            // No `disabled` here: it differs between the server and the first client render. Before hydration a click does nothing.
+            onClick={() => { if (hydrated) setSettings({ hardMode: !hardOn }); }}
+            // `relative top-3` nudges the switch down visually without changing the layout, so nothing else moves.
+            className={`relative top-3 flex min-h-11 items-center gap-3 rounded-[3px] border px-3 text-sm ${hardOn ? "border-[#b0433f]/70 bg-[#b0433f]/10 text-[#f0b3b0]" : "border-brass/30 text-ash hover:text-paper"}`}
+          >
+            <span aria-hidden className={`relative h-5 w-9 rounded-full ${hardOn ? "bg-[#b0433f]" : "bg-ash/30"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-paper transition-all ${hardOn ? "left-[1.1rem]" : "left-0.5"}`} />
+            </span>
+            <span className="text-left leading-tight">Hard mode<span className="block text-xs text-ash">A second, tougher puzzle for each finished lock · 1.5× souls</span></span>
+          </button>
+        </div>
         {next && (
           <Link
             href={`/lock/${next.slug}${q}`}
@@ -448,7 +447,10 @@ export function Vault({
 
       {/* The Omens: predictions from real matches (a different kind of puzzle, hence the cursed glow) */}
       <section aria-labelledby="omens-h" className="mt-8">
-        <h2 id="omens-h" className="smallcaps mb-3 text-cursed">{t.groups.omens}</h2>
+        <h2 id="omens-h" className="smallcaps mb-3 flex flex-wrap items-center gap-2 text-cursed">
+          {t.groups.omens}
+          <span className="rounded-[2px] border border-cursed/60 px-1.5 py-0.5 font-mono text-[0.62rem] normal-case tracking-widest text-[#c7b2ff]">{t.earlyAccess.toUpperCase()}</span>
+        </h2>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-4">
           {OMEN_LOCKS.map((l) => strip(l))}
         </ul>

@@ -40,6 +40,8 @@ export type Clue =
       kind: "splash"; image: string; zoom: number; originX: number; originY: number;
       /** A silhouette on a light ground (The Shadow, The Arsenal). */
       silhouette?: boolean;
+      /** Hard mode: the picture is turned by this many degrees (it turns back as guesses go wrong). */
+      rotate?: number;
       /** Hard mode: shown in black and white, for the whole puzzle (also once it is finished). */
       mono?: boolean;
       /** Reveal steps shown / in total (silhouette modes). */

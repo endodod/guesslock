@@ -1,5 +1,6 @@
 "use client";
-import { LOCKS, SEANCE_BOXES, seanceLocksOf, type LockDef, type SeanceBoxId } from "@/locks.config";
+import { useState } from "react";
+import { HARD_LOCKS, LOCKS, SEANCE_BOXES, seanceLocksOf, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockRecord, StoreData } from "@/lib/client/store";
 import { dayStreaks, daySouls, ignoredSlugs, lockStats } from "@/lib/client/store";
 import { t } from "@/lib/i18n/en";
@@ -62,8 +63,23 @@ function SeanceCard({ box, progress }: { box: SeanceBoxId; progress: StoreData["
   );
 }
 
+/** Hard mode in one line each: puzzles played, won and the souls they paid (archive replays never count). */
+function HardSummary({ progress }: { progress: StoreData["progress"] }) {
+  const recs = Object.values(progress).flatMap((d) => HARD_LOCKS.map((l) => d[l.slug])).filter((r): r is LockRecord => !!r && !r.archive && (r.s === "won" || r.s === "lost"));
+  const wins = recs.filter((r) => r.s === "won").length;
+  const souls = recs.reduce((a, r) => a + r.souls, 0);
+  return (
+    <div className="mb-4 grid grid-cols-3 gap-3">
+      <Stat label="Hard puzzles played" value={recs.length} />
+      <Stat label={t.ledger.winRate} value={recs.length ? `${Math.round((wins / recs.length) * 100)}%` : "–"} />
+      <Stat label="Souls from hard mode" value={souls} />
+    </div>
+  );
+}
+
 export function Ledger() {
   const { store, today, hydrated } = useGame();
+  const [hard, setHard] = useState(false);
   if (!hydrated) return null;
   const p = store.progress;
   const st = dayStreaks(p, today, ignoredSlugs(store.settings));
@@ -107,8 +123,49 @@ export function Ledger() {
       </section>
 
 
+      {days.length > 0 && (
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-sm border border-[#b0433f]/40 bg-[#b0433f]/5 px-3">
+          <span>
+            <span className="text-paper">Hard mode</span>
+            <span className="block text-xs text-ash">Show the stats of the hard puzzles instead of the normal ones.</span>
+          </span>
+          <button
+            type="button" role="switch" aria-checked={hard} aria-label="Show hard mode stats" onClick={() => setHard((v) => !v)}
+            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${hard ? "border-[#e0645c] bg-[#b0433f]/40" : "border-ash/50 bg-ink"}`}
+          >
+            <span className={`absolute top-0.5 h-[22px] w-[22px] rounded-full transition-all ${hard ? "left-[1.4rem] bg-[#f0b3b0]" : "left-0.5 bg-ash"}`} />
+          </button>
+        </label>
+      )}
+
       {days.length === 0 ? (
         <p className="text-ash">{t.ledger.none}</p>
+      ) : hard ? (
+        <section>
+          <h2 className="sr-only">Hard mode, per lock</h2>
+          <HardSummary progress={p} />
+          <ul className="gap-4 md:columns-2 [&>li]:mb-4 [&>li]:break-inside-avoid">
+            {HARD_LOCKS.map((l) => {
+              const s = lockStats(p, l.slug, today);
+              return (
+                <li key={l.slug}>
+                  <DecoFrame className="p-4" corners={false}>
+                    <div className="mb-3 flex items-baseline justify-between gap-2">
+                      <h3 className="font-display text-lg"><span className="mr-2 text-sm text-[#e0645c]">{l.numeral}</span>{l.name.replace(/ · Hard$/, "")}</h3>
+                      <span className="flex items-center gap-1 font-mono text-sm text-paper"><Icon name="flame" className="h-4 w-4 text-[#e0645c]" />{s.streak}</span>
+                    </div>
+                    <div className="mb-3 grid grid-cols-3 gap-2 text-center font-mono text-sm">
+                      <div><div className="text-paper">{s.played}</div><div className="font-body text-xs text-ash">{t.ledger.played}</div></div>
+                      <div><div className="text-paper">{s.played ? `${s.winRate}%` : "–"}</div><div className="font-body text-xs text-ash">{t.ledger.winRate}</div></div>
+                      <div><div className="text-paper">{s.avgGuesses || "–"}</div><div className="font-body text-xs text-ash">{t.ledger.avgGuesses}</div></div>
+                    </div>
+                    {s.played > 0 && <Distribution dist={s.dist} maxRows={l.maxTries ?? 6} />}
+                  </DecoFrame>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : (
         <section>
           <h2 className="sr-only">Per lock</h2>

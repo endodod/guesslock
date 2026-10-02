@@ -112,7 +112,7 @@ export type OmenWindow = {
   riftPos: [number, number] | null;
 };
 
-export type ClashAnswer = { anyDeath: boolean; deaths: Record<Team, number>; died: number[] };
+export type ClashAnswer = { anyDeath: boolean; deaths: Record<Team, number>; /** Who died: kept in stored scenarios, no longer asked or scored. */ died?: number[] };
 export type BeastAnswer = { killed: boolean; killer: Team | null; claimer: Team | null; rejuvs: Record<Team, number> };
 export type RiftAnswer = { claimer: Team | "none"; deaths: Record<Team, number> };
 export type OmenAnswer = ClashAnswer | BeastAnswer | RiftAnswer;

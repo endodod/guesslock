@@ -6,7 +6,7 @@ import { buildTimeline, toMap } from "@/lib/omens/ingest";
 import {
   buildAnswer, buildSnapshot, buildWindow, detect, mixPool, snapshotLeaks, type Candidate,
 } from "@/lib/omens/scenario";
-import { omenSymbol, omenTicks, pickPoints, scoreBeast, scoreClash, scoreRift, stepperPoints } from "@/lib/omens/scoring";
+import { omenSymbol, omenTicks, scoreBeast, scoreClash, scoreRift, stepperPoints } from "@/lib/omens/scoring";
 import type { BeastAnswer, ClashAnswer, RiftAnswer } from "@/lib/omens/types";
 
 // Real high-rank match 108658648 (metadata + replay query rows), account/Steam IDs replaced by fakes.
@@ -70,7 +70,7 @@ describe("Omens: scenarios", () => {
     for (const c of clash) {
       const a = buildAnswer(tl, c) as ClashAnswer;
       expect(a.anyDeath).toBe(c.positive);
-      expect(a.deaths.amber + a.deaths.sapphire >= a.died.length).toBe(true);
+      expect(a.deaths.amber + a.deaths.sapphire >= (a.died ?? []).length).toBe(true);
       const w = buildWindow(tl, c);
       expect(w.events.filter((e) => e.type === "death")).toHaveLength(a.deaths.amber + a.deaths.sapphire);
     }
@@ -106,19 +106,16 @@ describe("Omens: scoring", () => {
     const actual = clash(true, 1, 1, [2, 8]);
     expect(scoreClash(actual, actual).total).toBe(100);
     expect(scoreClash(clash(false, 0, 0, []), clash(false, 0, 0, [])).total).toBe(100);
-    // Nothing picked while two died: 20 + 7 + 7 + 0.
-    expect(scoreClash(clash(true, 0, 0, []), actual).total).toBe(34);
-    // All wrong: every question 0 (steppers off by more than one, picks all wrong).
+    // Right that someone dies, both counts off by one: 30 + 17 + 17.
+    expect(scoreClash(clash(true, 0, 0, []), actual).total).toBe(64);
+    // All wrong: every question 0 (steppers off by more than one).
     expect(scoreClash(clash(false, 4, 4, [0, 1, 3]), actual).total).toBe(0);
   });
 
-  it("Clash: who dies is +50/n per hit, -50/n per miss, floor 0", () => {
-    expect(pickPoints([2], [2, 8])).toBe(25);
-    expect(pickPoints([2, 3], [2, 8])).toBe(0);
-    expect(pickPoints([3], [])).toBe(0);
-    expect(pickPoints([], [])).toBe(50);
+  it("Clash: the death counts score by distance, floor 0", () => {
     expect(stepperPoints(0, 0, 15)).toBe(15);
     expect(stepperPoints(2, 1, 15)).toBe(7);
+    expect(stepperPoints(4, 0, 35)).toBe(0);
   });
 
   it("Beast: who kills it, and how many rejuvs each team has", () => {
@@ -138,6 +135,6 @@ describe("Omens: scoring", () => {
   it("share symbols and ticks", () => {
     expect([omenSymbol(80), omenSymbol(40), omenSymbol(39)]).toEqual(["✨", "🔓", "🔒"]);
     const r = scoreClash(clash(true, 1, 0, [2]), clash(true, 1, 1, [2, 8]));
-    expect(omenTicks(r)).toBe("✓✓✗✗");
+    expect(omenTicks(r)).toBe("✓✓✗");
   });
 });

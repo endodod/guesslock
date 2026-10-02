@@ -87,9 +87,19 @@ export interface ModeImpl<C = unknown> {
   audio?(payload: BasePayload<C>): string[];
 }
 
-/** Hard mode of the attribute grids: these column indices show "?" (two of them, fixed per puzzle; none with < 4 columns). */
-export function hardHiddenColumns(columns: number, answerId: string): number[] {
+/** The two columns a hard attribute grid hides, drawn with the puzzle's seeded generator when it is built (none with < 4 columns). */
+export function pickHiddenColumns(columns: number, rng: { shuffle<T>(xs: T[]): T[] }): number[] {
   if (columns < 4) return [];
+  return rng.shuffle(Array.from({ length: columns }, (_, i) => i)).slice(0, 2).sort((a, b) => a - b);
+}
+
+/**
+ * Hard mode of the attribute grids: these column indices show "?" (two of them, fixed per puzzle; none with < 4 columns). Puzzles
+ * built from now on carry the pair drawn at generation (`stored`); older ones derive it from the answer id as before.
+ */
+export function hardHiddenColumns(columns: number, answerId: string, stored?: number[]): number[] {
+  if (columns < 4) return [];
+  if (stored && stored.length === 2 && stored[0] !== stored[1] && stored.every((i) => Number.isInteger(i) && i >= 0 && i < columns)) return stored;
   const h = [...answerId].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const a = h % columns;
   const b = (a + 1 + ((h >>> 8) % (columns - 1))) % columns;

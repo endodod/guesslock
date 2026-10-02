@@ -146,13 +146,6 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
     };
   }, [s, reveal, win, time, cat]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selected = useMemo(() => new Set(reveal ? [] : draft.died), [draft.died, reveal]);
-  const selectable = omen === "clash" && !reveal && draft.any !== false;
-  const toggle = (key: number) => {
-    if (!selectable) return;
-    setDraft((d) => ({ ...d, any: d.any ?? true, died: d.died.includes(key) ? d.died.filter((k) => k !== key) : [...d.died, key] }));
-  };
-
   const lockIn = async () => {
     const answers = draftAnswer(omen, draft);
     if (!answers) return;
@@ -188,7 +181,7 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
     }
   };
 
-  const panelsProps = { snapshot: s, cat, showNames: !!reveal, hovered, onHover: setHovered, selected, onToggle: toggle, selectable };
+  const panelsProps = { snapshot: s, cat, showNames: !!reveal, hovered, onHover: setHovered };
   const [tab, setTab] = useState<Team>("amber");
 
   return (
@@ -215,11 +208,8 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
             markers={frame.markers}
             riftPos={frame.riftPos}
             focus={actionFocus(s)}
-            selected={selected}
             hovered={hovered ?? (myKey ?? null)}
             onHover={setHovered}
-            onToggle={toggle}
-            selectable={selectable}
           />
         </DecoFrame>
         </div>
@@ -274,7 +264,6 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
           <h2 className="smallcaps mb-4 text-sm text-brass">Your prediction</h2>
           <OmenQuestions
             omen={omen} snapshot={s} draft={draft} setDraft={setDraft}
-            pickedNames={draft.died.map((k) => `${cat.heroes[s.heroes[k].heroId]?.name ?? "Hero"} (${TEAM_LABEL[s.heroes[k].team]})`)}
             onLockIn={() => setConfirm(true)} busy={busy}
           />
           <p className="mt-4 text-xs text-ash">Exact values from the match replay. Ultimates are shown; other ability cooldowns are not.</p>

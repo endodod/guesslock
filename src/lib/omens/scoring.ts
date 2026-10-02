@@ -10,26 +10,14 @@ export function stepperPoints(guess: number, actual: number, max: number): numbe
   return d === 0 ? max : d === 1 ? Math.floor(max / 2) : 0;
 }
 
-/** Who dies: +50/n per correct pick, -50/n per wrong pick (n = actual deaths, min 1), floor 0. */
-export function pickPoints(picked: number[], actual: number[], max = 50): number {
-  const n = Math.max(1, actual.length);
-  const set = new Set(actual);
-  const unique = [...new Set(picked)];
-  const right = unique.filter((k) => set.has(k)).length;
-  const wrong = unique.length - right;
-  if (actual.length === 0 && unique.length === 0) return max;
-  return Math.max(0, Math.min(max, Math.round((max / n) * right - (max / n) * wrong)));
-}
-
 const q = (id: string, label: string, guess: string, actual: string, points: number, max: number): QuestionResult => ({ id, label, guess, actual, points, max });
 
 export function scoreClash(g: ClashAnswer, a: ClashAnswer, names: (key: number) => string = (k) => `#${k + 1}`, window = 20): OmenResult {
-  const list = (ks: number[]) => (ks.length ? ks.map(names).join(", ") : "Nobody");
+  void names; // kept in the signature: callers pass hero names for every omen
   const questions = [
-    q("any", `Does anyone die in the next ${window} s?`, yesNo(g.anyDeath), yesNo(a.anyDeath), g.anyDeath === a.anyDeath ? 20 : 0, 20),
-    q("amber", "Amber deaths", String(g.deaths.amber), String(a.deaths.amber), stepperPoints(g.deaths.amber, a.deaths.amber, 15), 15),
-    q("sapphire", "Sapphire deaths", String(g.deaths.sapphire), String(a.deaths.sapphire), stepperPoints(g.deaths.sapphire, a.deaths.sapphire, 15), 15),
-    q("who", "Who dies?", list(g.anyDeath ? g.died : []), list(a.died), pickPoints(g.anyDeath ? g.died : [], a.died), 50),
+    q("any", `Does anyone die in the next ${window} s?`, yesNo(g.anyDeath), yesNo(a.anyDeath), g.anyDeath === a.anyDeath ? 30 : 0, 30),
+    q("amber", "Amber deaths", String(g.deaths.amber), String(a.deaths.amber), stepperPoints(g.deaths.amber, a.deaths.amber, 35), 35),
+    q("sapphire", "Sapphire deaths", String(g.deaths.sapphire), String(a.deaths.sapphire), stepperPoints(g.deaths.sapphire, a.deaths.sapphire, 35), 35),
   ];
   return { total: questions.reduce((s, x) => s + x.points, 0), questions };
 }

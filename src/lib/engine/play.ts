@@ -107,9 +107,10 @@ export function evaluate(
     rows, wrong, hints, hintsUsed,
     clue: impl.clue(payload, wrong, done, { hard }, rows),
   };
-  if (done) view.answer = payload.answer;
-  // A jammed lock has no bonus round, so a bonus-protected reveal (The Resonance's ability) joins the answer.
-  if (lost && payload.bonus?.reveal) view.answer = { ...payload.answer, extra: { ...payload.answer.extra, ability: payload.bonus.reveal } };
+  // The ability behind a bonus question is the bonus' answer: it stays out of the answer until the bonus is picked (the client
+  // shows `bonus.reveal` then) or there is no bonus round (a lost lock, or a bonus whose answer was already on screen).
+  const bonusReveal = payload.bonus?.reveal;
+  if (done) view.answer = bonusReveal && payload.answer.extra ? { ...payload.answer, extra: { ...payload.answer.extra, ability: undefined } } : payload.answer;
   // A bonus whose answer was already shown during the game (in the clue or a guess) is not asked.
   const shown = JSON.stringify([view.clue, rows.map((r) => [r.name, r.sub])]).toLowerCase();
   const bonusAnswer = payload.bonus?.options.find((o) => o.id === payload.bonus?.answerId)?.name.toLowerCase();
@@ -122,6 +123,7 @@ export function evaluate(
       ...(picked ? { correct: picked === payload.bonus.answerId, answerId: payload.bonus.answerId, reveal: payload.bonus.reveal } : {}),
     };
   }
+  if (done && bonusReveal && !view.bonus) view.answer = { ...payload.answer, extra: { ...payload.answer.extra, ability: bonusReveal } };
   if (done) {
     const r = { won, rows, wrong, hintsUsed };
     const souls = impl.souls ? impl.souls(payload, r) : soulsFor({ won, guesses: rows.length, hintsUsed, bonusCorrect: !!view.bonus?.correct });

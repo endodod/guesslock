@@ -8,7 +8,6 @@ import { TEAM_LABEL } from "./OmenPanels";
 export type Draft = {
   any: boolean | null; // Clash: anyone dies / Beast: midboss killed
   deaths: Record<Team, number>;
-  died: number[];
   killer: Team | null;
   claimer: Team | "none" | null;
   rejuvs: Record<Team, number>;
@@ -16,7 +15,7 @@ export type Draft = {
 
 export function emptyDraft(s: OmenSnapshot): Draft {
   return {
-    any: null, deaths: { amber: 0, sapphire: 0 }, died: [], killer: null, claimer: null,
+    any: null, deaths: { amber: 0, sapphire: 0 }, killer: null, claimer: null,
     rejuvs: { amber: s.teams.amber.rejuvs, sapphire: s.teams.sapphire.rejuvs },
   };
 }
@@ -25,7 +24,7 @@ export function emptyDraft(s: OmenSnapshot): Draft {
 export function draftAnswer(omen: OmenKind, d: Draft): OmenAnswer | null {
   if (omen === "clash") {
     if (d.any === null) return null;
-    const a: ClashAnswer = d.any ? { anyDeath: true, deaths: d.deaths, died: d.died } : { anyDeath: false, deaths: { amber: 0, sapphire: 0 }, died: [] };
+    const a: ClashAnswer = d.any ? { anyDeath: true, deaths: d.deaths } : { anyDeath: false, deaths: { amber: 0, sapphire: 0 } };
     return a;
   }
   if (omen === "beast") {
@@ -86,10 +85,10 @@ const teamOptions: { v: Team; label: string; color: string }[] = [
 ];
 
 export function OmenQuestions({
-  omen, snapshot, draft, setDraft, pickedNames, onLockIn, busy,
+  omen, snapshot, draft, setDraft, onLockIn, busy,
 }: {
   omen: OmenKind; snapshot: OmenSnapshot; draft: Draft; setDraft: (d: Draft) => void;
-  pickedNames: string[]; onLockIn: () => void; busy?: boolean;
+  onLockIn: () => void; busy?: boolean;
 }) {
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
   const ready = draftAnswer(omen, draft) !== null;
@@ -104,11 +103,6 @@ export function OmenQuestions({
             <p className="text-paper">Deaths per team</p>
             <Stepper label="Amber" color="var(--amber)" value={draft.deaths.amber} disabled={draft.any === false} onChange={(n) => set({ deaths: { ...draft.deaths, amber: n } })} />
             <Stepper label="Sapphire" color="var(--sapphire)" value={draft.deaths.sapphire} disabled={draft.any === false} onChange={(n) => set({ deaths: { ...draft.deaths, sapphire: n } })} />
-          </div>
-          <div className={draft.any === false ? "opacity-40" : ""}>
-            <p className="text-paper">Who dies?</p>
-            <p className="text-sm text-ash">Tap heroes on the map or in the team lists. Pick none if you think nobody does.</p>
-            <p className="mt-1 text-sm text-paper/90">{pickedNames.length ? pickedNames.join(", ") : "Nobody picked"}</p>
           </div>
         </>
       )}

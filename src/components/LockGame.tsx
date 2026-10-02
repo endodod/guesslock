@@ -27,6 +27,8 @@ type Props = {
   endless?: EndlessProps;
   /** This lock's hard puzzle exists today (a button offers it after the normal one). */
   hardReady?: boolean;
+  /** Hard puzzles that exist for this day (set on hard puzzle pages, for the "next hard puzzle" button). */
+  hardAvailable?: string[];
 };
 
 export type EndlessProps = {
@@ -48,7 +50,7 @@ async function post(url: string, body: unknown): Promise<PlayResponse> {
   return res.json();
 }
 
-export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless, hardReady = false }: Props) {
+export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless, hardReady = false, hardAvailable = [] }: Props) {
   const lock = LOCK_BY_SLUG[slug];
   const { store, hydrated, today, setRecord, play, toast, user: account } = useGame();
   // Practice puzzles are played anonymously against /api/endless, whoever is signed in.
@@ -196,17 +198,29 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
     }
   };
 
+  // After a hard puzzle: the next hard one that is open (its normal lock is finished) and not played yet, by numeral order,
+  // wrapping; the Vault when there is none.
+  const nextHard = useMemo(() => {
+    if (!lock.hardPlay || !lock.hardOf) return null;
+    const day = store.progress[date] ?? {};
+    const done = (s: string) => ["won", "lost"].includes(day[s]?.s ?? "");
+    const idx = LOCKS.findIndex((l) => l.slug === lock.hardOf);
+    const order = [...LOCKS.slice(idx + 1), ...LOCKS.slice(0, idx)];
+    const next = order.find((l) => hardAvailable.includes(`${l.slug}-hard`) && !ignored.has(l.slug) && done(l.slug) && !done(`${l.slug}-hard`));
+    return next ? { href: `/lock/${next.slug}-hard${isArchive ? `?d=${date}` : ""}`, name: next.name } : null;
+  }, [store.progress, date, hardAvailable, isArchive, ignored, lock.hardPlay, lock.hardOf]);
+
   // Next lock: next unsolved by numeral order, wrapping; vault when none left.
   const nextHref = useMemo(() => {
     if (endless) return endless.nextHref;
-    if (lock.hardPlay) return isArchive ? `/archive/${date}` : "/";
+    if (lock.hardPlay) return nextHard?.href ?? (isArchive ? `/archive/${date}` : "/");
     const day = store.progress[date] ?? {};
     const idx = LOCKS.findIndex((l) => l.slug === slug);
     const order = [...LOCKS.slice(idx + 1), ...LOCKS.slice(0, idx)];
     const next = order.find((l) => available.includes(l.slug) && !ignored.has(l.slug) && !["won", "lost"].includes(day[l.slug]?.s ?? ""));
     const q = isArchive ? `?d=${date}` : "";
     return next ? `/lock/${next.slug}${q}` : isArchive ? `/archive/${date}` : "/";
-  }, [store.progress, date, slug, available, isArchive, ignored, endless, lock.hardPlay]);
+  }, [store.progress, date, slug, available, isArchive, ignored, endless, lock.hardPlay, nextHard]);
   // The hard puzzle of this lock, offered after the normal one when hard mode is switched on in the Vault.
   const hardHref = !endless && lock.hard && !lock.hardPlay && hardReady && store.settings.hardMode ? `/lock/${slug}-hard${isArchive ? `?d=${date}` : ""}` : undefined;
   // A hard puzzle opens once the normal lock of the day is finished.
@@ -345,7 +359,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       </AnimatePresence>
 
       {done ? (
-        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={endless ? undefined : shareGridText} dist={endless ? {} : stats.dist} nextHref={nextHref} nextLabel={endless ? "Next puzzle" : lock.hardPlay ? "Back to the Vault" : undefined} hardHref={hardHref} practice={!!endless} onBonus={onBonus} />
+        <WinPanel lock={lock} view={view} souls={souls} shareText={shareText} shareGridText={endless ? undefined : shareGridText} dist={endless ? {} : stats.dist} nextHref={nextHref} nextLabel={endless ? "Next puzzle" : lock.hardPlay ? (nextHard ? "Next hard puzzle" : "Back to the Vault") : undefined} hardHref={hardHref} practice={!!endless} onBonus={onBonus} />
       ) : boardInput ? null : lock.guess === "number" ? (
         <NumberInput placeholder={placeholder} busy={busy} disabled={!hydrated || restoring} shake={wrongPulse} onGuess={onGuess} postfix={view.clue?.kind === "measure" ? view.clue.postfix : undefined} />
       ) : (
@@ -353,7 +367,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       {/* Once the lock is done, only the hints that were actually used stay on the shelf. */}
-      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} />
+      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} wrong={view.wrong} />
 
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />

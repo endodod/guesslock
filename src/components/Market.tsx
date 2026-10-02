@@ -50,11 +50,7 @@ function buildReel(c: Reel, winner: Collectible): Collectible[] {
   });
 }
 
-function CaseOpening({ c, result, onSettled, onClose, onAgain, again }: {
-  c: Reel; result: Reveal; onSettled: () => void; onClose: () => void; onAgain: () => void;
-  /** The "open another" button: its price (null when there is nothing left to open) and whether the player can pay it. */
-  again: { price: number | null; canAfford: boolean };
-}) {
+function CaseOpening({ c, result, onSettled, onClose }: { c: Reel; result: Reveal; onSettled: () => void; onClose: () => void }) {
   const { reducedMotion, play } = useGame();
   const [tiles] = useState(() => buildReel(c, result.item));
   const [jitter] = useState(() => (Math.random() - 0.5) * TILE * 0.6);
@@ -136,9 +132,6 @@ function CaseOpening({ c, result, onSettled, onClose, onAgain, again }: {
             </p>
             <div className="mt-4 flex justify-center gap-2">
               <button type="button" onClick={onClose} className="min-h-10 rounded-sm border border-brass/40 px-4 text-sm text-paper hover:border-brass">Close</button>
-              <button type="button" disabled={!again.canAfford} onClick={onAgain} className="min-h-10 rounded-sm border border-cursed/70 bg-cursed/15 px-4 text-sm text-paper hover:bg-cursed/25 disabled:opacity-40">
-                {again.price === null ? "Nothing left of this tier" : again.canAfford ? `Open another (${again.price})` : "Can't afford another"}
-              </button>
             </div>
           </motion.div>
         )}
@@ -181,24 +174,6 @@ export function Market({ initial, earn }: { initial: State; earn: EarnState }) {
     buy({ action: "crate", crateId: c.id, price: c.price }, true, c.id, { name: c.name, odds: { common: 0, rare: 0, epic: 0, legendary: 0, [c.rarity]: 1 }, preview: c.preview });
 
   const settle = () => { if (opening) merge(opening.next); };
-
-  // The "open another" button, from what the server says after this purchase.
-  const againInfo = (() => {
-    if (!opening) return { price: null, canAfford: false };
-    if (!opening.crate) {
-      const c = opening.next.cases.find((x) => x.id === opening.id);
-      return { price: c?.price ?? null, canAfford: !!c && opening.next.spendable >= c.price };
-    }
-    const c = opening.next.crates.find((x) => x.id === opening.id);
-    return c && c.missing > 0 ? { price: c.price, canAfford: opening.next.spendable >= c.price } : { price: null, canAfford: false };
-  })();
-  const again = () => {
-    if (!opening) return;
-    const { crate, id } = opening;
-    setOpening(null);
-    const c = crate ? s.crates.find((x) => x.id === id) : s.cases.find((x) => x.id === id);
-    if (c) void (crate ? openCrate(c as CrateView) : open(c as CaseView));
-  };
 
   return (
     <div className="mt-6 space-y-8">
@@ -299,7 +274,7 @@ export function Market({ initial, earn }: { initial: State; earn: EarnState }) {
         {opening && (
           <CaseOpening
             key={opening.next.ledger[0]?.at + opening.id}
-            c={opening.reel} result={opening.result} onSettled={settle} onClose={() => setOpening(null)} onAgain={again} again={againInfo}
+            c={opening.reel} result={opening.result} onSettled={settle} onClose={() => setOpening(null)}
           />
         )}
       </AnimatePresence>

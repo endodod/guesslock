@@ -9,7 +9,7 @@ const team = z.enum(["amber", "sapphire"]);
 const counts = z.object({ amber: z.number().int().min(0).max(12), sapphire: z.number().int().min(0).max(12) });
 
 export const AnswerSchemas: Record<OmenKind, z.ZodType<OmenAnswer>> = {
-  clash: z.object({ anyDeath: z.boolean(), deaths: counts, died: z.array(z.number().int().min(0).max(11)).max(12) }),
+  clash: z.object({ anyDeath: z.boolean(), deaths: counts, died: z.array(z.number().int().min(0).max(11)).max(12).optional() }),
   beast: z.object({ killed: z.boolean(), killer: team.nullable(), claimer: team.nullable(), rejuvs: counts }),
   rift: z.object({ claimer: z.enum(["amber", "sapphire", "none"]), deaths: counts }),
 };

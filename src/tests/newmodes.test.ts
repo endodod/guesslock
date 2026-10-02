@@ -8,7 +8,7 @@ import { evaluate } from "@/lib/engine/play";
 import { checkLeaks } from "@/lib/engine/leaks";
 import { hardHiddenColumns, type BasePayload } from "@/lib/engine/mode";
 import { shadow, arsenal } from "@/lib/engine/modes/sight";
-import { calculus, CALCULUS_MIN_STATS } from "@/lib/engine/modes/calculus";
+import { calculus, CALCULUS_MIN_STATS, censorLabel } from "@/lib/engine/modes/calculus";
 import { decoy, fakeCandidates } from "@/lib/engine/modes/decoy";
 import { cache, finalInventory, teamProblem } from "@/lib/engine/modes/cache";
 import { constellation, dedupeFacets, normalizeName, pickGrid, solveGrid, canFinish, type Facet } from "@/lib/engine/modes/constellation";
@@ -84,7 +84,7 @@ describe("The Shadow and The Arsenal", () => {
     expect(arsenal.candidates(data, { dayIndex: 0 }).map((c) => c.ref)).toEqual([2]);
   });
 
-  it("shows the whole silhouette from the start in normal mode, zooms out in hard mode and only shows colour when finished", async () => {
+  it("shows the whole silhouette from the start in normal mode, turns it back in hard mode and only shows colour when finished", async () => {
     const urls = { n: 0 };
     const images = {
       crops: async (_u: string, steps: unknown[]) => steps.map(() => `/media/${String(urls.n++).padStart(40, "0")}`),
@@ -92,12 +92,21 @@ describe("The Shadow and The Arsenal", () => {
     };
     const p = await shadow.build({ answerId: "1", ref: 1 }, ctx(data, "s", { images }));
     expect(p.clue.normal).toHaveLength(1);
-    expect(new Set([...p.clue.normal, ...p.clue.hard]).size).toBe(7);
-    const at = (w: number, hard = false, done = false) => shadow.clue(p, w, done, { hard }) as { image: string; silhouette?: boolean };
+    expect(new Set(p.clue.normal).size).toBe(1);
+    const at = (w: number, hard = false, done = false) => shadow.clue(p, w, done, { hard }) as { image: string; silhouette?: boolean; rotate?: number };
     expect(at(0).image).toBe(p.clue.normal[0]);
     expect(at(3).image).toBe(p.clue.normal[0]);
     expect(at(99).image).toBe(p.clue.normal[0]);
-    expect(at(99, true).image).toBe(p.clue.hard[5]);
+    // Hard: the same whole silhouette, turned (not upright, not zoomed), turning back with every wrong guess, upright only when finished.
+    expect(at(0, true).image).toBe(p.clue.normal[0]);
+    const angles = [0, 1, 2, 3, 4, 5, 9].map((w) => at(w, true).rotate!);
+    expect(angles[0]).toBeGreaterThanOrEqual(90);
+    for (let i = 1; i < 6; i++) expect(angles[i]).toBeLessThan(angles[i - 1]);
+    expect(angles[5]).toBeGreaterThan(0);
+    expect(angles[6]).toBe(angles[5]);
+    expect(at(2, true, true).rotate).toBeUndefined();
+    expect(at(2, true, true).image).toBe(p.clue.reveal);
+    expect(at(0).rotate).toBeUndefined();
     expect(at(0).silhouette).toBe(true);
     expect(at(2, false, true).image).toBe(p.clue.reveal);
     // The coloured portrait never reaches the browser before the end.
@@ -136,6 +145,21 @@ describe("The Calculus", () => {
     expect(c(true, true).abilities.every((a) => a.stats.every((s) => s.display))).toBe(true);
     expect(p.answer.name).toBe("Haze");
     expect(checkLeaks(p)).toEqual([]);
+  });
+
+  it("hides the ability-specific words of a stat label until the lock is finished", async () => {
+    expect(censorLabel("Cooldown")).toBe("Cooldown");
+    expect(censorLabel("Cast Range")).toBe("Cast Range");
+    expect(censorLabel("Max Burn Duration")).toBe("Max ▒▒▒▒ Duration");
+    expect(censorLabel("Uppercut Damage")).toBe("▒▒▒▒ Damage");
+    expect(censorLabel("Beam Length")).toBe("▒▒▒▒ Length");
+    expect(censorLabel("Lifesteal vs Non-Heroes")).toBe("Lifesteal vs Non-Heroes");
+    const d = makeData({ heroes: [hero(1, "Haze")], abilities: [1, 2, 3, 4].map((slot) => { const a = ability(10 + slot, 1, slot, `Ability ${slot}`); a.src.stats = [{ key: "a", label: "Uppercut Damage", value: 1, display: "1" }, { key: "b", label: "Cooldown", value: 2, display: "2s" }]; return a; }) });
+    const p = await calculus.build({ answerId: "1", ref: 1 }, ctx(d));
+    const labels = (done: boolean) => (calculus.clue(p, 0, done) as { abilities: { stats: { label: string }[] }[] }).abilities.flatMap((a) => a.stats.map((s) => s.label));
+    expect(labels(false).filter((l) => l.includes("Uppercut"))).toEqual([]);
+    expect(labels(false)).toContain("▒▒▒▒ Damage");
+    expect(labels(true)).toContain("Uppercut Damage");
   });
 
   it("normalizes tooltip properties plus the base stats, labelled and non-zero only, one per label", () => {

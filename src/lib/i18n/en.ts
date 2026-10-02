@@ -4,6 +4,8 @@ export const en = {
   brand: "GUESSLOCK",
   tagline: "Pick today's lock.",
   nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault", hall: "The Hall (leaderboards)", account: "Your account", signIn: "Sign in" },
+  /** Shown next to the Omens: a newer kind of puzzle that is still being tuned. */
+  earlyAccess: "Early access",
   groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens", seance: "The Sorting Tables" },
   seance: {
     tables: "Tables",
@@ -48,7 +50,11 @@ export const en = {
       decoy: "the hero isn't named", cache: "items and net worth partly hidden"
     } as Record<string, string>,
     hintRevealed: "Hint revealed",
-    hintLocked: (n: number) => `Unlocks after ${n} wrong ${n === 1 ? "guess" : "guesses"}`,
+    /** `after` wrong guesses unlock it; `wrong` have been made, so it counts down ("2 more wrong guesses"). */
+    hintLocked: (after: number, wrong = 0) => {
+      const left = Math.max(1, after - wrong);
+      return wrong > 0 ? `Unlocks after ${left} more wrong ${left === 1 ? "guess" : "guesses"}` : `Unlocks after ${after} wrong ${after === 1 ? "guess" : "guesses"}`;
+    },
     empty: "Nothing in this box today.",
     error: "The lock won't turn. Try again.",
     correct: "Click.",

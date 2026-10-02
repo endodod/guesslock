@@ -1,7 +1,7 @@
 // Item modes: Relic, Appraisal, Lineage, Measure.
 import { activeColumns, formatCell, type CellValue } from "../columns";
 import type { GameData, ItemData } from "../context";
-import { cap, SkipCandidate, type BasePayload, type Candidate, type ModeImpl } from "../mode";
+import { cap, pickHiddenColumns, SkipCandidate, type BasePayload, type Candidate, type ModeImpl } from "../mode";
 import type { ColumnMeta } from "../types";
 import { gridClue, gridTiles } from "./hero";
 import type { StatBonus } from "../../deadlock/types";
@@ -55,13 +55,15 @@ export const relic: ModeImpl<RelicClue> = {
 type GridClue = {
   columns: (ColumnMeta & { type: string })[];
   table: Record<string, { v: CellValue; d: string }[]>;
+  /** Hard mode: the two columns that show "?" (drawn when the puzzle was built; absent on older puzzles). */
+  hidden?: number[];
 };
 
 export const appraisal: ModeImpl<GridClue> = {
   mode: "item-classic",
   hard: true,
   candidates: (data) => itemPool(data, "item-classic"),
-  build(c, { data }) {
+  build(c, { data, rng }) {
     const i = data.item(c.ref as number)!;
     // Custom categories join once every item in the pool has a value.
     const cols = activeColumns(data.itemColumns, data.items.filter((x) => !x.exclude.includes("item-classic")), data);
@@ -77,6 +79,7 @@ export const appraisal: ModeImpl<GridClue> = {
       clue: {
         columns: cols.map((col) => ({ key: col.key, label: col.label, info: col.info, type: col.type, numeric: col.type === "numeric" || col.type === "date" })),
         table,
+        hidden: pickHiddenColumns(cols.length, rng),
       },
     };
   },

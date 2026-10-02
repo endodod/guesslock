@@ -13,44 +13,53 @@ function pool(data: GameData, mode: string, has: (h: HeroData) => boolean): Cand
   return data.heroes.filter((h) => h.eligible && !h.exclude.includes(mode) && has(h)).map((h) => ({ answerId: String(h.id), ref: h.id }));
 }
 
-/** Silhouette steps: `normal` shows the whole shape from the start; `hard` stays tight (and zooms out) but never shows it all. */
+/**
+ * Silhouette steps: `normal` shows the whole shape from the start. Hard mode shows the same silhouette turned (a quarter, half
+ * or three quarters, fixed per puzzle) and turns it back a little with every wrong guess, upright only once the lock is finished.
+ * (`hard`: tight zoom-out crops of puzzles built before that; no longer used.)
+ */
 export type SightPayload = {
   normal: string[];
-  hard: string[];
+  hard?: string[];
   /** Shown once the lock is finished (the coloured cut-out). */
   reveal: string;
   /** Normal mode: after this many wrong guesses the coloured picture itself is shown (The Arsenal); null = never. */
   colourAfter: number | null;
 };
 
-async function sightImages(ctx: BuildCtx, tag: string, url: string, normal: number[], hard: number[], origin: { x: number; y: number }) {
+async function sightImages(ctx: BuildCtx, tag: string, url: string, normal: number[], origin: { x: number; y: number }) {
   const step = (zoom: number): CropStep => ({ zoom, originX: origin.x, originY: origin.y });
   if (!ctx.images) {
     // Tests: no image store. Production always has one; a missing source skips the candidate instead.
-    return { normal: normal.map(() => url), hard: hard.map(() => url), reveal: url };
+    return { normal: normal.map(() => url), reveal: url };
   }
-  const [n, h, reveal] = await Promise.all([
-    ctx.images.crops(url, normal.map(step), tag, { silhouette: true }),
-    ctx.images.crops(url, hard.map(step), tag, { silhouette: true }),
-    ctx.images.copy(url, tag),
-  ]);
-  if (!n || !h || !reveal) throw new SkipCandidate("no usable cut-out (not a transparent PNG)");
-  return { normal: n, hard: h, reveal };
+  const [n, reveal] = await Promise.all([ctx.images.crops(url, normal.map(step), tag, { silhouette: true }), ctx.images.copy(url, tag)]);
+  if (!n || !reveal) throw new SkipCandidate("no usable cut-out (not a transparent PNG)");
+  return { normal: n, reveal };
 }
 
-function sightClue(p: BasePayload<SightPayload>, wrong: number, done: boolean, hard: boolean): Clue {
-  const steps = hard ? p.clue.hard : p.clue.normal;
-  const base = { kind: "splash" as const, zoom: 1, originX: 50, originY: 50, steps: steps.length };
-  if (done) return { ...base, image: p.clue.reveal, step: steps.length };
-  if (!hard && p.clue.colourAfter !== null && wrong >= p.clue.colourAfter) return { ...base, image: p.clue.reveal, step: steps.length };
-  const i = Math.min(wrong, steps.length - 1);
-  return { ...base, image: steps[i], silhouette: true, step: i + 1 };
+/** The turn a hard silhouette starts at (a quarter, half or three quarters, fixed per puzzle). */
+const startAngle = (answerId: string) => 90 * (1 + ([...answerId].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 3));
+
+function sightClue(p: BasePayload<SightPayload>, wrong: number, done: boolean, hard: boolean, hardSteps: number): Clue {
+  const steps = hard ? hardSteps : p.clue.normal.length;
+  const base = { kind: "splash" as const, zoom: 1, originX: 50, originY: 50, steps };
+  if (done) return { ...base, image: p.clue.reveal, step: steps };
+  if (!hard && p.clue.colourAfter !== null && wrong >= p.clue.colourAfter) return { ...base, image: p.clue.reveal, step: steps };
+  if (hard) {
+    // The same whole silhouette, turned back by an equal share of its start angle with each wrong guess, never fully upright.
+    const i = Math.min(wrong, hardSteps - 1);
+    return { ...base, image: p.clue.normal[0], silhouette: true, step: i + 1, rotate: Math.round(startAngle(p.correctIds[0]) * (1 - i / hardSteps)) };
+  }
+  const i = Math.min(wrong, steps - 1);
+  return { ...base, image: p.clue.normal[i], silhouette: true, step: i + 1 };
 }
 
 // ---------- The Shadow (hero silhouette) ----------
 
 const SHADOW_NORMAL = [1];
-const SHADOW_HARD = [4.4, 3.8, 3.3, 2.9, 2.6, 2.4];
+/** Hard mode turns back in this many steps. */
+const SHADOW_HARD_STEPS = 6;
 
 export const shadow: ModeImpl<SightPayload> = {
   mode: "silhouette",
@@ -60,21 +69,21 @@ export const shadow: ModeImpl<SightPayload> = {
     const h = ctx.data.hero(c.ref as number)!;
     // Portraits have the head in the upper half.
     const origin = { x: Math.round(30 + ctx.rng.next() * 40), y: Math.round(18 + ctx.rng.next() * 30) };
-    const imgs = await sightImages(ctx, `${ctx.date}|silhouette`, h.shadow!, SHADOW_NORMAL, SHADOW_HARD, origin);
+    const imgs = await sightImages(ctx, `${ctx.date}|silhouette`, h.shadow!, SHADOW_NORMAL, origin);
     return {
       v: 1, mode: "silhouette", answer: heroAnswer(h, h.card), correctIds: [String(h.id)], leakTerms: heroLeak(h),
       hints: {}, // letter hints come from the answer name (engine/play.ts)
       clue: { ...imgs, colourAfter: null },
     };
   },
-  clue: (p, wrong, done, opts = {}) => sightClue(p, wrong, done, !!opts.hard),
+  clue: (p, wrong, done, opts = {}) => sightClue(p, wrong, done, !!opts.hard, SHADOW_HARD_STEPS),
   displayed: () => [],
 };
 
 // ---------- The Arsenal (weapon silhouette) ----------
 
 const ARSENAL_NORMAL = [1];
-const ARSENAL_HARD = [3.6, 3.1, 2.7, 2.4];
+const ARSENAL_HARD_STEPS = 4;
 /** Normal mode: the coloured weapon after 4 wrong guesses (the whole silhouette is shown from the start). */
 const ARSENAL_COLOUR_AFTER = 4;
 
@@ -87,7 +96,7 @@ export const arsenal: ModeImpl<SightPayload> = {
     const h = ctx.data.hero(c.ref as number)!;
     if (!h.weapon) throw new SealedError("no weapon art curated yet");
     const origin = { x: Math.round(25 + ctx.rng.next() * 50), y: Math.round(30 + ctx.rng.next() * 40) };
-    const imgs = await sightImages(ctx, `${ctx.date}|weapon`, h.weapon, ARSENAL_NORMAL, ARSENAL_HARD, origin);
+    const imgs = await sightImages(ctx, `${ctx.date}|weapon`, h.weapon, ARSENAL_NORMAL, origin);
     return {
       v: 1, mode: "weapon", answer: heroAnswer(h, h.card),
       correctIds: [String(h.id)], leakTerms: heroLeak(h),
@@ -95,6 +104,6 @@ export const arsenal: ModeImpl<SightPayload> = {
       clue: { ...imgs, colourAfter: ARSENAL_COLOUR_AFTER },
     };
   },
-  clue: (p, wrong, done, opts = {}) => sightClue(p, wrong, done, !!opts.hard),
+  clue: (p, wrong, done, opts = {}) => sightClue(p, wrong, done, !!opts.hard, ARSENAL_HARD_STEPS),
   displayed: () => [],
 };

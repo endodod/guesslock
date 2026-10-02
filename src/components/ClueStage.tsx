@@ -59,8 +59,8 @@ function SplashStage({ clue }: { clue: Extract<Clue, { kind: "splash" }> }) {
           draggable={false}
           className={`h-full w-full select-none transition-transform duration-700 ease-out ${clue.silhouette ? "object-contain" : "object-cover"} ${clue.mono ? "[filter:grayscale(1)_contrast(1.1)]" : ""}`}
           style={{
-            transform: `scale(${clue.zoom})`,
-            transformOrigin: `${clue.originX}% ${clue.originY}%`,
+            transform: `${clue.rotate ? `rotate(${clue.rotate}deg) ` : ""}scale(${clue.zoom})`,
+            transformOrigin: clue.rotate ? "50% 50%" : `${clue.originX}% ${clue.originY}%`,
           }}
         />
       </Peephole>

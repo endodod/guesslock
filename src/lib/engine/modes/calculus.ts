@@ -25,6 +25,24 @@ function fourAbilities(data: GameData, h: HeroData): AbilityData[] | null {
   return out;
 }
 
+/**
+ * Words a stat label can use without naming its ability ("Cooldown", "Cast Range", "Max Burn Duration"). Anything else in a label
+ * is the ability's own vocabulary ("Uppercut Damage", "Beam Length", "Tether Range", "Djinn's ...") and is hidden until the lock
+ * is finished: it would tell a player which hero's kit they are reading.
+ */
+const GENERIC_WORDS = new Set((
+  "damage cooldown duration range cast speed per move movement max min minimum maximum health radius slow charges charge time bullet bullets " +
+  "second seconds sec resist resistance resists bonus heal healing spirit weapon amp amplification amplified rate lifetime regen regeneration lifesteal " +
+  "stack stacks distance delay width length height base full current missing total to for on as vs vs. and of the from before after enemy ally friendly " +
+  "hero heroes non-heroes non-hero target targets count amount threshold reduction reduced cost stun buff debuff dps interval window chance hp stamina " +
+  "accuracy velocity initial extra additional hold penalty incoming outgoing received taken regenerated restored extended extend headshot melee"
+).split(" "));
+
+/** A stat label with the ability-specific words blanked ("Uppercut Damage" -> "▒▒▒▒ Damage"). */
+export function censorLabel(label: string): string {
+  return label.replace(/[^\s/,]+/g, (word) => (GENERIC_WORDS.has(word.toLowerCase().replace(/[^a-z.-]/g, "")) ? word : "▒▒▒▒"));
+}
+
 export const calculus: ModeImpl<CalculusClue> = {
   mode: "ability-stats",
   hard: true,
@@ -51,7 +69,11 @@ export const calculus: ModeImpl<CalculusClue> = {
     kind: "stats",
     abilities: p.clue.abilities.map((a) => ({
       slot: slotLabel(a.slot),
-      stats: a.stats.map((s, i) => (opts.hard && !done && i === a.omit ? { label: s.label, display: null } : s)),
+      // Ability-specific words in the labels stay hidden until the lock is finished; hard mode also leaves one value out.
+      stats: a.stats.map((s, i) => {
+        const label = done ? s.label : censorLabel(s.label);
+        return opts.hard && !done && i === a.omit ? { label, display: null } : { ...s, label };
+      }),
     })),
   }),
   displayed: (p) => p.clue.abilities.flatMap((a) => a.stats.flatMap((s) => [s.label, s.display])),

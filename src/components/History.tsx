@@ -112,7 +112,7 @@ export function GuessList({ rows, numeric }: { rows: GuessRow[]; numeric?: boole
   );
 }
 
-export function HintShelf({ hints }: { hints: HintView[] }) {
+export function HintShelf({ hints, wrong = 0 }: { hints: HintView[]; wrong?: number }) {
   if (!hints.length) return null;
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
@@ -140,7 +140,7 @@ export function HintShelf({ hints }: { hints: HintView[] }) {
                   : <AudioButton src={h.audio} />)}
               </div>
             ) : (
-              <span className="text-xs text-ash">{t.lock.hintLocked(h.after)}</span>
+              <span className="text-xs text-ash">{t.lock.hintLocked(h.after, wrong)}</span>
             )}
           </motion.div>
         </li>

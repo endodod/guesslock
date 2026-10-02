@@ -72,12 +72,24 @@ const fmtDate = (v: CellValue) => {
   return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m - 1]} ${y}`;
 };
 
+/**
+ * The picker lists thirteen weapon types, most with one or two heroes: too fine for a guessing column. They fold into five
+ * families (a type not listed here, e.g. a new one, stands for itself until it is added).
+ */
+const WEAPON_FAMILY: Record<string, string> = {
+  "pistol": "Pistol",
+  "rapid fire": "Rapid fire", "burst fire": "Rapid fire",
+  "spreadshot": "Spread", "shotgun": "Spread", "close range": "Spread",
+  "long range": "Long range", "bow": "Long range", "crossbow": "Long range",
+  "heavy hitter": "Heavy & special", "heavy artillery": "Heavy & special", "projectile": "Heavy & special", "beam weapon": "Heavy & special",
+};
+export const weaponFamily = (type: string | null): string | null => (type ? WEAPON_FAMILY[type.trim().toLowerCase()] ?? type : null);
+
 export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "gender", label: "Gender", info: "The hero's gender.", type: "exact", get: (h) => h.gender, format: (v) => (v ? cap(String(v)) : "?") },
   { key: "archetype", label: "Archetype", info: "Brawler, Assassin, Marksman or Mystic, as in the hero picker.", type: "exact", curated: true, get: (h) => (h.src.heroType ? cap(h.src.heroType) : null) },
   { key: "species", label: "Species", info: "What the hero is. Orange means at least one shared species.", type: "multi", curated: true, get: (h) => h.species },
-  { key: "complexity", label: "Complexity", info: "In-game complexity rating (1-4 stars).", type: "exact", get: (h) => h.src.complexity, format: (v) => (v == null ? "?" : "★".repeat(Number(v))) },
-  { key: "weapon", label: "Weapon", info: "Weapon type as listed in the hero picker.", type: "exact", get: (h) => h.weaponType },
+  { key: "weapon", label: "Weapon", info: "Weapon family: Pistol, Rapid fire (rapid and burst), Spread (spreadshot, shotgun, close range), Long range (long range, bow, crossbow) or Heavy & special.", type: "exact", get: (h) => weaponFamily(h.weaponType) },
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
   { key: "stamina", label: "Stamina", info: "Starting stamina for dashes. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.stamina },
   { key: "damage", label: "Bullet damage", info: "Base damage per bullet (per pellet for spread weapons). Arrows point toward the answer.", type: "numeric", get: (h) => h.src.bulletDamage, format: (v) => (v == null ? "?" : String(Math.round(Number(v) * 10) / 10)) },
