@@ -1,5 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { config } from "./config";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -13,7 +14,8 @@ export function explicitSsl(url: string | undefined): string | undefined {
 }
 
 function create() {
-  const adapter = new PrismaPg({ connectionString: explicitSsl(process.env.DATABASE_URL) });
+  // Each server instance keeps at most DB_POOL_MAX connections (default 10); idle ones are released so scale-to-zero can sleep.
+  const adapter = new PrismaPg({ connectionString: explicitSsl(process.env.DATABASE_URL), max: config.dbPoolMax, idleTimeoutMillis: 30_000 });
   return new PrismaClient({ adapter });
 }
 

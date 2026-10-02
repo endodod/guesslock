@@ -36,7 +36,8 @@ function rank(entries: { userId: string; value: number; tie?: number; detail?: s
   });
 }
 
-export async function getBoard(board: Board, meId?: string): Promise<BoardResult> {
+/** The whole ranking of a board (every player), the same for everybody; `getBoard` adds who is looking. */
+async function ranking(board: Board): Promise<BoardResult["rows"]> {
   const today = todayDate();
   // Hidden players never take a rank, not even in their own view.
   const profiles = await db.profile.findMany({ where: { showOnBoards: true }, select: { userId: true, displayName: true } });
@@ -77,7 +78,27 @@ export async function getBoard(board: Board, meId?: string): Promise<BoardResult
     );
   }
 
-  const all = rank(entries, names, meId);
+  return rank(entries, names);
+}
+
+// Every board is a scan over players and plays, and the Hall page asks for all five on each visit. The ranking is the same
+// for everybody, so it is computed once per TTL per server instance (concurrent requests share one computation); a play
+// shows on the boards within the TTL. Failures are not cached.
+const BOARD_TTL_MS = 30_000;
+const memo = new Map<Board, { at: number; value: Promise<BoardResult["rows"]> }>();
+function cachedRanking(board: Board): Promise<BoardResult["rows"]> {
+  const hit = memo.get(board);
+  if (hit && Date.now() - hit.at < BOARD_TTL_MS) return hit.value;
+  const value = ranking(board);
+  memo.set(board, { at: Date.now(), value });
+  value.catch(() => { if (memo.get(board)?.value === value) memo.delete(board); });
+  return value;
+}
+/** For tests and scripts: forget the remembered rankings. */
+export const forgetBoards = () => memo.clear();
+
+export async function getBoard(board: Board, meId?: string): Promise<BoardResult> {
+  const all = (await cachedRanking(board)).map((r) => (r.userId === meId ? { ...r, me: true } : r));
   const rows = all.slice(0, LIMIT);
   const me = all.find((r) => r.me) ?? null;
   const looks = await cosmeticsOf([...rows, ...(me ? [me] : [])].map((r) => r.userId));

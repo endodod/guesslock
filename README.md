@@ -265,6 +265,30 @@ generator, `play.ts` server checks, `scoring.ts`, `derive.ts`, `rules.ts`; DB: `
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 
+## Security and scaling notes
+
+**Before production**
+- Set a private `PUZZLE_SALT` (the default is in the repository, so upcoming puzzles could be derived from it) and a long
+  `SESSION_SECRET`. Invite links are signed with `SESSION_SECRET` (or `NEON_AUTH_COOKIE_SECRET`), never with the salt; changing
+  either secret invalidates links already shared.
+- Set `TRUSTED_PROXY_HOPS` to the number of proxies in front of the app: 1 on Vercel, 0 if the container is reachable directly.
+  Rate limits key on the client address taken that many hops from the right of `X-Forwarded-For`; with the wrong value a client
+  could pick its own address.
+- `ADMIN_DEBUG` is ignored in production builds. The Docker image runs as the unprivileged `node` user.
+
+**Where it stops scaling, and what to do**
+- *Rate limits are per server instance* (in memory, `lib/server/ratelimit.ts`, the agent guard): with N instances the effective
+  limit is N times higher and it resets on deploy. Fine for one instance or a few; for a larger fleet move the counters to a shared
+  store (Redis/Upstash, or the database) behind the same `rateLimit()` function, or rate-limit at the edge.
+- *Leaderboards* are rankings over all players, computed once per 30 s per instance and shared by concurrent requests
+  (`getBoard`), so the Hall page costs a few queries per half minute, not per visit. Beyond tens of thousands of players, move them
+  to a precomputed table refreshed by cron.
+- *Database connections*: `DB_POOL_MAX` per instance (default 10). On Vercel/serverless use the pooled `DATABASE_URL` and a low
+  value (2-5) so many instances don't exhaust Neon's connection limit.
+- *Mirrored images and sounds* are served from Postgres with a long immutable cache header, so a CDN absorbs nearly all traffic;
+  put one in front (Vercel does this).
+- *Daily cron* (`/api/cron/sync`, 300 s) is a single job; it is the thing to watch as the sound and wiki imports grow.
+
 ## Scripts
 
 `npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `omens:harvest [-- --minutes N]` · `validate:leaks [-- --all]` ·

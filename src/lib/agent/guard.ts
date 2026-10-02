@@ -13,6 +13,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { ZodType } from "zod";
 import { config } from "../config";
 import { db } from "../db";
+import { clientIp } from "../server/ratelimit";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type Scope = "read" | "write";
@@ -58,7 +59,7 @@ function noteFailure(ip: string) {
   else f.n++;
 }
 
-const clientKey = (req: Request) => (req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown").slice(0, 64);
+const clientKey = (req: Request) => clientIp(req);
 
 /** Authenticate a request for a scope. Returns the caller, or the response to send. */
 export async function guard(req: Request, scope: Scope): Promise<{ who: Who } | { res: Response }> {

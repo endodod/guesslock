@@ -8,10 +8,13 @@ import { omenView, parseAnswer } from "@/lib/omens/serve";
 import type { OmenPayload } from "@/lib/omens/types";
 import { currentUser } from "@/lib/auth/server";
 import { recordOmen, recordedOmen } from "@/lib/accounts/service";
+import { clientIp, rateLimit, tooMany } from "@/lib/server/ratelimit";
 
 const Body = z.object({ date: z.string().refine(isDay), slug: z.string(), answers: z.unknown().optional() });
 
 export async function POST(req: Request) {
+  const limit = rateLimit(`omen:${clientIp(req)}`, 120, 60_000);
+  if (!limit.ok) return tooMany(limit.retryAfter);
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const { date, slug, answers } = parsed.data;

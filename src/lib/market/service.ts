@@ -275,15 +275,13 @@ export async function cosmeticsOf(userIds: string[]): Promise<Map<string, { titl
 
 /** Total worth (souls) of each player's collection (the Collectors board). */
 export async function collectionCounts(): Promise<{ userId: string; value: number }[]> {
-  const [rows, collectibles] = await Promise.all([db.inventoryItem.findMany({ select: { userId: true, itemKey: true } }), getCollectibles()]);
+  // Distinct (player, item) pairs only: a spare copy doesn't move you up the Collectors board, and the database does the folding.
+  const [rows, collectibles] = await Promise.all([db.inventoryItem.groupBy({ by: ["userId", "itemKey"] }), getCollectibles()]);
   const value = new Map(collectibles.map((c) => [c.key, c.value]));
   const per = new Map<string, number>();
-  // Distinct items only: a spare copy doesn't move you up the Collectors board.
-  const seen = new Set<string>();
   for (const r of rows) {
     const v = value.get(r.itemKey);
-    const id = `${r.userId}|${r.itemKey}`;
-    if (v && !seen.has(id)) { seen.add(id); per.set(r.userId, (per.get(r.userId) ?? 0) + v); }
+    if (v) per.set(r.userId, (per.get(r.userId) ?? 0) + v);
   }
   return [...per].map(([userId, value]) => ({ userId, value }));
 }

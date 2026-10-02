@@ -1,5 +1,7 @@
 // Best-effort rate limiting for public endpoints: in memory per server instance (resets on deploy or scale-out),
 // so it is a speed bump against scripted abuse, not the only defence.
+import { config } from "../config";
+
 type Bucket = { n: number; reset: number };
 const buckets = new Map<string, Bucket>();
 
@@ -16,10 +18,21 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
   return { ok: b.n <= limit, retryAfter: Math.ceil((b.reset - now) / 1000) };
 }
 
-/** The caller's address as the platform reports it (first X-Forwarded-For hop on Vercel). */
-export function clientIp(req: Request): string {
-  return (req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown").slice(0, 64);
+/**
+ * The caller's address from forwarding headers. X-Forwarded-For is a list the client can start with anything, and every proxy
+ * appends the address it saw, so only the entries from the right (as many as TRUSTED_PROXY_HOPS) are trustworthy: the first
+ * hop would let anyone dodge a limit by sending a different fake address each time.
+ */
+export function clientIpFrom(headers: Pick<Headers, "get">, hops = config.trustedProxyHops): string {
+  if (hops > 0) {
+    const chain = (headers.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (chain.length) return chain[Math.max(0, chain.length - hops)].slice(0, 64);
+    const real = headers.get("x-real-ip")?.trim();
+    if (real) return real.slice(0, 64);
+  }
+  return "unknown";
 }
+export const clientIp = (req: Request) => clientIpFrom(req.headers);
 
 export function tooMany(retryAfter: number): Response {
   return Response.json({ error: "too many requests" }, { status: 429, headers: { "retry-after": String(retryAfter), "cache-control": "no-store" } });

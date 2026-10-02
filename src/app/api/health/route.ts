@@ -27,6 +27,8 @@ export async function GET() {
       { status: problems.length ? 503 : 200, headers: { "cache-control": "no-store" } },
     );
   } catch (e) {
-    return NextResponse.json({ ok: false, problems: [`database: ${(e as Error).message}`] }, { status: 503 });
+    // The driver's message can name the host or user: keep it in the server log, not in a public response.
+    console.error("[health] database check failed", e);
+    return NextResponse.json({ ok: false, problems: ["database unreachable"] }, { status: 503, headers: { "cache-control": "no-store" } });
   }
 }

@@ -24,8 +24,16 @@ export const config = {
   /** Enables /admin/setup: per-hero, per-puzzle setup editing (ADMIN_SETUP_MODE=1). */
   adminSetup: ["1", "true", "on", "yes"].includes((process.env.ADMIN_SETUP_MODE ?? "").toLowerCase()),
   /** Shows an "Admin login" shortcut under the sign-in form (ADMIN_DEBUG=1, local use). */
-  adminDebug: ["1", "true", "on", "yes"].includes((process.env.ADMIN_DEBUG ?? "").toLowerCase()),
+  adminDebug: process.env.NODE_ENV !== "production" && ["1", "true", "on", "yes"].includes((process.env.ADMIN_DEBUG ?? "").toLowerCase()),
   sessionSecret: env("SESSION_SECRET", ""),
+  /**
+   * How many reverse proxies sit in front of the app and append to X-Forwarded-For (Vercel: 1, replacing the header;
+   * Docker behind nginx or a load balancer: usually 1; 0 = no proxy, the header is ignored). The client address is taken
+   * this many hops from the right, because the left-hand entries are whatever the client chose to send.
+   */
+  trustedProxyHops: Math.max(0, Number(env("TRUSTED_PROXY_HOPS", "1")) || 0),
+  /** Database connections per server instance (serverless: keep it low and use the pooled DATABASE_URL). */
+  dbPoolMax: Math.max(1, Number(env("DB_POOL_MAX", "10")) || 10),
   cronSecret: process.env.CRON_SECRET ?? "",
   /** Agent API (/api/agent/v1): two separate secrets, each 32+ chars. Unset = that access level is off. */
   agentReadToken: process.env.AGENT_API_READ_TOKEN ?? "",

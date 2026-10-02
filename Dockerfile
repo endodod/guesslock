@@ -20,5 +20,6 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 # Outage backup of API responses and the Omen seed (read by sync/generation)
 COPY --from=build /app/data ./data
+USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
