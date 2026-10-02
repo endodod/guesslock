@@ -76,5 +76,5 @@ export const calculus: ModeImpl<CalculusClue> = {
       }),
     })),
   }),
-  displayed: (p) => p.clue.abilities.flatMap((a) => a.stats.flatMap((s) => [s.label, s.display])),
+  displayed: (p) => p.clue.abilities.flatMap((a) => a.stats.flatMap((s) => [censorLabel(s.label), s.display])),
 };
