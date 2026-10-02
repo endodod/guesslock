@@ -50,11 +50,6 @@ export const en = {
       decoy: "the hero isn't named", cache: "items and net worth partly hidden"
     } as Record<string, string>,
     hintRevealed: "Hint revealed",
-    /** `after` wrong guesses unlock it; `wrong` have been made, so it counts down ("2 more wrong guesses"). */
-    hintLocked: (after: number, wrong = 0) => {
-      const left = Math.max(1, after - wrong);
-      return wrong > 0 ? `Unlocks after ${left} more wrong ${left === 1 ? "guess" : "guesses"}` : `Unlocks after ${after} wrong ${after === 1 ? "guess" : "guesses"}`;
-    },
     empty: "Nothing in this box today.",
     error: "The lock won't turn. Try again.",
     correct: "Click.",

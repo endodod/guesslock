@@ -367,7 +367,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
       )}
 
       {/* Once the lock is done, only the hints that were actually used stay on the shelf. */}
-      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} wrong={view.wrong} />
+      <HintShelf hints={done ? view.hints.filter((h) => h.unlocked) : view.hints} />
 
       {view.clue?.kind === "grid" ? (
         <AttributeGrid columns={view.clue.columns} rows={view.rows} />
