@@ -112,7 +112,7 @@ export function GuessList({ rows, numeric }: { rows: GuessRow[]; numeric?: boole
   );
 }
 
-export function HintShelf({ hints }: { hints: HintView[] }) {
+export function HintShelf({ hints, wrong = 0 }: { hints: HintView[]; wrong?: number }) {
   if (!hints.length) return null;
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
@@ -123,8 +123,12 @@ export function HintShelf({ hints }: { hints: HintView[] }) {
             <span className={h.unlocked ? "text-paper" : "text-ash"}>{h.label}</span>
             {h.unlocked && <span className="smallcaps ml-auto text-[0.7rem] text-brass">{t.lock.hintRevealed}</span>}
           </div>
-          {h.unlocked && (
-            <div className="border-t border-brass/10 px-3 py-2">
+          <motion.div
+            initial={false}
+            animate={{ height: h.unlocked ? "auto" : "auto" }}
+            className="border-t border-brass/10 px-3 py-2"
+          >
+            {h.unlocked ? (
               <div className="flex items-center gap-3">
                 {h.value && <span className="text-lg text-paper">{h.value}</span>}
                 {h.image && (
@@ -135,8 +139,10 @@ export function HintShelf({ hints }: { hints: HintView[] }) {
                   ? <SoundPlayer src={h.audio} gainDb={h.gainDb} label="Gun" small />
                   : <AudioButton src={h.audio} />)}
               </div>
-            </div>
-          )}
+            ) : (
+              <span className="text-xs text-ash">{t.lock.hintLocked(h.after, wrong)}</span>
+            )}
+          </motion.div>
         </li>
       ))}
     </ul>
