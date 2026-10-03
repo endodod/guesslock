@@ -6,6 +6,12 @@ import {
 import type { AbilityStat, NormAbility, NormHero, NormItem, StatBonus } from "./types";
 import { formatValue, renderTemplate } from "../text/render";
 
+/**
+ * Where the API's gender contradicts the game, checked against the Deadlock Wiki: Calico is She/Her; Pocket is
+ * They/Them in the game's own voice lines (null = neither male nor female, like Sinclair).
+ */
+const GENDER_FIX: Record<string, string | null> = { hero_nano: "female", hero_synth: null };
+
 export type SyncIssue = { entity: string; id: string; reason: string };
 
 export type Normalized = {
@@ -114,7 +120,7 @@ export function normalizeAll(heroesRaw: unknown[], itemsRaw: unknown[]): Normali
       id: h.id,
       className: h.class_name,
       name: h.name,
-      gender: h.gender ?? null,
+      gender: h.class_name in GENDER_FIX ? GENDER_FIX[h.class_name] : h.gender ?? null,
       heroType: h.hero_type ?? null,
       complexity: h.complexity ?? null,
       gunTag: h.gun_tag ?? null,

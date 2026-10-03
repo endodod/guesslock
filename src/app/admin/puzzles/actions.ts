@@ -8,6 +8,7 @@ import { generateDay, overridePuzzle } from "@/lib/engine/generate";
 import { todayDate } from "@/lib/day";
 import { LOCK_BY_SLUG } from "@/locks.config";
 import { puzzlesChanged } from "@/lib/server/cache";
+import { clearFuturePuzzles, rebuildFuturePuzzles, summarize } from "@/lib/admin/future";
 
 function done() {
   updateTag("catalog");
@@ -58,4 +59,23 @@ export async function overrideAnswer(slug: string, date: string, form: FormData)
   if (date < todayDate()) throw new Error("Past days stay as they were played.");
   await overridePuzzle(date, slug, answerId);
   done();
+}
+
+// ───────────── future days (tomorrow on) ─────────────
+
+/** Delete future puzzles: one day and/or one lock, or everything after today. The daily job rebuilds them. */
+export async function clearFuture(date?: string, slug?: string): Promise<string> {
+  await requireAdmin();
+  const n = await clearFuturePuzzles({ date, slugs: slug ? [slug, `${slug}-hard`] : undefined });
+  done();
+  return `${n} puzzle${n === 1 ? "" : "s"} removed. The daily job (14:00 UTC) rebuilds them, or use "Rebuild now".`;
+}
+
+/** Build future puzzles again from today's data: one day, or one lock on every future day. */
+export async function rebuildFuture(date?: string, slug?: string): Promise<string> {
+  await requireAdmin();
+  if (!date && !slug) throw new Error("Pick a day or a lock (all locks on all days takes too long; clear them instead).");
+  const r = await rebuildFuturePuzzles({ date, slugs: slug ? [slug, `${slug}-hard`] : undefined });
+  done();
+  return summarize(r);
 }

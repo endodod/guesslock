@@ -275,6 +275,38 @@ model Scenario {
   @@index([dailyDate])
 }
 
+// Player reports from /feedback: a bug in one puzzle ("bug": date + lock), or a wrong data value ("data": an entity, the field
+// and optionally the right value). Reviewed in /admin/feedback.
+model Feedback {
+  id           Int      @id @default(autoincrement())
+  kind         String // "bug" | "data"
+  date         String? // bug: puzzle day (YYYY-MM-DD)
+  lock         String? // bug: lock slug
+  entity       String? // data: "hero" | "item" | "ability"
+  entityId     Int?
+  entityName   String?
+  field        String? // data: category key, or "other"
+  fieldLabel   String?
+  currentValue String? // what the reporter saw
+  suggested    String? // the reporter's fix, optional
+  description  String   @default("")
+  page         String? // where the report was started
+  userId       String? // signed-in reporter
+  status       String   @default("open") // "open" | "fixed" | "dismissed"
+  adminNote    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// Small admin-edited settings by key, e.g. "weapon-groups" (weapon type -> Reckoning weapon family, see engine/columns.ts).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 // Admin-editable detection tuning (overrides DEFAULT_TUNING in src/lib/omens/scenario.ts).
 model OmenConfig {
   key       String   @id

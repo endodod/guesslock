@@ -1,12 +1,13 @@
 // In-memory view of the DB used to generate puzzles and to build the guess catalog.
 // Curation values override API values where both exist.
 import { db } from "../db";
+import { readSetting } from "../settings";
 import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
 import { mediaUrl } from "../media";
 import { usableText } from "../text/entries";
 import { parseSetup, type HeroSetup } from "../admin/setup";
 import { DEFAULT_EMOJIS } from "../data/emojis";
-import { HERO_COLUMNS, ITEM_COLUMNS, resolveColumns, type Attrs, type ColumnDef } from "./columns";
+import { HERO_COLUMNS, ITEM_COLUMNS, WEAPON_GROUPS_KEY, parseWeaponGroups, resolveColumns, weaponFamily, weaponInfo, type Attrs, type ColumnDef, type WeaponGroups } from "./columns";
 
 export type HeroData = {
   id: number;
@@ -20,6 +21,10 @@ export type HeroData = {
   gender: string | null;
   species: string | null;
   weaponType: string | null;
+  /** Weapon family from the admin's weapon groups (The Reckoning's Weapon column). Unset: the default groups apply. */
+  weaponFamily?: string | null;
+  /** The family of the API's own weapon type (what an admin override of the Weapon column is compared to). */
+  apiWeaponFamily?: string | null;
   releaseDate: string | null;
   emojis: string[];
   emojisReviewed: boolean;
@@ -93,6 +98,8 @@ export type GameData = {
   /** Attribute columns with admin category settings applied (see columns.ts). */
   heroColumns: ColumnDef<HeroData>[];
   itemColumns: ColumnDef<ItemData>[];
+  /** Weapon type -> family table (edited in /admin/weapons). */
+  weaponGroups: WeaponGroups;
 };
 
 /** Category values: plain strings/numbers only. */
@@ -104,7 +111,7 @@ export function parseAttrs(raw: unknown): Attrs {
 }
 
 export async function loadGameData(): Promise<GameData> {
-  const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps, entryRows] = await Promise.all([
+  const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps, entryRows, groupsRow] = await Promise.all([
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -116,7 +123,9 @@ export async function loadGameData(): Promise<GameData> {
     db.soundClip.findMany({ where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" } }),
     db.heroSoundMap.findMany(),
     db.voiceEntry.findMany({ where: { status: "approved" }, orderBy: { id: "asc" } }),
+    readSetting(WEAPON_GROUPS_KEY),
   ]);
+  const weaponGroups = parseWeaponGroups(groupsRow?.value);
   const entriesBy = new Map<string, VoiceEntryData[]>();
   for (const e of entryRows) {
     const k = `${e.heroId}:${e.kind}`;
@@ -141,6 +150,8 @@ export async function loadGameData(): Promise<GameData> {
       gender: h.genderOverride || src.gender,
       species: h.species,
       weaponType: h.weaponTypeOverride || src.gunTag,
+      weaponFamily: weaponFamily(h.weaponTypeOverride || src.gunTag, weaponGroups),
+      apiWeaponFamily: weaponFamily(src.gunTag, weaponGroups),
       releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null,
       // The Cipher needs 10: a hero without a complete set uses the default one (the sync also stores it).
       emojis: h.emojis.length >= 10 ? h.emojis : DEFAULT_EMOJIS[h.name] ?? h.emojis,
@@ -215,7 +226,9 @@ export async function loadGameData(): Promise<GameData> {
     },
     buildsInto: (cls) => items.filter((i) => i.src.componentClassNames.includes(cls)).map((i) => i.src),
     itemByClass: (cls) => itemByClass.get(cls),
-    heroColumns: resolveColumns("hero", HERO_COLUMNS, categories),
+    // The Weapon column's default explanation lists the current groups (an admin-written one still wins).
+    heroColumns: resolveColumns("hero", HERO_COLUMNS.map((c) => (c.key === "weapon" ? { ...c, info: weaponInfo(weaponGroups) } : c)), categories),
+    weaponGroups,
     itemColumns: resolveColumns("item", ITEM_COLUMNS, categories),
   };
 }

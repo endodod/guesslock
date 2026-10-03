@@ -18,8 +18,8 @@ function TileCell({ tile, index, animate }: { tile: Tile; index: number; animate
       transition={{ delay: animate ? index * 0.12 : 0, duration: 0.3 }}
       className="p-0.5"
     >
-      <div aria-label={label} className={`tile-${tile.result} flex h-16 min-w-[4.6rem] flex-col items-center justify-center rounded-sm px-1 text-center`}>
-        <span className="line-clamp-2 text-[0.8rem] font-semibold leading-tight">{tile.display}</span>
+      <div aria-label={label} title={tile.display} className={`tile-${tile.result} flex h-[4.5rem] min-w-[5.25rem] flex-col items-center justify-center rounded-sm px-1 text-center`}>
+        <span className="line-clamp-3 break-words text-[0.75rem] font-semibold leading-tight">{tile.display}</span>
         <Icon name={icon as "check"} className="mt-0.5 h-4 w-4 opacity-80" />
       </div>
     </motion.td>
@@ -41,7 +41,7 @@ export function AttributeGrid({ columns, rows }: { columns: ColumnMeta[]; rows: 
               <th key={c.key} className="relative p-1 text-xs font-normal text-ash">
                 <button
                   type="button"
-                  className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap hover:text-paper"
+                  className="inline-flex min-h-8 items-center justify-center gap-1 text-balance leading-tight hover:text-paper"
                   onClick={() => setOpenInfo(openInfo === c.key ? null : c.key)}
                   aria-expanded={openInfo === c.key}
                 >
@@ -63,7 +63,7 @@ export function AttributeGrid({ columns, rows }: { columns: ColumnMeta[]; rows: 
             return (
               <tr key={r.id}>
                 <th scope="row" className="sticky left-0 z-10 bg-ink p-0.5">
-                  <div className={`flex h-16 w-16 items-center justify-center rounded-sm border ${r.correct ? "border-ecto" : "border-brass/30"} bg-iron`} title={r.name}>
+                  <div className={`flex h-[4.5rem] w-16 items-center justify-center rounded-sm border ${r.correct ? "border-ecto" : "border-brass/30"} bg-iron`} title={r.name}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {r.icon ? <img src={r.icon} alt={r.name} className="h-14 w-14 object-contain" /> : <span className="text-xs">{r.name}</span>}
                   </div>

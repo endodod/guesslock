@@ -6,6 +6,11 @@ import { config } from "@/lib/config";
 import type { NormHero } from "@/lib/deadlock/types";
 import { mediaUrl } from "@/lib/media";
 import { saveAbility, saveHero } from "../../actions";
+import { rebuildDataPuzzles, saveValues } from "../../categories/actions";
+import { apiValue, cellSource } from "@/lib/admin/categories";
+import { loadGameData } from "@/lib/engine/context";
+import type { Attrs, ColumnDef } from "@/lib/engine/columns";
+import { AttributeEditor, type AttrField } from "./AttributeEditor";
 import { ExcludeBoxes, HERO_MODE_OPTIONS, MODE_OPTIONS } from "../../shared";
 import { EmojiEditor } from "./EmojiEditor";
 import { VoiceLineManager } from "./VoiceLineManager";
@@ -13,6 +18,9 @@ import { Card, PageHeader, Pill } from "../../kit";
 
 const HERO_MODES = HERO_MODE_OPTIONS;
 const ABILITY_MODES = MODE_OPTIONS.filter(([m]) => ["ability-icon", "ability-desc", "upgrades", "hero-sound", "ability-stats"].includes(m));
+
+// "Rebuild future puzzles" runs the generator inside the action.
+export const maxDuration = 300;
 
 export default async function HeroAdmin({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
@@ -25,6 +33,19 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
   const src = hero.source as unknown as NormHero;
   const others = await db.hero.findMany({ where: { id: { not: hero.id }, active: true }, select: { name: true, emojis: true } });
   const input = "w-full rounded border border-neutral-400 px-2 py-1";
+  // Every category (built-in, curated, custom) with its current value, where it comes from and the API value.
+  const data = await loadGameData();
+  const row = data.hero(hero.id);
+  const fields: AttrField[] = row
+    ? (data.heroColumns as ColumnDef<{ attrs: Attrs }>[]).map((c) => {
+        const v = c.get(row, data);
+        const api = apiValue("hero", c, row, data);
+        return {
+          key: c.key, label: c.label, type: c.type, unit: c.unit, info: c.info, custom: c.custom, disabled: c.disabled,
+          value: v === null ? "" : String(v), source: cellSource("hero", c, row, v), api: api === null ? undefined : String(api),
+        };
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -50,18 +71,6 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
 
       <Card title="Curation" hint="Overrides and exclusions used by puzzle generation">
         <form action={saveHero.bind(null, hero.id)} className="grid gap-3 md:grid-cols-2">
-          <label>Species <span className="text-xs text-neutral-500">(comma-separate multiple, e.g. &quot;Human, Undead&quot;)</span>
-            <input name="species" defaultValue={hero.species ?? ""} className={input} />
-          </label>
-          <label>Release date <span className="text-xs text-neutral-500">(when the hero became playable)</span>
-            <input name="releaseDate" type="date" defaultValue={hero.releaseDate?.toISOString().slice(0, 10) ?? ""} className={input} />
-          </label>
-          <label>Gender override <span className="text-xs text-neutral-500">(API: {src.gender ?? "none"})</span>
-            <input name="genderOverride" defaultValue={hero.genderOverride ?? ""} className={input} />
-          </label>
-          <label>Weapon type override <span className="text-xs text-neutral-500">(API: {src.gunTag ?? "none"})</span>
-            <input name="weaponTypeOverride" defaultValue={hero.weaponTypeOverride ?? ""} className={input} />
-          </label>
           <label className="md:col-span-2">Aliases <span className="text-xs text-neutral-500">(comma-separated; used for search and redaction, e.g. nicknames, factions that give the hero away)</span>
             <input name="aliases" defaultValue={hero.aliases.join(", ")} className={input} />
           </label>
@@ -69,6 +78,14 @@ export default async function HeroAdmin({ params }: { params: Promise<{ id: stri
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="markReviewed" defaultChecked={hero.needsReview} /> Mark reviewed</label>
           <div><button className="rounded bg-neutral-900 px-4 py-1.5 text-white">Save</button></div>
         </form>
+      </Card>
+
+      <Card id="attributes" title="Attributes" hint="Every category of The Reckoning and The Constellation, including custom ones (Role, Height…). Blue = set by admin, red = missing.">
+        {row ? (
+          <AttributeEditor id={hero.id} fields={fields} save={saveValues.bind(null, "hero")} rebuild={rebuildDataPuzzles.bind(null, "hero")} />
+        ) : (
+          <p className="text-sm text-neutral-500">This hero is not in the current game data (inactive), so it has no category values.</p>
+        )}
       </Card>
 
       <Card title="Abilities" hint="Aliases and mode availability for this hero">

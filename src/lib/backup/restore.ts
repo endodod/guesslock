@@ -12,6 +12,7 @@ export type CurationBackup = {
   takenAt?: string;
   heroes?: Row[]; categories?: Row[]; voiceEntries?: Row[]; soundClips?: Row[]; soundMaps?: Row[]; texts?: Row[];
   seance?: (Row & { memberships?: Row[] })[];
+  settings?: Row[];
 };
 
 export type RestoreCounts = Record<string, { restored: number; skipped: number }>;
@@ -56,6 +57,12 @@ export async function restoreCuration(b: CurationBackup, opts: { audio?: boolean
     };
     await db.category.upsert({ where: { key: String(c.key) }, create: { key: String(c.key), ...data }, update: data });
     tally("categories", true);
+  }
+
+  for (const st of b.settings ?? []) {
+    if (typeof st.key !== "string" || st.value === null || st.value === undefined) { tally("settings", false); continue; }
+    await db.setting.upsert({ where: { key: st.key }, create: { key: st.key, value: st.value as Json }, update: { value: st.value as Json } });
+    tally("settings", true);
   }
 
   for (const e of b.voiceEntries ?? []) {

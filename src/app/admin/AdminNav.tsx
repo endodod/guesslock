@@ -15,7 +15,7 @@ const GROUPS: { id: string; title: string }[] = [
   { id: "stars", title: "More locks" },
 ];
 
-const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;
+const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/feedback", "Feedback"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;
 
 function Brand() {
   return (
@@ -49,7 +49,7 @@ export function AdminNav({ locks, setup }: { locks: NavLock[]; setup: boolean })
 
   const active = (href: string) => isActive(path, href);
   const library: [string, string][] = [
-    ["/admin/heroes", "Heroes"], ["/admin/abilities", "Abilities"], ["/admin/items", "Items"], ["/admin/categories", "Categories"],
+    ["/admin/heroes", "Heroes"], ["/admin/abilities", "Abilities"], ["/admin/items", "Items"], ["/admin/categories", "Categories"], ["/admin/weapons", "Weapon groups"],
     ["/admin/texts", "Texts"], ["/admin/sounds", "Sounds"], ["/admin/seance", "Séance groups"],
     ...(setup ? [["/admin/setup", "Hero setup"] as [string, string]] : []),
   ];

@@ -118,10 +118,11 @@ export async function saveHero(heroId: number, form: FormData) {
   await db.hero.update({
     where: { id: heroId },
     data: {
-      species: String(form.get("species") ?? "").trim() || null,
-      releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(release) ? new Date(release + "T00:00:00Z") : null,
-      genderOverride: String(form.get("genderOverride") ?? "").trim() || null,
-      weaponTypeOverride: String(form.get("weaponTypeOverride") ?? "").trim() || null,
+      // Category fields only when the form has them (the hero page edits them in its Attributes card).
+      ...(form.has("species") ? { species: String(form.get("species") ?? "").trim() || null } : {}),
+      ...(form.has("releaseDate") ? { releaseDate: /^\d{4}-\d{2}-\d{2}$/.test(release) ? new Date(release + "T00:00:00Z") : null } : {}),
+      ...(form.has("genderOverride") ? { genderOverride: String(form.get("genderOverride") ?? "").trim() || null } : {}),
+      ...(form.has("weaponTypeOverride") ? { weaponTypeOverride: String(form.get("weaponTypeOverride") ?? "").trim() || null } : {}),
       aliases: list(form.get("aliases")),
       excludeFromModes: form.getAll("exclude").map(String),
       ...(form.get("markReviewed") ? { needsReview: false, reviewReasons: [] } : {}),

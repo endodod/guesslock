@@ -21,7 +21,7 @@ export default async function EndlessLockPage({ params, searchParams }: { params
   const catalog = await getCatalog();
   const entries = lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item" || lock.guess === "grid") ? [] : catalog[lock.guess === "grid" ? "hero" : lock.guess];
   return (
-    <div className="mx-auto max-w-[760px] px-4 py-5 md:py-8">
+    <div className={`mx-auto px-4 py-5 md:py-8 ${lock.mode === "classic" || lock.mode === "item-classic" ? "max-w-5xl" : "max-w-[760px]"}`}>
       <div className="mb-5 flex items-center gap-3">
         <Link href="/endless" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-brass/30 text-brass hover:border-brass" aria-label="All endless locks">
           <Icon name="back" />

@@ -73,23 +73,46 @@ const fmtDate = (v: CellValue) => {
 };
 
 /**
- * The picker lists thirteen weapon types, most with one or two heroes: too fine for a guessing column. They fold into five
- * families (a type not listed here, e.g. a new one, stands for itself until it is added).
+ * The picker lists thirteen weapon types, most with one or two heroes: too fine for a guessing column. They fold into
+ * families. The table is edited in /admin/weapons (Setting "weapon-groups"); this is the default until it is saved.
+ * Keys are lower-case weapon types; a type not listed (e.g. a new one) stands for itself until it is added.
  */
-const WEAPON_FAMILY: Record<string, string> = {
+export type WeaponGroups = Record<string, string>;
+export const WEAPON_GROUPS_KEY = "weapon-groups";
+export const DEFAULT_WEAPON_GROUPS: WeaponGroups = {
   "pistol": "Pistol",
   "rapid fire": "Rapid fire", "burst fire": "Rapid fire",
   "spreadshot": "Spread", "shotgun": "Spread", "close range": "Spread",
   "long range": "Long range", "bow": "Long range", "crossbow": "Long range",
   "heavy hitter": "Heavy & special", "heavy artillery": "Heavy & special", "projectile": "Heavy & special", "beam weapon": "Heavy & special",
 };
-export const weaponFamily = (type: string | null): string | null => (type ? WEAPON_FAMILY[type.trim().toLowerCase()] ?? type : null);
+export const weaponKey = (type: string) => type.trim().toLowerCase();
+export const weaponFamily = (type: string | null, groups: WeaponGroups = DEFAULT_WEAPON_GROUPS): string | null =>
+  type ? groups[weaponKey(type)] ?? type.trim() : null;
+
+/** A stored table, cleaned: lower-case keys, trimmed non-empty family names. Anything else falls back to the default. */
+export function parseWeaponGroups(raw: unknown): WeaponGroups {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return DEFAULT_WEAPON_GROUPS;
+  const out: WeaponGroups = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>))
+    if (typeof v === "string" && v.trim() && k.trim()) out[weaponKey(k)] = v.trim();
+  return Object.keys(out).length ? out : DEFAULT_WEAPON_GROUPS;
+}
+
+/** The Weapon column's player explanation, written from the table: "Pistol, Spread (shotgun, spreadshot) or …". */
+export function weaponInfo(groups: WeaponGroups): string {
+  const by = new Map<string, string[]>();
+  for (const [type, fam] of Object.entries(groups)) by.set(fam, [...(by.get(fam) ?? []), type]);
+  const parts = [...by].map(([fam, types]) => (types.length === 1 && weaponKey(fam) === types[0] ? fam : `${fam} (${types.join(", ")})`));
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} or ${parts.at(-1)}` : parts[0] ?? "";
+  return `Weapon family: ${list}.`;
+}
 
 export const HERO_COLUMNS: ColumnDef<HeroData>[] = [
   { key: "gender", label: "Gender", info: "The hero's gender.", type: "exact", get: (h) => h.gender, format: (v) => (v ? cap(String(v)) : "?") },
   { key: "archetype", label: "Archetype", info: "Brawler, Assassin, Marksman or Mystic, as in the hero picker.", type: "exact", curated: true, get: (h) => (h.src.heroType ? cap(h.src.heroType) : null) },
   { key: "species", label: "Species", info: "What the hero is. Orange means at least one shared species.", type: "multi", curated: true, get: (h) => h.species },
-  { key: "weapon", label: "Weapon", info: "Weapon family: Pistol, Rapid fire (rapid and burst), Spread (spreadshot, shotgun, close range), Long range (long range, bow, crossbow) or Heavy & special.", type: "exact", get: (h) => weaponFamily(h.weaponType) },
+  { key: "weapon", label: "Weapon", info: weaponInfo(DEFAULT_WEAPON_GROUPS), type: "exact", get: (h) => (h.weaponFamily !== undefined ? h.weaponFamily : weaponFamily(h.weaponType)) },
   { key: "health", label: "Health", info: "Base max health at level 1. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.maxHealth },
   { key: "stamina", label: "Stamina", info: "Starting stamina for dashes. Arrows point toward the answer.", type: "numeric", get: (h) => h.src.stamina },
   { key: "damage", label: "Bullet damage", info: "Base damage per bullet (per pellet for spread weapons). Arrows point toward the answer.", type: "numeric", get: (h) => h.src.bulletDamage, format: (v) => (v == null ? "?" : String(Math.round(Number(v) * 10) / 10)) },

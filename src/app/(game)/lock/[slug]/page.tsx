@@ -52,6 +52,8 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   const back = date < today ? `/archive/${date}` : "/";
 
   const isOmen = lock.group === "omens";
+  // The attribute locks need room for a tile per category.
+  const wide = lock.mode === "classic" || lock.mode === "item-classic";
   // The Séance: all four tables are rendered (as tabs); each starts from its empty view.
   const seance = lock.box
     ? await Promise.all(seanceLocksOf(lock.box).map(async (l) => {
@@ -64,7 +66,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
   // Start downloading the clue picture with the page instead of after the game component has loaded.
   if (initialView?.clue && "image" in initialView.clue && initialView.clue.image) preload(initialView.clue.image, { as: "image" });
   return (
-    <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : seance ? "max-w-[820px]" : "max-w-[760px]"}`}>
+    <div className={`mx-auto px-4 py-5 md:py-8 ${isOmen ? "max-w-6xl" : wide ? "max-w-5xl" : seance ? "max-w-[820px]" : "max-w-[760px]"}`}>
       <div className="mb-5 flex items-center gap-3">
         <Link href={back} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-brass/30 text-brass hover:border-brass" aria-label={t.nav.back}>
           <Icon name="back" />
@@ -117,6 +119,14 @@ export default async function LockPage({ params, searchParams }: { params: Promi
         <DecoFrame className="p-8 text-center">
           <p className="font-display text-xl">{t.lock.empty}</p>
         </DecoFrame>
+      )}
+      {/* LockGame has its own report link; the Séance, the Omens and an empty lock get theirs here. */}
+      {!(row && !isOmen && !lock.box) && (
+        <p className="mt-4 text-center text-xs">
+          <Link className="inline-flex min-h-11 items-center text-ash underline-offset-4 hover:text-paper hover:underline" href={`/feedback?kind=bug&lock=${slug}&date=${date}`}>
+            Something wrong with this puzzle? Report it
+          </Link>
+        </p>
       )}
     </div>
   );

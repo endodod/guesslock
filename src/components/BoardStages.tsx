@@ -83,9 +83,8 @@ export function CacheStage({ clue, onGuess, busy, disabled, done }: { clue: Extr
   const pick = clue.locked.map((l, i) => l ?? (choice[i] && !clue.locked.includes(choice[i]) ? choice[i] : null));
   const hero = (id: string | null) => clue.heroes.find((h) => h.id === id);
   const complete = pick.every(Boolean) && new Set(pick).size === n;
-  // A hero already chosen for another inventory can't be picked here (the option is disabled): free it there first, so one choice
-  // never silently clears another.
-  const assign = (i: number, id: string) => setChoice(pick.map((x, k) => (k === i ? id || null : x)));
+  // Picking a hero already chosen for another (unlocked) inventory moves it here and frees that inventory.
+  const assign = (i: number, id: string) => setChoice(pick.map((x, k) => (k === i ? id || null : id && x === id && !clue.locked[k] ? null : x)));
   return (
     <div className="clue-layer space-y-3">
       <p className="text-center text-sm text-ash">The {clue.team} team at the end of the match. Who carried which inventory?</p>
@@ -131,8 +130,8 @@ export function CacheStage({ clue, onGuess, busy, disabled, done }: { clue: Extr
                 >
                   <option value="">Choose a hero…</option>
                   {clue.heroes.map((x) => (
-                    <option key={x.id} value={x.id} disabled={(clue.locked.includes(x.id) && locked !== x.id) || (pick.includes(x.id) && pick[i] !== x.id)}>
-                      {x.name}{pick.includes(x.id) && pick[i] !== x.id ? ` (inventory ${pick.indexOf(x.id) + 1})` : ""}
+                    <option key={x.id} value={x.id} disabled={clue.locked.includes(x.id) && locked !== x.id}>
+                      {x.name}{pick.includes(x.id) && pick[i] !== x.id ? ` (move from inventory ${pick.indexOf(x.id) + 1})` : ""}
                     </option>
                   ))}
                 </select>

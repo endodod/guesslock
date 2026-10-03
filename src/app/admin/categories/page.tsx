@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { cellSource, type Entity } from "@/lib/admin/categories";
+import { apiValue, cellSource, type Entity } from "@/lib/admin/categories";
 import { db } from "@/lib/db";
 import { loadGameData } from "@/lib/engine/context";
 import { activeColumns, COMPARE_TYPES, HERO_COLUMNS, ITEM_COLUMNS, type Attrs, type ColumnDef } from "@/lib/engine/columns";
 import { ActionButton } from "../ui";
-import { addCategory, deleteCategory, saveCategory, saveValues } from "./actions";
+import { addCategory, deleteCategory, rebuildDataPuzzles, saveCategory, saveValues } from "./actions";
 import { ValuesGrid, type GridRow } from "./ValuesGrid";
 import { Card, PageHeader, Pill, Stat } from "../kit";
 
 export const dynamic = "force-dynamic";
+// "Rebuild future puzzles" runs the generator inside the action.
+export const maxDuration = 300;
 
 const TYPE_HELP: Record<string, string> = {
   exact: "Exact match (green on equality)",
@@ -36,9 +38,11 @@ export default async function Categories({ searchParams }: { searchParams: Promi
   const gridRows: GridRow[] = all.map((r) => ({
     id: r.id, name: r.name, icon: (isHero ? r.icon : r.image) ?? null,
     sub: isHero ? undefined : `${r.src.slot} T${r.src.tier}`,
+    href: isHero ? `/admin/heroes/${r.id}` : undefined,
     cells: Object.fromEntries(cols.map((c) => {
       const v = c.get(r, data);
-      return [c.key, { value: v === null ? "" : String(v), source: cellSource(entity, c, r, v) }];
+      const api = apiValue(entity, c, r, data);
+      return [c.key, { value: v === null ? "" : String(v), source: cellSource(entity, c, r, v), api: api === null ? undefined : String(api) }];
     })),
   }));
 
@@ -143,6 +147,9 @@ export default async function Categories({ searchParams }: { searchParams: Promi
                             Save
                           </button>
                         </form>
+                        <Link href={`/admin/categories/${encodeURIComponent(c.key)}?entity=${entity}`} className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-blue-700 shadow-sm hover:bg-neutral-50">
+                          Values
+                        </Link>
                         {!builtin && (
                           <ActionButton action={deleteCategory.bind(null, entity, c.key)} label="Delete" confirm={`Delete "${c.label}" and all its values?`} />
                         )}
@@ -183,12 +190,13 @@ export default async function Categories({ searchParams }: { searchParams: Promi
         </div>
       </Card>
 
-      <Card title={`Attribute Values (${all.length} ${isHero ? "heroes" : "items"})`} hint="Direct spreadsheet-style cell editor with immediate persistence.">
+      <Card id="values" title={`Attribute Values (${all.length} ${isHero ? "heroes" : "items"})`} hint="Filter by any category, edit any cell, then rebuild the future puzzles that use these values.">
         <ValuesGrid
           entity={entity}
           cols={cols.map((c) => ({ key: c.key, label: c.label, type: c.type, unit: c.unit, disabled: c.disabled, custom: c.custom }))}
           rows={gridRows}
           save={saveValues.bind(null, entity)}
+          rebuild={rebuildDataPuzzles.bind(null, entity)}
         />
       </Card>
     </div>

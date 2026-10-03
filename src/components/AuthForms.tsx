@@ -2,7 +2,7 @@
 // Sign-in / sign-up / code / reset forms, styled like the vault.
 import Link from "next/link";
 import { useActionState } from "react";
-import { resetPassword, sendSignInCode, signIn, signUp, type FormState } from "@/app/(game)/auth/actions";
+import { resetPassword, sendSignInCode, setNewPassword, signIn, signUp, type FormState } from "@/app/(game)/auth/actions";
 import { DecoFrame, Keyhole } from "./ui";
 
 const input =
@@ -132,23 +132,38 @@ export function CodeForm({ next }: { next: string }) {
 
 export function ResetForm() {
   const [state, action, pending] = useActionState(resetPassword, null);
-  const codeStage = state?.stage === "code";
   return (
-    <Shell title="Reset your password" sub="We email you a code; then choose a new password.">
+    <Shell title="Reset your password" sub="We email you a link; open it to choose a new password.">
       <form action={action} className="space-y-4">
-        {codeStage ? (
-          <>
-            <input type="hidden" name="email" value={state?.email} />
-            <Field label="Code from the email" name="otp" autoComplete="one-time-code" inputMode="numeric" maxLength={10} />
-            <Field label="New password" name="password" type="password" autoComplete="new-password" minLength={8} hint="At least 8 characters." />
-          </>
-        ) : (
-          <Field label="Email" name="email" type="email" autoComplete="email" defaultValue={state?.values?.email} />
-        )}
+        <Field label="Email" name="email" type="email" autoComplete="email" defaultValue={state?.values?.email} />
         <Status state={state} />
-        <Submit pending={pending} label={codeStage ? "Set new password" : "Send code"} busy="…" />
+        <Submit pending={pending} label={state?.ok ? "Send the link again" : "Send reset link"} busy="…" />
       </form>
       <p className="mt-5 text-center text-sm"><Link className={link} href="/auth/sign-in">Back to sign in</Link></p>
+    </Shell>
+  );
+}
+
+/** The page an emailed reset link opens (/auth/reset?token=…). */
+export function NewPasswordForm({ token }: { token: string }) {
+  const [state, action, pending] = useActionState(setNewPassword, null);
+  const done = state?.stage === "code" && !!state.ok;
+  return (
+    <Shell title="Choose a new password" sub="Pick a new password for your account.">
+      {done ? (
+        <div className="space-y-4">
+          <Status state={state} />
+          <p className="text-center"><Link className={link} href="/auth/sign-in">Sign in</Link></p>
+        </div>
+      ) : (
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="token" value={token} />
+          <Field label="New password" name="password" type="password" autoComplete="new-password" minLength={8} hint="At least 8 characters." />
+          <Status state={state} />
+          <Submit pending={pending} label="Set new password" busy="…" />
+        </form>
+      )}
+      <p className="mt-5 text-center text-sm"><Link className={link} href="/auth/reset">Ask for a new link</Link></p>
     </Shell>
   );
 }

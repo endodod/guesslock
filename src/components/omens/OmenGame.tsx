@@ -116,13 +116,19 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
       const hp = tr.hp[i] <= 0 || tr.hp[j] <= 0 ? tr.hp[i] : lerp(tr.hp[i], tr.hp[j], f);
       const trail = Array.from({ length: 5 }, (_, k) => i - 5 + k).map((x) => (x >= 0 ? tr.pos[x] : h.trail[h.trail.length + x] ?? h.pos));
       const alive = hp > 0;
-      // A hero who died stays where they fell.
-      const fell = alive ? undefined : [...past].reverse().find((e) => e.type === "death" && e.key === h.key);
-      return {
-        ...base, alive, hp: Math.round(hp), maxHp: tr.maxHp[i],
-        pos: fell?.type === "death" ? fell.pos : ([lerp(tr.pos[i][0], tr.pos[j][0], f), lerp(tr.pos[i][1], tr.pos[j][1], f)] as [number, number]),
-        trail, respawnIn: alive ? 0 : h.alive ? 0 : Math.max(0, Math.ceil(h.respawnIn - time)),
-      };
+      if (alive) {
+        return { ...base, alive, hp: Math.round(hp), maxHp: tr.maxHp[i], trail, respawnIn: 0, pos: [lerp(tr.pos[i][0], tr.pos[j][0], f), lerp(tr.pos[i][1], tr.pos[j][1], f)] as [number, number] };
+      }
+      // A dead hero stays where they fell (the replay track keeps moving them, e.g. to spawn): the death event's spot,
+      // else the last tracked second they were alive, else the snapshot position (dead from the start).
+      const fell = [...past].reverse().find((e) => e.type === "death" && e.key === h.key);
+      let lastAlive = -1;
+      for (let k = i; k >= 0; k--) if (tr.hp[k] > 0) { lastAlive = k; break; }
+      const pos = fell?.type === "death" ? fell.pos : lastAlive >= 0 ? tr.pos[lastAlive] : h.pos;
+      // Respawn timer: the next tracked second with health, else the snapshot's timer for heroes dead from the start.
+      const back = tr.hp.findIndex((v, k) => k > i && v > 0);
+      const respawnIn = back >= 0 ? Math.max(0, Math.ceil(back - time)) : !h.alive ? Math.max(0, Math.ceil(h.respawnIn - time)) : 0;
+      return { ...base, alive, hp: 0, maxHp: tr.maxHp[i], pos, trail: [], respawnIn };
     });
     const markers: MapMarker[] = [];
     for (const [n, e] of past.entries()) {
@@ -181,7 +187,9 @@ export function OmenGame({ omen, initial, cat, map, saved, submit, onLocked, foo
     }
   };
 
-  const panelsProps = { snapshot: s, cat, showNames: !!reveal, hovered, onHover: setHovered };
+  // The panels follow the playback: health, deaths and respawn timers of the current frame.
+  const live = useMemo(() => Object.fromEntries(frame.heroes.map((h) => [h.key, { hp: h.hp, maxHp: h.maxHp, alive: h.alive, respawnIn: h.respawnIn }])), [frame.heroes]);
+  const panelsProps = { snapshot: s, cat, showNames: !!reveal, hovered, onHover: setHovered, live };
   const [tab, setTab] = useState<Team>("amber");
 
   return (

@@ -14,7 +14,7 @@ export const HERO_LOOKS: TagDef[] = [
   { tag: "facialhair", label: "Has a beard or mustache", explanation: "Each portrait shows facial hair.", difficulty: 1, members: ["Abrams", "Kelvin", "Shiv", "Warden", "Lash", "Mirage", "Sinclair", "Venator"] },
   { tag: "horns", label: "Has horns", explanation: "Each portrait shows horns (a unicorn horn counts).", difficulty: 2, members: ["Abrams", "Billy", "Apollo", "Celeste"] },
   { tag: "glowing", label: "Has glowing eyes", explanation: "Each portrait shows eyes that glow.", difficulty: 2, members: ["Vindicta", "Haze", "Bebop", "Drifter", "Billy"] },
-  { tag: "animal", label: "Has an animal or creature face", explanation: "Each portrait shows a creature or animal face.", difficulty: 2, members: ["Vyper", "Ivy", "Mo & Krill", "Billy", "Rem"] },
+  { tag: "animal", label: "Has an animal or creature face", explanation: "Each portrait shows a creature or animal face.", difficulty: 2, members: ["Vyper", "Ivy", "Mo & Krill", "Billy", "Rem", "Rat King"] },
   { tag: "faceless", label: "No face shown", explanation: "Each portrait hides the face behind a helmet, dome, blob or shadow.", difficulty: 2, members: ["Seven", "Paradox", "Dynamo", "Bebop", "Viscous", "Haze"] },
   { tag: "longhair", label: "Has long hair", explanation: "Each portrait shows long hair.", difficulty: 2, members: ["Vindicta", "Lady Geist", "Grey Talon", "Victor", "Silver", "Celeste"] },
   { tag: "redhair", label: "Has red or orange hair", explanation: "Each portrait shows red or orange hair.", difficulty: 3, members: ["Kelvin", "Paige", "The Doorman", "McGinnis"] },
@@ -33,7 +33,7 @@ export const HERO_LOOKS: TagDef[] = [
 const HERO_REVIEWED = [
   "Abrams", "Apollo", "Bebop", "Billy", "Calico", "Celeste", "Drifter", "Dynamo", "Graves", "Grey Talon", "Haze", "Holliday", "Infernus", "Ivy", "Kelvin",
   "Lady Geist", "Lash", "McGinnis", "Mina", "Mirage", "Mo & Krill", "Paige", "Paradox", "Pocket", "Rem", "Seven", "Shiv", "Silver", "Sinclair", "The Doorman",
-  "Venator", "Victor", "Vindicta", "Viscous", "Vyper", "Warden", "Wraith", "Yamato",
+  "Venator", "Victor", "Vindicta", "Viscous", "Vyper", "Warden", "Wraith", "Yamato", "Rat King",
 ];
 
 export function deriveCuratedVisuals(norm: Pick<Normalized, "heroes" | "items" | "abilities">): DerivedCategory[] {

@@ -4,14 +4,16 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin/auth";
 import { saveCategoryValues, type Entity } from "@/lib/admin/categories";
 import { COMPARE_TYPES, HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
+import { clearFuturePuzzles, rebuildFuturePuzzles, slugsUsing, summarize } from "@/lib/admin/future";
 
 const ENTITIES = new Set(["hero", "item"]);
 const builtinsOf = (entity: string) => (entity === "hero" ? HERO_COLUMNS : ITEM_COLUMNS);
 
 function done() {
   updateTag("catalog");
-  revalidatePath("/admin/categories");
+  revalidatePath("/admin/categories", "layout");
   revalidatePath("/admin/setup", "layout");
+  revalidatePath("/admin/heroes", "layout");
 }
 
 /** Label, info, order and on/off for any category; type and unit for custom ones. */
@@ -85,4 +87,18 @@ export async function saveValues(entity: string, form: FormData): Promise<string
   const r = await saveCategoryValues(entity as Entity, edits);
   done();
   return `${r.changed} ${entity === "hero" ? "heroes" : "items"} updated.` + (r.invalid.length ? ` Not saved (invalid): ${r.invalid.join("; ")}` : "");
+}
+
+/**
+ * After a data fix: drop the future puzzles that froze these values (The Reckoning and The Constellation for heroes,
+ * The Appraisal for items, with their hard puzzles) and build them again from the current data.
+ */
+export async function rebuildDataPuzzles(entity: string): Promise<string> {
+  await requireAdmin();
+  if (!ENTITIES.has(entity)) throw new Error("bad entity");
+  const slugs = slugsUsing(entity as Entity);
+  const removed = await clearFuturePuzzles({ slugs, keepOverrides: true });
+  const r = await rebuildFuturePuzzles({ slugs });
+  revalidatePath("/admin", "layout");
+  return `${removed} future puzzles dropped. ${summarize(r)}`;
 }

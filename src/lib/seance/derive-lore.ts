@@ -14,7 +14,7 @@ export const HERO_RELEASE: Record<string, string> = {
   Yamato: "2024-04-24", Viscous: "2024-08-01", Shiv: "2024-08-15", Mirage: "2024-09-26", Calico: "2025-01-17", Holliday: "2025-01-17",
   Vyper: "2025-01-17", Sinclair: "2025-01-17", Mina: "2025-08-18", Billy: "2025-08-20", "The Doorman": "2025-08-22", Paige: "2025-08-25",
   Drifter: "2025-08-27", Victor: "2025-08-29", Graves: "2026-01-29", Rem: "2026-01-26", Silver: "2026-02-02", Venator: "2026-02-05",
-  Celeste: "2026-02-09", Apollo: "2026-02-12",
+  Celeste: "2026-02-09", Apollo: "2026-02-12", "Rat King": "2026-10-02",
 };
 
 /** Yamato's lore is written in Japanese in the API: a short English summary for the text matches. */
@@ -39,15 +39,15 @@ export const LORE_TAGS: TagDef[] = [
   { tag: "hunters", label: "Monster hunters", explanation: "Each hunts monsters: the Baxter Society or the Vatican's order of Venators.", difficulty: 2, members: ["Calico", "Grey Talon", "Shiv", "Venator"] },
   { tag: "scientists", label: "Scientists and inventors", explanation: "Each is a scientist, professor or inventor.", difficulty: 2, members: ["McGinnis", "Dynamo", "Kelvin", "Seven"] },
   { tag: "criminals", label: "Criminals", explanation: "Each has a criminal career or past: gangs, heists, arson or contract killing.", difficulty: 2, members: ["Wraith", "Paradox", "Mo & Krill", "Yamato", "Vyper", "Infernus", "Calico", "Shiv"] },
-  { tag: "undead", label: "Dead, undead or ghost", explanation: "Each is a ghost, a vampire, or came back from death.", difficulty: 2, members: ["Vindicta", "Dynamo", "Kelvin", "Victor", "Drifter", "Mina"] },
-  { tag: "nothuman", label: "Not born human", explanation: "Each is a creature, spirit or being that was not born a regular human.", difficulty: 2, members: ["Infernus", "Ivy", "Mirage", "Silver", "Celeste", "Viscous", "Rem", "Bebop", "The Doorman", "Drifter", "Mina"] },
-  { tag: "folklore", label: "Folklore creatures", explanation: "Each is a creature from myth or folklore: golem, gargoyle, djinn, werewolf, unicorn, vampire or a made man.", difficulty: 3, members: ["Bebop", "Ivy", "Mirage", "Silver", "Celeste", "Drifter", "Mina", "Victor"] },
+  { tag: "undead", label: "Dead, undead or ghost", explanation: "Each is a ghost, a vampire, or came back from death.", difficulty: 2, members: ["Vindicta", "Seven", "Kelvin", "Victor", "Drifter", "Mina", "Sinclair"] },
+  { tag: "nothuman", label: "Not born human", explanation: "Each is a creature, spirit or being that was not born a regular human.", difficulty: 2, members: ["Infernus", "Abrams", "Apollo", "Vyper", "Mo & Krill", "Ivy", "Silver", "Celeste", "Viscous", "Rem", "Bebop", "The Doorman", "Drifter", "Mina", "Rat King"] },
+  { tag: "folklore", label: "Folklore creatures", explanation: "Each is a creature from myth or folklore: golem, gargoyle, gorgon, werewolf, unicorn, vampire or a made man.", difficulty: 3, members: ["Bebop", "Ivy", "Vyper", "Silver", "Celeste", "Drifter", "Mina", "Victor"] },
   { tag: "hired", label: "Works for pay", explanation: "Each fights for money: bounty hunter, hired killer, bodyguard or paid brawler.", difficulty: 3, members: ["Silver", "Calico", "Mirage", "Bebop"] },
   { tag: "magic", label: "Practise magic", explanation: "Each practises magic, alchemy, witchcraft or necromancy.", difficulty: 3, members: ["Paige", "Warden", "Graves", "Vindicta", "Lady Geist", "Sinclair"] },
   { tag: "fame", label: "Wealth or fame", explanation: "Each comes from money or is famous in their world.", difficulty: 3, members: ["Lady Geist", "Celeste", "Mina", "Pocket"] },
-  { tag: "partner", label: "Fights with a partner or companion", explanation: "Each fights alongside a partner, pet or companions.", difficulty: 3, members: ["Calico", "Mo & Krill", "Sinclair", "Rem", "Ivy"] },
-  { tag: "fullname", label: "Real name given in their lore", explanation: "Their lore names the person behind the title: Wesley, Jacob, Maggie, Lilah, Darcy, Mina Ha, Arin, Henry, Jeanne or Karin.", difficulty: 4, members: ["Grey Talon", "Lash", "McGinnis", "Silver", "Graves", "Mina", "Pocket", "Sinclair", "Lady Geist", "Yamato"] },
-  { tag: "died", label: "Died in their backstory", explanation: "Each died, or was left for dead, in their own backstory.", difficulty: 4, members: ["Vindicta", "Dynamo", "Kelvin", "Pocket", "Yamato", "Victor"] },
+  { tag: "partner", label: "Fights with a partner or companion", explanation: "Each fights alongside a partner, pet or companions.", difficulty: 3, members: ["Calico", "Mo & Krill", "Sinclair", "Rem", "Ivy", "Rat King"] },
+  { tag: "fullname", label: "Real name given in their lore", explanation: "Their lore names the person behind the title: Wesley, Jacob, Maggie, Lilah, Darcy, Mina Ha, Arin, Henry, Jeanne, Karin or Louis.", difficulty: 4, members: ["Grey Talon", "Lash", "McGinnis", "Silver", "Graves", "Mina", "Pocket", "Sinclair", "Lady Geist", "Yamato", "Rat King"] },
+  { tag: "died", label: "Died in their backstory", explanation: "Each died, or was left for dead, in their own backstory.", difficulty: 4, members: ["Vindicta", "Seven", "Kelvin", "Pocket", "Yamato", "Victor", "Sinclair"] },
 ];
 
 type WaveDef = { tag: string; label: string; explanation: string; difficulty: number; from: string; to: string };

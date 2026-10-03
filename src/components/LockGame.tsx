@@ -380,6 +380,12 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
           <Link className="text-brass underline-offset-4 hover:underline" href={`/archive/${date}`}>Back to this day&apos;s vault</Link>
         </p>
       )}
+
+      <p className="text-center text-xs">
+        <Link className="inline-flex min-h-11 items-center text-ash underline-offset-4 hover:text-paper hover:underline" href={`/feedback?kind=bug&lock=${slug}${endless ? "" : `&date=${date}`}`}>
+          Something wrong with this puzzle? Report it
+        </Link>
+      </p>
     </div>
   );
 }

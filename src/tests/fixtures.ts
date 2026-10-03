@@ -1,7 +1,7 @@
 // In-memory GameData for mode tests (no DB).
 import type { AbilityData, GameData, HeroData, ItemData, SoundData, VoiceEntryData, VoiceLineData } from "@/lib/engine/context";
 import type { NormHero } from "@/lib/deadlock/types";
-import { HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
+import { DEFAULT_WEAPON_GROUPS, HERO_COLUMNS, ITEM_COLUMNS } from "@/lib/engine/columns";
 
 export function hero(id: number, name: string, over: Partial<HeroData> = {}): HeroData {
   const src: NormHero = {
@@ -49,6 +49,7 @@ export function makeData(opts: {
     itemByClass: (cls) => items.find((i) => i.src.className === cls),
     heroColumns: HERO_COLUMNS,
     itemColumns: ITEM_COLUMNS,
+    weaponGroups: DEFAULT_WEAPON_GROUPS,
   };
 }
 

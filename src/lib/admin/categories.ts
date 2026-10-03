@@ -33,7 +33,8 @@ const same = (a: CellValue, b: CellValue) => a !== null && b !== null && String(
 const HERO_FIELDS: Record<string, { field: "genderOverride" | "species" | "weaponTypeOverride" | "releaseDate"; api?: (h: GameData["heroes"][number]) => CellValue }> = {
   gender: { field: "genderOverride", api: (h) => h.src.gender },
   species: { field: "species" },
-  weapon: { field: "weaponTypeOverride", api: (h) => h.src.gunTag },
+  // The column shows the weapon family, so the API side is the family of the API's weapon type.
+  weapon: { field: "weaponTypeOverride", api: (h) => h.apiWeaponFamily ?? h.src.gunTag },
   release: { field: "releaseDate" },
 };
 
@@ -46,6 +47,13 @@ export function cellSource(entity: Entity, col: ColumnDef<{ attrs: Attrs }>, row
     return same(api, value) ? "api" : "admin";
   }
   return "api";
+}
+
+/** The value the API gives for a cell (null for curated and custom categories). */
+export function apiValue(entity: Entity, col: ColumnDef<{ attrs: Attrs }>, row: { attrs: Attrs }, data: GameData): CellValue {
+  if (col.custom) return null;
+  if (entity === "hero" && HERO_FIELDS[col.key]) return HERO_FIELDS[col.key].api?.(row as GameData["heroes"][number]) ?? null;
+  return col.get({ ...row, attrs: {} }, data);
 }
 
 /** Apply edits; returns how many rows changed and which inputs were invalid. */
