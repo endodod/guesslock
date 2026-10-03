@@ -144,7 +144,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
           <span>{t.settings.reducedMotion}</span>
           <div role="radiogroup" aria-label={t.settings.reducedMotion} className="flex overflow-hidden rounded-sm border border-brass/40 text-sm">
             {(["auto", "reduced", "full"] as const).map((m) => (
-              <button key={m} type="button" role="radio" aria-checked={s.motion === m} onClick={() => setSettings({ motion: m })} className={`min-h-9 px-3 ${s.motion === m ? "bg-brass/25 text-paper" : "text-ash"}`}>
+              <button key={m} type="button" role="radio" aria-checked={s.motion === m} onClick={() => setSettings({ motion: m, motionChosen: true })} className={`min-h-9 px-3 ${s.motion === m ? "bg-brass/25 text-paper" : "text-ash"}`}>
                 {m === "auto" ? t.settings.motionAuto : m === "reduced" ? t.settings.motionOn : t.settings.motionOff}
               </button>
             ))}

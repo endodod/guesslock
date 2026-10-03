@@ -134,3 +134,14 @@ describe("guest mode", () => {
     }
   });
 });
+
+describe("motion default", () => {
+  it("is full motion for new players", () => {
+    expect(migrateStore(null).settings.motion).toBe("full");
+  });
+  it("moves the old untouched default (auto) to full motion, but keeps a chosen one", () => {
+    expect(migrateStore({ version: 2, progress: {}, settings: { motion: "auto" } }).settings.motion).toBe("full");
+    expect(migrateStore({ version: 2, progress: {}, settings: { motion: "auto", motionChosen: true } }).settings.motion).toBe("auto");
+    expect(migrateStore({ version: 2, progress: {}, settings: { motion: "reduced" } }).settings.motion).toBe("reduced");
+  });
+});

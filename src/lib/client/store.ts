@@ -24,6 +24,8 @@ export type LockRecord = {
 export type Settings = {
   colorblind: boolean;
   motion: "auto" | "reduced" | "full";
+  /** Set once the player picks a motion option. Before it, a stored "auto" was just the old default (see migrateStore). */
+  motionChosen?: boolean;
   sound: boolean;
   colorEmoji: boolean;
   /** Accessibility: sound locks (The Resonance) are skipped and never counted. */
@@ -42,7 +44,7 @@ export type StoreData = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  colorblind: false, motion: "auto", sound: false, colorEmoji: false,
+  colorblind: false, motion: "full", sound: false, colorEmoji: false,
   skipSound: false, soundVolume: 0.8, hardMode: false,
 };
 
@@ -67,6 +69,9 @@ export function migrateStore(raw: unknown): StoreData {
   const out = emptyStore();
   out.onboarded = !!r.onboarded;
   out.settings = { ...DEFAULT_SETTINGS, ...((r.settings as Partial<Settings>) ?? {}) };
+  // Reduced motion used to default to "auto" (follow the system). Full motion is the default now: a stored "auto" the
+  // player never picked moves to it; one they chose themselves (motionChosen) stays.
+  if (out.settings.motion === "auto" && !out.settings.motionChosen) out.settings.motion = "full";
   const progress = (r.progress ?? {}) as Record<string, Record<string, LockRecord>>;
   const validSlugs = new Set(Object.keys(LOCK_BY_SLUG)); // the hard puzzles too
   for (const [date, locks] of Object.entries(progress)) {
