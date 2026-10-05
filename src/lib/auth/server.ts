@@ -20,10 +20,12 @@ export function authConfigured(): boolean {
 }
 
 function create() {
-  const baseURL = process.env.BETTER_AUTH_URL || `https://${config.siteUrl}`;
+  const fixed = process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === "production" ? `https://${config.siteUrl}` : "");
+  const baseURL = fixed || `https://${config.siteUrl}`;
   return betterAuth({
     appName: "GUESSLOCK",
-    baseURL,
+    // Development without BETTER_AUTH_URL: whatever localhost port the dev server runs on (Steam must come back to it).
+    baseURL: fixed || { allowedHosts: ["localhost:*", "127.0.0.1:*"], protocol: "http" },
     basePath: "/api/auth",
     secret: process.env.BETTER_AUTH_SECRET,
     database: prismaAdapter(db, { provider: "postgresql" }),
