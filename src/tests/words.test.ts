@@ -5,7 +5,7 @@ import { evaluate } from "@/lib/engine/play";
 import { checkLeaks } from "@/lib/engine/leaks";
 import type { BasePayload } from "@/lib/engine/mode";
 import type { ItemData } from "@/lib/engine/context";
-import { crossword, lexicon, parseCheck, scoreWord } from "@/lib/engine/modes/words";
+import { crossword, lexicon, lexiconWords, parseCheck, scoreWord } from "@/lib/engine/modes/words";
 import { buildCorpus, shortClue, toWord } from "@/lib/words/corpus";
 import { gridOf, layoutCrossword } from "@/lib/words/crossword";
 import { ability, hero, makeData, noAnalytics } from "./fixtures";
@@ -62,26 +62,47 @@ describe("The Lexicon", () => {
     expect(scoreWord("LLLL", "HELL")).toEqual(["miss", "miss", "match", "match"]);
   });
 
+  it("only uses five-letter words: whole names, words inside names, codenames and Deadlock terms", () => {
+    const data = makeData({
+      heroes: [hero(1, "Haze"), hero(2, "Seven"), hero(3, "Grey Talon"), hero(4, "Holliday", { className: "hero_astro" }), hero(5, "Ivy", { exclude: ["lexicon"], className: "hero_tengu" })],
+    });
+    const words = lexiconWords(data);
+    expect(words.every((e) => e.word.length === 5)).toBe(true);
+    expect(new Set(words.map((e) => e.word)).size).toBe(words.length);
+    const by = (w: string) => words.find((e) => e.word === w);
+    expect(by("SEVEN")).toMatchObject({ source: "name", name: "Seven" });
+    expect(by("TALON")).toMatchObject({ source: "part", name: "Grey Talon" });
+    expect(by("ASTRO")).toMatchObject({ source: "codename", name: "Holliday" });
+    expect(by("SOULS")).toMatchObject({ source: "lore" });
+    expect(by("HAZE") ?? by("TENGU")).toBeUndefined();
+    expect(() => lexicon.build({ answerId: "HAZE", ref: "HAZE" }, ctx(data))).toThrow();
+    // The late hint tells the kind of word, never the word.
+    const talon = lexicon.build({ answerId: "TALON", ref: "TALON" }, ctx(data)) as BasePayload;
+    expect(talon.hints.kind.value).toBe("Part of a hero's name");
+    expect(talon.answer.name).toBe("Grey Talon");
+    expect((lexicon.build({ answerId: "SOULS", ref: "SOULS" }, ctx(data)) as BasePayload).hints.kind.value).toBe("From the Deadlock world");
+  });
+
   it("plays to a win and refuses words of the wrong length", () => {
-    const data = makeData({ heroes: [hero(1, "Haze")] });
+    const data = makeData({ heroes: [hero(1, "Seven")] });
     const lock = getLock("lexicon")!;
-    const p = lexicon.build({ answerId: "HAZE", ref: "HAZE" }, ctx(data)) as BasePayload;
+    const p = lexicon.build({ answerId: "SEVEN", ref: "SEVEN" }, ctx(data)) as BasePayload;
     expect(checkLeaks(p)).toEqual([]);
-    const v = evaluate(lock, row(p, "lexicon"), 1, ["LASH", "LONGER", "HAZE"], undefined, none);
+    const v = evaluate(lock, row(p, "lexicon"), 1, ["STAVE", "LONGER", "SEVEN"], undefined, none);
     expect(v.status).toBe("won");
-    expect(v.rows.map((r) => r.id)).toEqual(["LASH", "HAZE"]);
-    expect(v.rows[0].tiles?.map((t) => t.result)).toEqual(["miss", "match", "miss", "partial"]);
+    expect(v.rows.map((r) => r.id)).toEqual(["STAVE", "SEVEN"]);
+    expect(v.rows[0].tiles?.map((t) => t.result)).toEqual(["match", "miss", "miss", "partial", "partial"]);
     expect(v.souls).toBe(90);
-    expect(v.answer?.name).toBe("Haze");
+    expect(v.answer?.name).toBe("Seven");
   });
 
   it("jams after six wrong words and unlocks the kind hint after three", () => {
-    const data = makeData({ heroes: [hero(1, "Haze")] });
+    const data = makeData({ heroes: [hero(1, "Seven")] });
     const lock = getLock("lexicon")!;
-    const p = lexicon.build({ answerId: "HAZE", ref: "HAZE" }, ctx(data)) as BasePayload;
-    const three = evaluate(lock, row(p, "lexicon"), 1, ["AAAA", "BBBB", "CCCC"], undefined, none);
+    const p = lexicon.build({ answerId: "SEVEN", ref: "SEVEN" }, ctx(data)) as BasePayload;
+    const three = evaluate(lock, row(p, "lexicon"), 1, ["AAAAA", "BBBBB", "CCCCC"], undefined, none);
     expect(three.hints.find((h) => h.id === "kind")).toMatchObject({ unlocked: true, value: "A hero" });
-    const six = evaluate(lock, row(p, "lexicon"), 1, ["AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "HAZE"], undefined, none);
+    const six = evaluate(lock, row(p, "lexicon"), 1, ["AAAAA", "BBBBB", "CCCCC", "DDDDD", "EEEEE", "FFFFF", "SEVEN"], undefined, none);
     expect(six.status).toBe("lost");
     expect(six.souls).toBe(0);
   });

@@ -1,6 +1,8 @@
-// The word locks. The Lexicon: guess a Deadlock name letter by letter (Wordle rules). The Crossword: a small crossword
+// The word locks. The Lexicon: guess a five-letter Deadlock word letter by letter (Wordle rules). The Crossword: a small crossword
 // of hero, item and ability names, clued by their (redacted) lore and descriptions.
-import { buildCorpus, type WordEntry, type WordKind } from "../../words/corpus";
+import { buildCorpus, toWord, type WordEntry, type WordKind } from "../../words/corpus";
+import { LORE_WORDS } from "../../words/lexicon-extra";
+import type { GameData } from "../context";
 import { layoutCrossword, type Dir } from "../../words/crossword";
 import { findLeaks } from "../../text/redact";
 import { SealedError, SkipCandidate, type ModeImpl } from "../mode";
@@ -10,12 +12,28 @@ const KIND_LABEL: Record<WordKind, string> = { hero: "A hero", item: "A shop ite
 
 // ───────────── The Lexicon ─────────────
 
-export const LEXICON_MIN = 4;
-export const LEXICON_MAX = 8;
+/** Every Lexicon word has this many letters, like Wordle: the board and the player's habits stay the same each day. */
+export const LEXICON_LENGTH = 5;
 /** Same as the lock's maxTries (locks.config.ts). */
 export const LEXICON_TRIES = 6;
 
-type LexiconClue = { word: string; kind: WordKind };
+/**
+ * Where a Lexicon word comes from: a whole name (SEVEN), one word of a longer name (TALON from Grey Talon), a hero's
+ * codename in the game files (ASTRO: Holliday), or a term from the Deadlock world (SOULS, see lexicon-extra.ts).
+ */
+export type LexiconSource = "name" | "part" | "codename" | "lore";
+export type LexiconEntry = { word: string; name: string; image: string | null; source: LexiconSource; kind: WordKind | null; note: string | null };
+
+type LexiconClue = { word: string; kind: WordKind | "lore"; source?: LexiconSource };
+
+const PART_LABEL: Record<WordKind, string> = { hero: "Part of a hero's name", item: "Part of a shop item's name", ability: "Part of an ability's name" };
+
+/** What the hint after three wrong guesses says: the kind of word, never the word. */
+export function lexiconHint(e: Pick<LexiconEntry, "source" | "kind">): string {
+  if (e.source === "lore") return "From the Deadlock world";
+  if (e.source === "codename") return "A hero's codename in the game files";
+  return e.source === "part" ? PART_LABEL[e.kind!] : KIND_LABEL[e.kind!];
+}
 
 /** Wordle colouring: exact letters first, then the remaining letters left to right, each answer letter used once. */
 export function scoreWord(guess: string, answer: string): TileResult[] {
@@ -33,19 +51,40 @@ export function scoreWord(guess: string, answer: string): TileResult[] {
   return out;
 }
 
-const lexiconWords = (entries: WordEntry[]) => entries.filter((e) => e.word.length >= LEXICON_MIN && e.word.length <= LEXICON_MAX);
+const fits = (w: string | null): w is string => !!w && w.length === LEXICON_LENGTH;
+
+/** Every Lexicon word, one entry per word: whole names first, then words inside names, codenames, Deadlock terms. */
+export function lexiconWords(data: GameData): LexiconEntry[] {
+  const corpus: WordEntry[] = buildCorpus(data, "lexicon");
+  const out = new Map<string, LexiconEntry>();
+  const add = (e: LexiconEntry) => { if (!out.has(e.word)) out.set(e.word, e); };
+  for (const e of corpus) if (fits(e.word)) add({ word: e.word, name: e.name, image: e.image, source: "name", kind: e.kind, note: null });
+  for (const e of corpus) {
+    const words = e.name.split(/[\s-]+/);
+    if (words.length < 2) continue;
+    for (const w of words.map(toWord)) if (fits(w)) add({ word: w, name: e.name, image: e.image, source: "part", kind: e.kind, note: null });
+  }
+  for (const h of data.heroes) {
+    if (!h.eligible || h.exclude.includes("lexicon")) continue;
+    const code = toWord(h.className.replace(/^hero_/, ""));
+    if (fits(code) && code !== toWord(h.name)) add({ word: code, name: h.name, image: h.icon, source: "codename", kind: "hero", note: `Codename in the game files: ${code[0]}${code.slice(1).toLowerCase()}` });
+  }
+  for (const l of LORE_WORDS) if (fits(l.word)) add({ word: l.word, name: l.name, image: null, source: "lore", kind: null, note: l.note });
+  return [...out.values()];
+}
 
 export const lexicon: ModeImpl<LexiconClue> = {
   mode: "lexicon",
-  candidates: (data) => lexiconWords(buildCorpus(data, "lexicon")).map((e) => ({ answerId: e.word, ref: e.word })),
+  candidates: (data) => lexiconWords(data).map((e) => ({ answerId: e.word, ref: e.word })),
   build(c, { data }) {
-    const e = lexiconWords(buildCorpus(data, "lexicon")).find((x) => x.word === c.answerId);
+    const e = lexiconWords(data).find((x) => x.word === c.answerId);
     if (!e) throw new SkipCandidate();
+    const hint = lexiconHint(e);
     return {
       v: 1, mode: "lexicon",
-      answer: { id: e.word, name: e.name, image: e.image, sub: KIND_LABEL[e.kind] },
-      correctIds: [e.word], leakTerms: [], hints: { kind: { value: KIND_LABEL[e.kind] } },
-      clue: { word: e.word, kind: e.kind },
+      answer: { id: e.word, name: e.name, image: e.image, sub: e.note ?? (e.source === "part" ? `${KIND_LABEL[e.kind!]}: the word was ${e.word}` : hint) },
+      correctIds: [e.word], leakTerms: [], hints: { kind: { value: hint } },
+      clue: { word: e.word, kind: e.kind ?? "lore", source: e.source },
     };
   },
   clue: (p) => ({ kind: "lexicon", length: p.clue.word.length, tries: LEXICON_TRIES }),
