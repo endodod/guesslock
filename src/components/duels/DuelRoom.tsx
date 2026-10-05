@@ -4,10 +4,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { GAMES, type Seat } from "@/lib/duels/games";
-import type { DuelView } from "@/lib/duels/service";
+import type { DuelView, Stone } from "@/lib/duels/service";
 import { useGame } from "../GameProvider";
 import { Button, DecoFrame } from "../ui";
-import { CheckersBoard, Connect4Board, Orb, SEAT_NAME, TicTacToeBoard } from "./Boards";
+import { CheckersBoard, Connect4Board, Orb, SEAT_NAME, TicTacToeBoard, type Stones } from "./Boards";
+import { StonePicker, useStone } from "./StonePicker";
 
 const POLL_ACTIVE = 1500;
 const POLL_IDLE = 5000;
@@ -24,11 +25,12 @@ function timeLeft(deadline: string, now: number): string {
   return h ? `${h} h ${m} min` : `${m} min`;
 }
 
-export function DuelRoom({ initial, signedIn }: { initial: DuelView; signedIn: boolean }) {
+export function DuelRoom({ initial, signedIn, heroes }: { initial: DuelView; signedIn: boolean; heroes: Stone[] }) {
   const { toast, play } = useGame();
   const [view, setView] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [stone, setStone] = useStone(heroes);
   const [now, setNow] = useState(() => Date.now());
   const versionRef = useRef(view.version);
   const game = GAMES[view.game];
@@ -71,9 +73,10 @@ export function DuelRoom({ initial, signedIn }: { initial: DuelView; signedIn: b
   };
   const onMove = (move: unknown) => { void act({ action: "move", version: view.version, move }); };
 
+  const stones: Stones = [view.players[0].stone, view.players[1]?.stone ?? null];
   const name = (s: Seat) => view.players[s]?.name ?? (view.invitee && s === 1 ? view.invitee : "Waiting for a challenger");
   const board = (() => {
-    const props = { seat: view.seat, myTurn, busy, onMove };
+    const props = { seat: view.seat, myTurn, busy, onMove, stones };
     if (view.game === "tictactoe") return <TicTacToeBoard state={view.state as never} {...props} />;
     if (view.game === "connect4") return <Connect4Board state={view.state as never} {...props} />;
     return <CheckersBoard state={view.state as never} {...props} />;
@@ -98,9 +101,9 @@ export function DuelRoom({ initial, signedIn }: { initial: DuelView; signedIn: b
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
         {([0, 1] as Seat[]).map((s) => (
           <div key={s} className={`${s === 1 ? "order-3" : ""} flex flex-col items-center gap-1 rounded-sm border p-2 ${view.status === "active" && view.turn === s ? "border-ecto/70 bg-ecto/5" : "border-brass/20"}`}>
-            <Orb seat={s} className="h-6 w-6" />
+            <Orb seat={s} stone={stones[s]} className="h-9 w-9" />
             <span className="max-w-full truncate text-sm text-paper">{name(s)}{view.seat === s ? " (you)" : ""}</span>
-            <span className="smallcaps text-[0.6rem] text-ash">{SEAT_NAME[s]}</span>
+            <span className="smallcaps max-w-full truncate text-[0.6rem] text-ash">{stones[s]?.name ?? SEAT_NAME[s]}</span>
           </div>
         ))}
         <span className="order-2 font-display text-brass">vs</span>
@@ -117,9 +120,12 @@ export function DuelRoom({ initial, signedIn }: { initial: DuelView; signedIn: b
       {view.status === "invited" && (
         <DecoFrame className="space-y-3 p-4 text-center" corners={false}>
           {view.canAccept ? (
-            <div className="flex justify-center gap-2">
-              <Button onClick={() => act({ action: "accept" })} disabled={busy}>Accept the duel</Button>
-              {view.invitee && <Button variant="ghost" onClick={() => act({ action: "decline" })} disabled={busy}>Decline</Button>}
+            <div className="space-y-3">
+              <div className="flex justify-center"><StonePicker heroes={heroes} value={stone} onChange={setStone} seat={1} /></div>
+              <div className="flex justify-center gap-2">
+                <Button onClick={() => act({ action: "accept", hero: stone })} disabled={busy}>Accept the duel</Button>
+                {view.invitee && <Button variant="ghost" onClick={() => act({ action: "decline" })} disabled={busy}>Decline</Button>}
+              </div>
             </div>
           ) : !signedIn ? (
             <p className="text-sm text-ash"><Link href={`/auth/sign-in?next=/duels/${view.id}`} className="text-brass underline-offset-4 hover:underline">Sign in</Link> to accept this duel.</p>

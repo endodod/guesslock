@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth/server";
-import { getDuel, viewOf } from "@/lib/duels/service";
+import { getDuel, stones, viewOf } from "@/lib/duels/service";
 import { GAMES, type GameId } from "@/lib/duels/games";
 import { DuelRoom } from "@/components/duels/DuelRoom";
 import { Icon } from "@/components/ui";
@@ -16,7 +16,7 @@ export default async function DuelPage({ params }: { params: Promise<{ id: strin
   if (!/^[a-z0-9]{10}$/.test(id)) notFound();
   const [d, user] = await Promise.all([getDuel(id), currentUser()]);
   if (!d) notFound();
-  const view = await viewOf(d, user?.id ?? null);
+  const [view, heroes] = await Promise.all([viewOf(d, user?.id ?? null), stones()]);
   return (
     <div className="mx-auto max-w-xl px-4 py-5 md:py-8">
       <div className="mb-5 flex items-center gap-3">
@@ -28,7 +28,7 @@ export default async function DuelPage({ params }: { params: Promise<{ id: strin
           <h1 className="font-display text-2xl text-paper md:text-3xl">{GAMES[view.game].name}</h1>
         </div>
       </div>
-      <DuelRoom initial={view} signedIn={!!user} />
+      <DuelRoom initial={view} signedIn={!!user} heroes={[...heroes.values()].sort((a, b) => a.name.localeCompare(b.name))} />
     </div>
   );
 }

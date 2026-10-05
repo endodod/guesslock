@@ -1,5 +1,5 @@
 // Duels API (signed in). GET: your challenges, games and recent results; ?badge=1 just the number waiting for you.
-// POST { game, opponent? }: challenge a player by name, or (without a name) make an open link.
+// POST { game, opponent?, hero? }: challenge a player by name, or (without a name) make an open link.
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { currentUser } from "@/lib/auth/server";
@@ -10,7 +10,7 @@ import { GAME_IDS, type GameId } from "@/lib/duels/games";
 import { createDuel, duelBadge, DuelError, listDuels } from "@/lib/duels/service";
 
 const headers = { "cache-control": "no-store" };
-const Create = z.object({ game: z.enum(GAME_IDS as [GameId, ...GameId[]]), opponent: z.string().trim().max(40).optional() });
+const Create = z.object({ game: z.enum(GAME_IDS as [GameId, ...GameId[]]), opponent: z.string().trim().max(40).optional(), hero: z.number().int().positive().nullable().optional() });
 
 export async function GET(req: Request) {
   const user = await currentUser();
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!limit.ok) return tooMany(limit.retryAfter);
   await ensureProfile(user);
   try {
-    const d = await createDuel(user.id, parsed.data.game, parsed.data.opponent);
+    const d = await createDuel(user.id, parsed.data.game, parsed.data.opponent, parsed.data.hero);
     return NextResponse.json({ id: d.id }, { headers });
   } catch (e) {
     if (e instanceof DuelError) return NextResponse.json({ error: e.message }, { status: e.status, headers });

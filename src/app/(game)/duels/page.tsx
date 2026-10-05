@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/auth/server";
 import { ensureProfile } from "@/lib/accounts/service";
-import { listDuels } from "@/lib/duels/service";
+import { listDuels, stones } from "@/lib/duels/service";
 import { DUEL_DAILY_CAP, DUEL_WIN } from "@/lib/duels/rewards";
 import { DuelLobby } from "@/components/duels/DuelLobby";
 import { DecoFrame } from "@/components/ui";
@@ -15,7 +15,10 @@ export default async function DuelsPage() {
       <h1 className="font-display text-3xl text-paper md:text-4xl">Duels</h1>
       <p className="mb-6 mt-1 text-ash">Three Souls, Soul Wells and Patron&apos;s Gambit against another player. Win for souls.</p>
       {user ? (
-        <DuelLobby initial={await ensureProfile(user).then(() => listDuels(user.id))} reward={DUEL_WIN} cap={DUEL_DAILY_CAP} />
+        <DuelLobby
+          initial={await ensureProfile(user).then(() => listDuels(user.id))} reward={DUEL_WIN} cap={DUEL_DAILY_CAP}
+          heroes={[...(await stones()).values()].sort((a, b) => a.name.localeCompare(b.name))}
+        />
       ) : (
         <DecoFrame className="p-8 text-center">
           <p className="font-display text-xl text-paper">Duels need an account.</p>

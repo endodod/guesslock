@@ -4,17 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GAMES, GAME_IDS, type GameId } from "@/lib/duels/games";
-import type { DuelLists, DuelView } from "@/lib/duels/service";
+import type { DuelLists, DuelView, Stone } from "@/lib/duels/service";
 import { useGame } from "../GameProvider";
 import { Button, DecoFrame } from "../ui";
+import { StonePicker, useStone } from "./StonePicker";
 
-export function DuelLobby({ initial, reward, cap }: { initial: DuelLists; reward: number; cap: number }) {
+export function DuelLobby({ initial, reward, cap, heroes }: { initial: DuelLists; reward: number; cap: number; heroes: Stone[] }) {
   const router = useRouter();
   const { toast } = useGame();
   const [lists, setLists] = useState(initial);
   const [game, setGame] = useState<GameId>("connect4");
   const [opponent, setOpponent] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stone, setStone] = useStone(heroes);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/duels").catch(() => null);
@@ -27,7 +29,7 @@ export function DuelLobby({ initial, reward, cap }: { initial: DuelLists; reward
 
   const challenge = async (byName: boolean) => {
     setBusy(true);
-    const res = await fetch("/api/duels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game, opponent: byName ? opponent : undefined }) });
+    const res = await fetch("/api/duels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game, opponent: byName ? opponent : undefined, hero: stone }) });
     const json = await res.json().catch(() => null);
     setBusy(false);
     if (res.ok) router.push(`/duels/${json.id}`);
@@ -72,6 +74,7 @@ export function DuelLobby({ initial, reward, cap }: { initial: DuelLists; reward
             </button>
           ))}
         </div>
+        <StonePicker heroes={heroes} value={stone} onChange={setStone} seat={0} />
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-48 flex-1">
             <span className="mb-1 block text-sm text-ash">Opponent&apos;s display name</span>

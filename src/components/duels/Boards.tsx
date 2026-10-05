@@ -1,11 +1,15 @@
 "use client";
 // The three duel boards. Pieces are soul orbs: amber for seat 0 (the Amber Hand), sapphire for seat 1 (the Sapphire Flame).
+// A player with a playing stone has their hero's portrait set into the orb, so the seat colour stays as its rim.
 // Each board only offers moves the rules allow; the server checks them again.
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { C4_COLS, C4_ROWS, c4Winner, ckMoves, type C4State, type CkState, type Seat, type TttState } from "@/lib/duels/games";
+import type { Stone } from "@/lib/duels/service";
 
-type BoardProps<S, M> = { state: S; seat: Seat | null; myTurn: boolean; busy: boolean; onMove: (m: M) => void };
+/** Each seat's playing stone (null: the plain orb). */
+export type Stones = [Stone | null, Stone | null];
+type BoardProps<S, M> = { state: S; seat: Seat | null; myTurn: boolean; busy: boolean; onMove: (m: M) => void; stones: Stones };
 
 export const SEAT_NAME: Record<Seat, string> = { 0: "Amber Hand", 1: "Sapphire Flame" };
 const ORB: Record<Seat, string> = {
@@ -13,17 +17,23 @@ const ORB: Record<Seat, string> = {
   1: "bg-[radial-gradient(circle_at_35%_30%,#bcd0ff,var(--sapphire)_55%,#1d3270)] shadow-[0_0_10px_rgba(91,130,214,0.55)]",
 };
 
-export function Orb({ seat, king = false, className = "" }: { seat: Seat; king?: boolean; className?: string }) {
+export function Orb({ seat, stone = null, king = false, className = "" }: { seat: Seat; stone?: Stone | null; king?: boolean; className?: string }) {
   return (
     <motion.span initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`relative block rounded-full ${ORB[seat]} ${className}`}>
-      {king && <span className="absolute inset-0 flex items-center justify-center font-display text-[0.7em] text-ink/80">♛</span>}
+      {stone && (stone.icon
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={stone.icon} alt="" draggable={false} className="absolute inset-[11%] h-[78%] w-[78%] rounded-full bg-ink object-cover object-top" />
+        : <span className="absolute inset-[11%] flex items-center justify-center rounded-full bg-ink font-display text-[0.5em] text-paper">{stone.name.slice(0, 2)}</span>)}
+      {king && (stone
+        ? <span className="absolute -top-[22%] left-1/2 -translate-x-1/2 font-display text-[0.55em] leading-none text-brass drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">♛</span>
+        : <span className="absolute inset-0 flex items-center justify-center font-display text-[0.7em] text-ink/80">♛</span>)}
     </motion.span>
   );
 }
 
 // ───────────── Three Souls ─────────────
 
-export function TicTacToeBoard({ state, myTurn, busy, onMove }: BoardProps<TttState, { cell: number }>) {
+export function TicTacToeBoard({ state, myTurn, busy, onMove, stones }: BoardProps<TttState, { cell: number }>) {
   return (
     <div className="mx-auto grid w-full max-w-xs grid-cols-3 gap-2">
       {state.cells.map((c, i) => (
@@ -32,7 +42,7 @@ export function TicTacToeBoard({ state, myTurn, busy, onMove }: BoardProps<TttSt
           aria-label={`Square ${i + 1}${c === null ? "" : `, ${SEAT_NAME[c]}`}`}
           className={`flex aspect-square items-center justify-center rounded-sm border border-brass/30 bg-ink/60 ${myTurn && c === null && !busy ? "hover:border-ecto hover:bg-ecto/10" : ""}`}
         >
-          {c !== null && <Orb seat={c} className="h-3/5 w-3/5" />}
+          {c !== null && <Orb seat={c} stone={stones[c]} className="h-3/5 w-3/5" />}
         </button>
       ))}
     </div>
@@ -41,7 +51,7 @@ export function TicTacToeBoard({ state, myTurn, busy, onMove }: BoardProps<TttSt
 
 // ───────────── Soul Wells ─────────────
 
-export function Connect4Board({ state, myTurn, busy, onMove }: BoardProps<C4State, { col: number }>) {
+export function Connect4Board({ state, myTurn, busy, onMove, stones }: BoardProps<C4State, { col: number }>) {
   const [hover, setHover] = useState<number | null>(null);
   const full = (col: number) => state.grid[col] !== null;
   const winner = c4Winner(state.grid);
@@ -58,7 +68,7 @@ export function Connect4Board({ state, myTurn, busy, onMove }: BoardProps<C4Stat
               const c = state.grid[row * C4_COLS + col];
               return (
                 <span key={row} className="flex aspect-square w-full items-center justify-center rounded-full bg-ink shadow-[inset_0_2px_6px_rgba(0,0,0,0.9)]">
-                  {c !== null && <Orb seat={c} className="h-[82%] w-[82%]" />}
+                  {c !== null && <Orb seat={c} stone={stones[c]} className="h-[82%] w-[82%]" />}
                 </span>
               );
             })}
@@ -71,7 +81,7 @@ export function Connect4Board({ state, myTurn, busy, onMove }: BoardProps<C4Stat
 
 // ───────────── Patron's Gambit ─────────────
 
-export function CheckersBoard({ state, seat, myTurn, busy, onMove }: BoardProps<CkState, { path: number[] }>) {
+export function CheckersBoard({ state, seat, myTurn, busy, onMove, stones }: BoardProps<CkState, { path: number[] }>) {
   const [from, setFrom] = useState<number | null>(null);
   const legal = useMemo(() => (myTurn && seat !== null ? ckMoves(state, seat) : []), [state, seat, myTurn]);
   const starts = new Set(legal.map((m) => m[0]));
@@ -96,7 +106,7 @@ export function CheckersBoard({ state, seat, myTurn, busy, onMove }: BoardProps<
               aria-label={`Square ${i}${p ? `, ${SEAT_NAME[p.s]}${p.k ? " king" : ""}` : ""}${target ? ", move here" : ""}`}
               className={`relative flex aspect-square items-center justify-center ${dark ? "bg-[#3a2b1e]" : "bg-[#c9b58c]"} ${from === i ? "ring-2 ring-inset ring-ecto" : isStart && !from ? "ring-1 ring-inset ring-ecto/50" : ""}`}
             >
-              {p && <Orb seat={p.s} king={p.k} className="h-[72%] w-[72%]" />}
+              {p && <Orb seat={p.s} stone={stones[p.s]} king={p.k} className="h-[72%] w-[72%]" />}
               {target && <span className="absolute h-1/3 w-1/3 rounded-full border-2 border-ecto bg-ecto/30" />}
             </button>
           );

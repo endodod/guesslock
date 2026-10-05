@@ -565,6 +565,9 @@ model Duel {
   playerB    String?
   /// Challenged by name: only this player may accept. Null: an open link anyone signed in can accept.
   invitee    String?
+  /// Each player's playing stone: the hero shown on their pieces (API hero id). Null: the plain soul orb.
+  heroA      Int?
+  heroB      Int?
   state      Json
   /// The seat to move (0 or 1).
   turn       Int      @default(0)
