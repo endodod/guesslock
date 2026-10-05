@@ -295,6 +295,20 @@ right away, at most 5 per player a day. They play statelessly like Endless (entr
 plays and solves once per player, and are never worth souls. Three reports hide a puzzle until it is restored in
 `/admin/community`; authors can delete their own, and deleting an account deletes its puzzles.
 
+### Duels (`/duels`)
+
+1v1 games between signed-in players: **Three Souls** (tic-tac-toe), **Soul Wells** (connect four) and **Patron's Gambit**
+(English checkers: compulsory jumps, multi-jumps, crowning; a side without a move loses, 80 quiet moves draw). Rules are pure
+functions in `src/lib/duels/games.ts`, used by the server to check every move and by the boards to offer only legal ones.
+- **Challenges:** by display name (only that player can accept; they see a badge on the header's swords icon) or as an open
+  link anyone signed in can accept. The first mover is drawn at random. Unanswered challenges lapse after 7 days.
+- **Play:** `POST /api/duels/<id>` with the board version (an optimistic lock: a stale or out-of-turn move is refused). The
+  opponent's browser polls `GET /api/duels/<id>?v=<version>` every 1.5 s and gets `{ unchanged: true }` until something moves.
+  No move for 24 hours loses the game; a player can resign.
+- **Souls** (`src/lib/duels/rewards.ts`): a win pays 4% of a typical day's income into the wallet (never the leaderboards),
+  once per day per beaten account and game, at most 5 paid wins a day. Draws and very short games (fewer moves than each
+  game's minimum) don't pay. Recorded in the soul ledger as `duel-win` with ref `<game>:<loser>:<day>`.
+
 ## Security and scaling notes
 
 **Before production** (the checklist)

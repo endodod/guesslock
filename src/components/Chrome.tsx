@@ -38,9 +38,7 @@ export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset:
           <Link href="/ledger" className={navBtn} aria-label={t.nav.ledger} title={t.nav.ledger}>
             <Icon name="ledger" />
           </Link>
-          <Link href="/archive" className={navBtn} aria-label={t.nav.archive} title={t.nav.archive}>
-            <Icon name="archive" />
-          </Link>
+          <DuelsLink className={navBtn} signedIn={!!user} />
           <button type="button" onClick={() => setSettingsOpen(true)} className={navBtn} aria-label={t.nav.settings} title={t.nav.settings}>
             <Icon name="settings" />
           </button>
@@ -62,13 +60,38 @@ export function Header({ dateLabel, nextReset }: { dateLabel: string; nextReset:
   );
 }
 
+/** Duels, with a badge for challenges and games waiting on you (checked every 30 s while the tab is open). */
+function DuelsLink({ className, signedIn }: { className: string; signedIn: boolean }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!signedIn) return;
+    let live = true;
+    const check = async () => {
+      if (document.hidden) return;
+      const res = await fetch("/api/duels?badge=1").catch(() => null);
+      const json = res?.ok ? await res.json().catch(() => null) : null;
+      if (live && typeof json?.count === "number") setCount(json.count);
+    };
+    void check();
+    const id = setInterval(check, 30_000);
+    return () => { live = false; clearInterval(id); };
+  }, [signedIn]);
+  const shown = signedIn ? count : 0;
+  return (
+    <Link href="/duels" className={`${className} relative`} aria-label={shown ? `Duels: ${shown} waiting for you` : "Duels"} title="Duels">
+      <Icon name="swords" />
+      {shown > 0 && <span className="absolute right-0 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ecto px-1 font-mono text-[0.6rem] text-ink">{shown > 9 ? "9+" : shown}</span>}
+    </Link>
+  );
+}
+
 export function Footer() {
   return (
     <footer className="mt-16 border-t border-brass/15 px-4 pt-8 pb-28 text-center text-sm text-ash md:pb-8">
       <p className="mx-auto max-w-2xl">{t.footer.disclaimer}</p>
       {/* Each link is at least 44px tall: the footer is where thumbs end up on a phone. */}
       <nav aria-label="More" className="mt-2 flex flex-wrap justify-center gap-x-5">
-        {[["/endless", "Endless"], ["/community", "Community"], ["/market", "The Black Market"], ["/yesterday", t.vault.yesterday], ["/how-to-play", t.nav.rules], ["/feedback", "Report a problem"], ["/about", t.footer.credits]].map(([href, label]) => (
+        {[["/endless", "Endless"], ["/community", "Community"], ["/duels", "Duels"], ["/archive", t.nav.archive], ["/market", "The Black Market"], ["/yesterday", t.vault.yesterday], ["/how-to-play", t.nav.rules], ["/feedback", "Report a problem"], ["/about", t.footer.credits]].map(([href, label]) => (
           <Link key={href} href={href} className="inline-flex min-h-11 items-center hover:text-paper">{label}</Link>
         ))}
       </nav>

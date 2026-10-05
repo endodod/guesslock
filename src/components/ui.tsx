@@ -60,7 +60,7 @@ export function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
 // ───────────── Icons (thin-line brass) ─────────────
 
-type IconName = "crown" | "user" | "ledger" | "archive" | "settings" | "back" | "info" | "question" | "flame" | "speaker" | "lock" | "unlock" | "check" | "approx" | "cross" | "up" | "down" | "share" | "close" | "seal" | "arrow-right" | "arrow-left" | "market" | "book";
+type IconName = "crown" | "user" | "ledger" | "archive" | "settings" | "back" | "info" | "question" | "flame" | "speaker" | "lock" | "unlock" | "check" | "approx" | "cross" | "up" | "down" | "share" | "close" | "seal" | "arrow-right" | "arrow-left" | "market" | "book" | "swords";
 
 export function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -72,6 +72,7 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     settings: <><circle cx="12" cy="12" r="3" {...p} /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" {...p} /></>,
     market: <><path d="M4 9l2-5h12l2 5" {...p} /><path d="M4 9h16v3a2.7 2.7 0 0 1-5.3 0 2.7 2.7 0 0 1-5.4 0A2.7 2.7 0 0 1 4 12z" {...p} /><path d="M5.5 14.5V20h13v-5.5M10 20v-3.5h4V20" {...p} /></>,
     book: <><path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z" {...p} /><path d="M12 6v13.5" {...p} /></>,
+    swords: <><path d="M4 4l9.5 9.5M4 4h3.5L17 13.5M4 4v3.5l9.5 9.5" {...p} /><path d="M20 4l-6 6M20 4h-3.5l-2 2M20 4v3.5l-2 2" {...p} /><path d="M12.5 15.5l3 3M15.5 12.5l3 3M17.5 17.5l2.5 2.5M8.5 15.5l-3 3M5.5 18.5L4 20" {...p} /></>,
     back: <path d="M15 5l-7 7 7 7" {...p} />,
     "arrow-left": <path d="M19 12H5M11 6l-6 6 6 6" {...p} />,
     "arrow-right": <path d="M5 12h14M13 6l6 6-6 6" {...p} />,

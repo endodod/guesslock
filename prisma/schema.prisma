@@ -554,6 +554,37 @@ model CommunityReport {
   @@id([puzzleId, userId])
 }
 
+// ───────────── Duels (1v1 games between players; a win pays souls, see src/lib/duels/rewards.ts) ─────────────
+
+model Duel {
+  id         String   @id // 10-char base36 token, also the invite link
+  game       String // "tictactoe" | "connect4" | "checkers"
+  /// Seat 0 (the Amber Hand): the player who made the challenge.
+  playerA    String
+  /// Seat 1 (the Sapphire Flame): set when the challenge is accepted.
+  playerB    String?
+  /// Challenged by name: only this player may accept. Null: an open link anyone signed in can accept.
+  invitee    String?
+  state      Json
+  /// The seat to move (0 or 1).
+  turn       Int      @default(0)
+  moves      Int      @default(0)
+  /// Bumped on every change; clients poll with it and moves must name it (no two moves from one position).
+  version    Int      @default(0)
+  status     String   @default("invited") // "invited" | "active" | "done" | "declined" | "expired"
+  /// Seat that won (null: a draw, or not finished).
+  winner     Int?
+  result     String? // "win" | "draw" | "resign" | "timeout"
+  /// Souls paid to the winner (0: not paid: a draw, too short, already paid today for this opponent, or the daily cap).
+  paid       Int      @default(0)
+  lastMoveAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([playerA, status])
+  @@index([playerB, status])
+  @@index([invitee, status])
+}
+
 // ───────────── The Black Market (spending souls on cosmetics) ─────────────
 
 // Spendable souls = UserStats.totalSouls (earned, what the leaderboards rank) + Wallet.adjust (spent < 0, refunds and
@@ -570,7 +601,7 @@ model SoulLedger {
   id        Int      @id @default(autoincrement())
   userId    String
   delta     Int
-  reason    String // "case" | "duplicate" | "trade-out" | "trade-in"
+  reason    String // "case" | "duplicate" | "trade-out" | "trade-in" | "daily" | "invite-in" | "invite-out" | "duel-win"
   ref       String? // case id, trade id
   createdAt DateTime @default(now())
 

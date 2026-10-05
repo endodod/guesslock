@@ -377,6 +377,8 @@ export async function deleteAccountCompletely(userId: string) {
     db.$executeRaw`DELETE FROM "CommunityPlay" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "player" = ${userId}`,
     db.$executeRaw`DELETE FROM "CommunityReport" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "userId" = ${userId}`,
     db.communityPuzzle.deleteMany({ where: { authorId: userId } }),
+    // Their duels (the opponent loses the game from their list; souls already paid stay paid).
+    db.duel.deleteMany({ where: { OR: [{ playerA: userId }, { playerB: userId }, { invitee: userId }] } }),
     db.authUser.deleteMany({ where: { id: userId } }),
   ]);
 }
