@@ -5,7 +5,7 @@
 // the heroes on the board make the grid impossible to finish.
 import type { GameData, HeroData } from "../context";
 import { activeColumns } from "../columns";
-import { SealedError, SkipCandidate, type ModeImpl } from "../mode";
+import { SealedError, SkipCandidate, type BasePayload, type ModeImpl } from "../mode";
 import type { Rng } from "../../rng";
 
 export type Facet = { dim: string; label: string; info: string; members: Set<number> };
@@ -90,7 +90,7 @@ export function pickGrid(facets: Facet[], rng: Rng, tries = 4000): { rows: Facet
     }
     if (chosen.length < 6) return null;
     const rows = chosen.slice(0, 3), cols = chosen.slice(3);
-    const valid = rows.flatMap((r) => cols.map((c) => [...r.members].filter((h) => c.members.has(h)).sort((a, b) => a - b)));
+    const valid = gridCells(rows, cols);
     if (valid.some((v) => v.length < MIN_PER_CELL)) continue;
     const solution = solveGrid(valid);
     if (solution) return { rows, cols, valid, solution };
@@ -134,36 +134,61 @@ export function canFinish(valid: number[][], board: [number, number][]): boolean
   return true;
 }
 
+/** The heroes a grid can use and every category it can draw from (Reckoning columns plus approved Séance hero groups). */
+export function constellationFacets(data: GameData, groups: { key: string; label: string; info: string; members: number[] }[]): { pool: HeroData[]; facets: Facet[] } {
+  const pool = data.heroes.filter((h) => h.eligible && !h.exclude.includes("constellation"));
+  const ids = new Set(pool.map((h) => h.id));
+  const fromGroups: Facet[] = groups.map((g) => ({
+    dim: `group:${g.key}`, label: g.label, info: g.info, members: new Set(g.members.filter((id) => ids.has(id))),
+  }));
+  // Facets that almost everyone (or almost no one) fits make dull or impossible rows.
+  const facets = dedupeFacets([...columnFacets(data, pool), ...fromGroups].filter((f) => f.members.size >= 3 && f.members.size <= pool.length - 3));
+  return { pool, facets };
+}
+
+/** Cells of three rows and three columns: valid heroes per cell (row-major). */
+export function gridCells(rows: Facet[], cols: Facet[]): number[][] {
+  return rows.flatMap((r) => cols.map((c) => [...r.members].filter((h) => c.members.has(h)).sort((a, b) => a - b)));
+}
+
+/** Why a hand-picked grid isn't fair (six different dimensions, every cell with MIN_PER_CELL heroes, solvable), or its solution. */
+export function checkGrid(rows: Facet[], cols: Facet[]): { valid: number[][]; solution: number[] } | { error: string } {
+  if (rows.length !== 3 || cols.length !== 3) return { error: "Pick three rows and three columns." };
+  if (new Set([...rows, ...cols].map((f) => f.dim)).size !== 6) return { error: "Each row and column needs a different kind of category." };
+  const valid = gridCells(rows, cols);
+  const thin = valid.findIndex((v) => v.length < MIN_PER_CELL);
+  if (thin >= 0) return { error: `Cell ${thin + 1} (${rows[Math.floor(thin / 3)].label} × ${cols[thin % 3].label}) fits fewer than ${MIN_PER_CELL} heroes.` };
+  const solution = solveGrid(valid);
+  return solution ? { valid, solution } : { error: "No way to fill all nine cells with different heroes." };
+}
+
+export function constellationPayload(grid: { rows: Facet[]; cols: Facet[]; valid: number[][]; solution: number[] }, pool: HeroData[], key: string): BasePayload<ConstellationClue> {
+  return {
+    v: 1, mode: "constellation", key,
+    // The solution as a picture: the nine heroes of one full grid.
+    answer: { id: "grid", name: "The full sky", image: null, images: grid.solution.flatMap((id) => { const u = pool.find((h) => h.id === id)?.icon; return u ? [u] : []; }) },
+    correctIds: [],
+    leakTerms: [],
+    hints: {},
+    clue: {
+      rows: grid.rows.map(({ label, info }) => ({ label, info })),
+      cols: grid.cols.map(({ label, info }) => ({ label, info })),
+      valid: grid.valid, solution: grid.solution,
+      heroes: pool.map((h) => ({ id: h.id, name: h.name, image: h.icon, keys: [...new Set([h.name, ...h.aliases].map(normalizeName).filter(Boolean))] })),
+    },
+  };
+}
+
 export const constellation: ModeImpl<ConstellationClue> = {
   mode: "constellation",
   selfPicked: true,
   candidates: () => [{ answerId: "grid", ref: 0 }],
   async build(_c, { data, rng, heroCategories, date }) {
-    const pool = data.heroes.filter((h) => h.eligible && !h.exclude.includes("constellation"));
+    const { pool, facets } = constellationFacets(data, (await heroCategories?.()) ?? []);
     if (pool.length < 12) throw new SealedError("not enough heroes");
-    const ids = new Set(pool.map((h) => h.id));
-    const groups: Facet[] = ((await heroCategories?.()) ?? []).map((g) => ({
-      dim: `group:${g.key}`, label: g.label, info: g.info, members: new Set(g.members.filter((id) => ids.has(id))),
-    }));
-    // Facets that almost everyone (or almost no one) fits make dull or impossible rows.
-    const facets = dedupeFacets([...columnFacets(data, pool), ...groups].filter((f) => f.members.size >= 3 && f.members.size <= pool.length - 3));
     const grid = pickGrid(facets, rng);
     if (!grid) throw new SkipCandidate("no fair grid from the current categories");
-    const key = `${date}:${[...grid.rows, ...grid.cols].map((f) => f.label).join("|")}`;
-    return {
-      v: 1, mode: "constellation", key,
-      // The solution as a picture: the nine heroes of one full grid.
-      answer: { id: "grid", name: "The full sky", image: null, images: grid.solution.flatMap((id) => { const u = pool.find((h) => h.id === id)?.icon; return u ? [u] : []; }) },
-      correctIds: [],
-      leakTerms: [],
-      hints: {},
-      clue: {
-        rows: grid.rows.map(({ label, info }) => ({ label, info })),
-        cols: grid.cols.map(({ label, info }) => ({ label, info })),
-        valid: grid.valid, solution: grid.solution,
-        heroes: pool.map((h) => ({ id: h.id, name: h.name, image: h.icon, keys: [...new Set([h.name, ...h.aliases].map(normalizeName).filter(Boolean))] })),
-      },
-    };
+    return constellationPayload(grid, pool, `${date}:${[...grid.rows, ...grid.cols].map((f) => f.label).join("|")}`);
   },
   clue: (p, _wrong, done, _opts, rows = []) => {
     const hero = (id: number) => p.clue.heroes.find((h) => h.id === id);

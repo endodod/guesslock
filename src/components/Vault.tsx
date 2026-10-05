@@ -486,6 +486,7 @@ export function Vault({
           <p className="text-ash">{t.vault.nextIn} <Countdown target={nextReset} className="text-paper" /></p>
           <Link href="/yesterday" className="text-brass underline-offset-4 hover:underline">{t.vault.yesterday}</Link>
           <Link href="/endless" className="text-cursed underline-offset-4 hover:underline">Can&apos;t wait for tomorrow? Play Endless</Link>
+          <Link href="/community" className="text-brass underline-offset-4 hover:underline">Community puzzles: sorting tables and grids made by players</Link>
         </div>
       )}
     </div>

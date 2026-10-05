@@ -68,7 +68,7 @@ export function Footer() {
       <p className="mx-auto max-w-2xl">{t.footer.disclaimer}</p>
       {/* Each link is at least 44px tall: the footer is where thumbs end up on a phone. */}
       <nav aria-label="More" className="mt-2 flex flex-wrap justify-center gap-x-5">
-        {[["/endless", "Endless"], ["/market", "The Black Market"], ["/yesterday", t.vault.yesterday], ["/how-to-play", t.nav.rules], ["/feedback", "Report a problem"], ["/about", t.footer.credits]].map(([href, label]) => (
+        {[["/endless", "Endless"], ["/community", "Community"], ["/market", "The Black Market"], ["/yesterday", t.vault.yesterday], ["/how-to-play", t.nav.rules], ["/feedback", "Report a problem"], ["/about", t.footer.credits]].map(([href, label]) => (
           <Link key={href} href={href} className="inline-flex min-h-11 items-center hover:text-paper">{label}</Link>
         ))}
       </nav>

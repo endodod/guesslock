@@ -16,7 +16,7 @@ const GROUPS: { id: string; title: string }[] = [
   { id: "words", title: "The Words" },
 ];
 
-const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/feedback", "Feedback"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;
+const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/feedback", "Feedback"], ["/admin/community", "Community puzzles"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;
 
 function Brand() {
   return (

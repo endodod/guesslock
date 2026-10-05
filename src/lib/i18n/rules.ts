@@ -47,3 +47,9 @@ function hintSentence(slug: string): string {
 }
 
 export const RULES: Record<string, string> = Object.fromEntries(Object.entries(BASE).map(([slug, text]) => [slug, text + hintSentence(slug)]));
+
+/** Community puzzles: the same play as the daily tables and grid, made by players and never worth souls. */
+export const COMMUNITY_RULES = {
+  seance: (noun: string) => `16 ${noun} sit on the table, in 4 hidden groups of 4 that a player made up. Select 4 ${noun} and submit. A correct group locks in and shows its name; a wrong pick snaps a lockpick. "One away" means 3 of your 4 belong together. 4 mistakes lose the table. The groups are numbered from easiest to hardest, as the author ranked them.`,
+  constellation: "A 3 by 3 grid made by a player: every row and every column is a category. Fill each cell with a hero who fits both its row and its column; each hero can be used once. A wrong hero snaps one of your 4 lockpicks. A placed hero can be taken off again with the ✕ on its cell.",
+};

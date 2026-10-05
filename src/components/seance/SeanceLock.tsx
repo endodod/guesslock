@@ -221,9 +221,11 @@ export function SeanceLock({ initialSlug, date, number, tables, site, available,
 
 // ───────────── one table ─────────────
 
-function SeanceTable({
-  view, restoring, rules, showRules, setShowRules, noun, contain, onSubmit, onSound, footer,
+export function SeanceTable({
+  view, restoring, rules, showRules, setShowRules, noun, contain, onSubmit, onSound, footer, noSouls = false,
 }: {
+  /** Community tables: not worth souls, so the finished panel doesn't count them. */
+  noSouls?: boolean;
   noun: string;
   /** Items and abilities are icons: show them whole instead of cropping like a portrait. */
   contain: boolean;
@@ -232,7 +234,7 @@ function SeanceTable({
   rules: string;
   showRules: boolean;
   setShowRules: (fn: (s: boolean) => boolean) => void;
-  onSubmit: (entry: string) => Promise<PlayResponse | null>;
+  onSubmit: (entry: string) => Promise<SeanceView | null>;
   onSound: (s: "click" | "tick" | "creak") => void;
   footer: (v: SeanceView) => React.ReactNode;
 }) {
@@ -344,7 +346,8 @@ function SeanceTable({
         <DecoFrame className="space-y-3 p-5 text-center" corners={false}>
           <p className={`font-display text-2xl ${view.status === "won" ? "text-ecto" : "text-[#d08a8a]"}`}>{view.status === "won" ? t.seance.won : t.seance.lost}</p>
           <p className="text-paper">
-            {t.seance.mistakes(view.mistakes)}{view.hintsUsed ? " · 1 hint" : ""} · <span className="font-mono text-xl">{view.souls ?? 0}</span> souls
+            {t.seance.mistakes(view.mistakes)}{view.hintsUsed ? " · 1 hint" : ""}
+            {!noSouls && <> · <span className="font-mono text-xl">{view.souls ?? 0}</span> souls</>}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">{footer(view)}</div>
         </DecoFrame>

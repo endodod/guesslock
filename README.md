@@ -277,6 +277,16 @@ generator, `play.ts` server checks, `scoring.ts`, `derive.ts`, `rules.ts`; DB: `
 **Deploy:** Vercel (uses `vercel.json` crons) or Docker (`Dockerfile`, standalone output; schedule the cron URLs with any
 scheduler). Point `guesslock.paulkuehn.ch` at it.
 
+### Community puzzles (`/community`)
+
+Signed-in players make sorting tables (16 heroes, items or abilities in 4 named groups, easiest first) and
+Constellations (3 row + 3 column categories from the same pool the daily grid uses: Reckoning columns and approved Séance
+hero groups). The checks run on publishing (`src/lib/community/`): 16 different tiles, short texts without links or
+slurs, and for a grid six different kinds of category, at least 2 heroes per cell and a full solution. Puzzles go live
+right away, at most 5 per player a day. They play statelessly like Endless (entries on the device, `/api/community`), count
+plays and solves once per player, and are never worth souls. Three reports hide a puzzle until it is restored in
+`/admin/community`; authors can delete their own, and deleting an account deletes its puzzles.
+
 ## Security and scaling notes
 
 **Before production** (the checklist)

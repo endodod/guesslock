@@ -374,6 +374,10 @@ export async function deleteAccountCompletely(userId: string) {
   confirmedProfiles.delete(userId);
   await db.$transaction([
     db.profile.deleteMany({ where: { userId } }),
+    // Their community puzzles go too, with every play and report row keyed by their id.
+    db.$executeRaw`DELETE FROM "CommunityPlay" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "player" = ${userId}`,
+    db.$executeRaw`DELETE FROM "CommunityReport" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "userId" = ${userId}`,
+    db.communityPuzzle.deleteMany({ where: { authorId: userId } }),
     db.$executeRaw`DELETE FROM neon_auth."user" WHERE id::text = ${userId}`,
   ]);
 }

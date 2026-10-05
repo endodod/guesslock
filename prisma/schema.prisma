@@ -449,6 +449,46 @@ model EndlessPuzzle {
   @@index([createdAt])
 }
 
+// ───────────── Community puzzles (player-made sorting tables and Constellations; no souls) ─────────────
+
+model CommunityPuzzle {
+  id        String   @id // 10-char base36 token
+  authorId  String // Profile.userId
+  kind      String // "seance" | "constellation"
+  /// The Séance: what the 16 tiles are ("hero" | "item" | "ability"); null for a Constellation.
+  entity    String?
+  title     String
+  /// A SeancePayload (source "community") or a Constellation BasePayload, frozen when published.
+  payload   Json
+  status    String   @default("live") // "live" | "hidden" (reported or hidden by the admin)
+  plays     Int      @default(0)
+  solves    Int      @default(0)
+  reports   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([authorId, createdAt])
+}
+
+// One row per player and puzzle: plays and solves are counted once each. `player` = user id, or "ip:<hash>" for guests.
+model CommunityPlay {
+  puzzleId  String
+  player    String
+  solved    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@id([puzzleId, player])
+}
+
+model CommunityReport {
+  puzzleId  String
+  userId    String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@id([puzzleId, userId])
+}
+
 // ───────────── The Black Market (spending souls on cosmetics) ─────────────
 
 // Spendable souls = UserStats.totalSouls (earned, what the leaderboards rank) + Wallet.adjust (spent < 0, refunds and
