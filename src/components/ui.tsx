@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useNow } from "@/lib/client/hooks";
 import { motion } from "motion/react";
+import { t } from "@/lib/i18n/en";
 
 // ───────────── DecoFrame ─────────────
 
@@ -181,6 +182,13 @@ export function Countdown({ target, onZero, className = "" }: { target: number; 
 export function SlotDot({ slot }: { slot: string }) {
   const c = slot === "weapon" ? "bg-slot-weapon" : slot === "vitality" ? "bg-slot-vitality" : "bg-slot-spirit";
   return <span className={`inline-block h-2.5 w-2.5 rounded-full ${c}`} aria-hidden />;
+}
+
+// ───────────── EarlyAccess ─────────────
+
+/** The "early access" tag next to a lock family still being tuned (The Omens, the Séance sorting tables). */
+export function EarlyAccess({ className = "" }: { className?: string }) {
+  return <span className={`inline-block rounded-[2px] border border-cursed/60 px-1.5 font-mono text-[0.62rem] normal-case tracking-widest text-[#c7b2ff] ${className}`}>{t.earlyAccess.toUpperCase()}</span>;
 }
 
 export function Button({

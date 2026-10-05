@@ -10,7 +10,7 @@ import { boxSouls } from "@/lib/seance/scoring";
 import { WaxSeal, type SealState } from "./seance/WaxSeal";
 import { t } from "@/lib/i18n/en";
 import { useGame } from "./GameProvider";
-import { Countdown, DecoFrame, Icon, Keyhole } from "./ui";
+import { Countdown, DecoFrame, EarlyAccess, Icon, Keyhole } from "./ui";
 import { answerImageClass } from "@/lib/images";
 import { AnswerMosaic } from "./AnswerMosaic";
 import { DailyReward } from "./DailyReward";
@@ -447,7 +447,7 @@ export function Vault({
       <section aria-labelledby="omens-h" className="mt-8">
         <h2 id="omens-h" className="smallcaps mb-3 flex flex-wrap items-center gap-2 text-cursed">
           {t.groups.omens}
-          <span className="rounded-[2px] border border-cursed/60 px-1.5 py-0.5 font-mono text-[0.62rem] normal-case tracking-widest text-[#c7b2ff]">{t.earlyAccess.toUpperCase()}</span>
+          <EarlyAccess className="py-0.5" />
         </h2>
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:gap-4">
           {OMEN_LOCKS.map((l) => strip(l))}
@@ -456,7 +456,10 @@ export function Vault({
 
       {/* The Séance: four tables behind one wide box */}
       <section aria-labelledby="seance-h" className="mt-8">
-        <h2 id="seance-h" className="smallcaps mb-3 text-brass">{t.groups.seance}</h2>
+        <h2 id="seance-h" className="smallcaps mb-3 flex flex-wrap items-center gap-2 text-brass">
+          {t.groups.seance}
+          <EarlyAccess className="py-0.5" />
+        </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {SEANCE_BOX_LIST.map((b) => (
             <div key={b.id} className={hardView ? "pointer-events-none opacity-35 grayscale" : undefined} aria-disabled={hardView || undefined}>

@@ -5,7 +5,7 @@ import { getLock, SEANCE_BOXES, seanceLocksOf, type SeanceBoxId } from "@/locks.
 import { SeanceLock } from "@/components/seance/SeanceLock";
 import { evaluateSeance } from "@/lib/seance/play";
 import { LockGame } from "@/components/LockGame";
-import { DecoFrame, Icon } from "@/components/ui";
+import { DecoFrame, EarlyAccess, Icon } from "@/components/ui";
 import { config } from "@/lib/config";
 import { isDay, numberFor, todayDate } from "@/lib/day";
 import { getCatalog, lookupFor } from "@/lib/engine/catalog";
@@ -76,7 +76,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           <p className="smallcaps text-xs text-brass">{lock.numeral} · {date === today ? "Today" : date} · #{number}</p>
           <h1 className="font-display text-2xl leading-tight text-paper md:text-3xl">
             {lock.name}
-            {lock.group === "omens" && <span className="ml-2 inline-block rounded-[2px] border border-cursed/60 px-1.5 align-middle font-mono text-[0.62rem] tracking-widest text-[#c7b2ff]">{t.earlyAccess.toUpperCase()}</span>}
+            {(lock.group === "omens" || lock.group === "seance") && <EarlyAccess className="ml-2 align-middle" />}
           </h1>
           <p className="text-sm text-ash">{lock.subtitle}</p>
         </div>
