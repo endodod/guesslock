@@ -39,6 +39,12 @@ export const en = {
     sealed: "Sealed — back tomorrow",
     states: { skipped: "Skipped", locked: "Locked", progress: (n: number) => `${n} ${n === 1 ? "guess" : "guesses"}`, opened: (n: number, s: number) => `Opened in ${n} ${n === 1 ? "try" : "tries"} · ${s} souls`, jammed: "Jammed", sealed: "Sealed" },
   },
+  codex: {
+    open: "Codex: every hero or item by picture and name",
+    heroes: "Codex · Heroes",
+    items: "Codex · Items",
+    slots: { weapon: "Gun", vitality: "Vitality", spirit: "Spirit" },
+  },
   lock: {
     placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "", match: "", grid: "Type a hero’s name…", map: "" },
     submit: "Pick",

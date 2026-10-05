@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
+import type { Codex } from "@/lib/codex";
 import { loadEndless, recordEndless, saveEndless } from "@/lib/client/endless";
 import type { LockRecord } from "@/lib/client/store";
 import { LockGame } from "./LockGame";
@@ -16,7 +17,7 @@ async function post(body: unknown) {
   return { status: res.status, json: res.ok ? await res.json() : null };
 }
 
-export function EndlessLock({ slug, entries, site, rules }: { slug: string; entries: CatalogEntry[]; site: string; rules: string }) {
+export function EndlessLock({ slug, entries, codex, site, rules }: { slug: string; entries: CatalogEntry[]; codex?: Codex; site: string; rules: string }) {
   const [state, setState] = useState<Ready | { error: string } | null>(null);
   const [rec, setRec] = useState<LockRecord | undefined>(undefined);
 
@@ -63,7 +64,7 @@ export function EndlessLock({ slug, entries, site, rules }: { slug: string; entr
   return (
     <LockGame
       key={state.token}
-      slug={slug} date="endless" number={0} initialView={state.view} entries={entries} site={site} available={[]} rules={rules}
+      slug={slug} date="endless" number={0} initialView={state.view} entries={entries} codex={codex} site={site} available={[]} rules={rules}
       endless={{ token: state.token, rec, onRecord, nextHref: `/endless/${slug}?n=${state.token.slice(0, 8)}` }}
     />
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { LOCK_BY_SLUG, LOCKS } from "@/locks.config";
 import type { CatalogEntry, PlayView } from "@/lib/engine/types";
+import type { Codex } from "@/lib/codex";
 import { ignoredSlugs, lockStats, type LockRecord } from "@/lib/client/store";
 import { shareLock } from "@/lib/game/scoring";
 import { t } from "@/lib/i18n/en";
@@ -12,6 +13,7 @@ import { ClueStage } from "./ClueStage";
 import { GuessInput, NumberInput } from "./GuessInput";
 import { AttributeGrid, GuessList, HintShelf } from "./History";
 import { WinPanel } from "./WinPanel";
+import { CodexButton } from "./Codex";
 import { DecoFrame, Icon, KeyholeLoader, LockpickRow } from "./ui";
 
 type Props = {
@@ -23,6 +25,8 @@ type Props = {
   site: string;
   available: string[]; // slugs with a playable puzzle that day
   rules: string;
+  /** Every hero or item by picture and name (none on locks whose clue is the picture). */
+  codex?: Codex;
   /** Endless mode: a practice puzzle (its own record, never part of the daily progress). */
   endless?: EndlessProps;
   /** This lock's hard puzzle exists today (a button offers it after the normal one). */
@@ -50,7 +54,7 @@ async function post(url: string, body: unknown): Promise<PlayResponse> {
   return res.json();
 }
 
-export function LockGame({ slug, date, number, initialView, entries, site, available, rules, endless, hardReady = false, hardAvailable = [] }: Props) {
+export function LockGame({ slug, date, number, initialView, entries, site, available, rules, codex, endless, hardReady = false, hardAvailable = [] }: Props) {
   const lock = LOCK_BY_SLUG[slug];
   const { store, hydrated, today, setRecord, play, toast, user: account } = useGame();
   // Practice puzzles are played anonymously against /api/endless, whoever is signed in.
@@ -282,6 +286,7 @@ export function LockGame({ slug, date, number, initialView, entries, site, avail
               {t.lock.giveUp}
             </button>
           )}
+          {codex && <CodexButton codex={codex} />}
           <button type="button" onClick={() => setShowRules((s) => !s)} aria-expanded={showRules} className="flex h-11 w-11 items-center justify-center text-brass" aria-label={t.lock.rules}>
             <Icon name="question" className="h-6 w-6" />
           </button>

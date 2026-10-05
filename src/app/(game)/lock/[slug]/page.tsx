@@ -9,6 +9,7 @@ import { DecoFrame, Icon } from "@/components/ui";
 import { config } from "@/lib/config";
 import { isDay, numberFor, todayDate } from "@/lib/day";
 import { getCatalog, lookupFor } from "@/lib/engine/catalog";
+import { codexFor } from "@/lib/codex";
 import { evaluate } from "@/lib/engine/play";
 import { dayMeta, getPuzzle, hardMeta } from "@/lib/server/puzzles";
 import { RULES } from "@/lib/i18n/rules";
@@ -109,6 +110,7 @@ export default async function LockPage({ params, searchParams }: { params: Promi
           number={number}
           initialView={initialView!}
           entries={lock.input || !(lock.guess === "hero" || lock.guess === "ability" || lock.guess === "item" || lock.guess === "grid") ? [] : catalog[lock.guess === "grid" ? "hero" : lock.guess]}
+          codex={codexFor(lock, catalog)}
           site={config.siteUrl}
           available={available}
           rules={RULES[slug]}

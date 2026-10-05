@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLock } from "@/locks.config";
 import { isEndlessLock } from "@/lib/endless";
 import { getCatalog } from "@/lib/engine/catalog";
+import { codexFor } from "@/lib/codex";
 import { config } from "@/lib/config";
 import { RULES } from "@/lib/i18n/rules";
 import { EndlessLock } from "@/components/EndlessLock";
@@ -33,7 +34,7 @@ export default async function EndlessLockPage({ params, searchParams }: { params
         </div>
       </div>
       {/* `n` changes with every "Next puzzle", so a new puzzle starts from a fresh component. */}
-      <EndlessLock key={n ?? "first"} slug={slug} entries={entries} site={config.siteUrl} rules={RULES[slug] ?? ""} />
+      <EndlessLock key={n ?? "first"} slug={slug} entries={entries} codex={codexFor(lock, catalog)} site={config.siteUrl} rules={RULES[slug] ?? ""} />
     </div>
   );
 }
