@@ -52,8 +52,8 @@ attribute columns in `src/lib/engine/columns.ts`; strings in `src/lib/i18n/`.
 ## Setup
 
 ```bash
-npm install                 # also runs prisma generate (.npmrc sets legacy-peer-deps: @neondatabase/auth beta peer ranges conflict)
-cp .env.example .env        # fill in DATABASE_URL, DIRECT_URL, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET (production: see "Security and scaling notes")
+npm install                 # also runs prisma generate
+cp .env.example .env        # fill in DATABASE_URL, DIRECT_URL, BETTER_AUTH_SECRET, ADMIN_PASSWORD, SESSION_SECRET, CRON_SECRET (production: see "Security and scaling notes")
 npm run db:migrate          # apply migrations
 npm run sync                # fetch heroes/items from api.deadlock-api.com, mirror images
 npm run generate            # create today's + next 7 days' puzzles
@@ -151,10 +151,19 @@ newly generated puzzles; upcoming days with that hero can be rebuilt from the sa
 
 ## Accounts & leaderboards (optional for players)
 
-- **Identity:** Neon Auth (Managed Better Auth), enabled via `neon.ts` (`auth: true`) + `neon deploy`. Users/sessions live in
-  the `neon_auth` schema; GUESSLOCK's own tables are `Profile`, `Play` and `UserStats`. Code: `src/lib/auth/`, `src/lib/accounts/`.
-- **Sign-in:** email + password, or a one-time code by email (also used for password recovery). Pages under `/auth/*`,
-  account page `/account` (protected by `src/proxy.ts`), leaderboards at `/hall`.
+- **Identity:** self-hosted Better Auth (`src/lib/auth/server.ts`, handler at `/api/auth/*`) on our own tables `auth_user`,
+  `auth_session`, `auth_account`, `auth_verification`. GUESSLOCK's own tables are `Profile`, `Play` and `UserStats`, keyed by the
+  auth user id. Code: `src/lib/auth/`, `src/lib/accounts/`.
+- **Sign-in:** email + password, a one-time code by email, a password reset link (emails through Resend, `src/lib/auth/mail.ts`),
+  or **Steam**. Pages under `/auth/*`, account page `/account` (protected by `src/proxy.ts`), leaderboards at `/hall`.
+- **Steam** (`src/lib/auth/steam.ts`, a Better Auth plugin): Steam is OpenID 2.0, so the plugin has its own `/api/auth/steam/start`,
+  `/callback` (checked with Steam's `check_authentication`) and `/unlink`. Signing in with an unknown Steam account creates a new
+  player named after the Steam profile, with a placeholder email `<steamid>@steam.invalid`; on `/account` they can add a real
+  email (proven with a code) and a password. Existing players link Steam on `/account` and can then sign in with it; Steam can
+  only be unlinked while a password or a real email remains.
+- **Moved from Neon Auth:** migration `20261013090000_better_auth` copies `neon_auth` users and their password accounts with
+  their ids (the password hashes are the same scrypt format, so passwords keep working). Sessions aren't copied: everyone signs
+  in once more. The copy is idempotent; `neon_auth` itself is left untouched.
 - **Recording:** when signed in, `/api/play` records every guess server-side. Guesses are append-only, finished locks are frozen,
   and finished locks stay as they were.
 - **Ranked vs. unranked:** a lock counts for leaderboards only if it was played on its own day, one guess per request, while
@@ -162,11 +171,10 @@ newly generated puzzles; upcoming days with that hero can be rebuilt from the sa
   personal stats only.
 - **Boards:** Today, This week (Mon–Sun), All time (total souls), Streaks, Collectors (worth of the collection). Players can hide
   themselves. Rankings are cached for 30 s per server instance; the public API never returns internal user ids.
-- **Data rights:** `/api/account/export` (JSON download) and account deletion (profile, plays, stats and the Neon Auth user,
-  in one transaction).
-- **Before production:** add the site origin as a trusted domain (`neon neon-auth domain add https://…`; done for
-  `guesslock.paulkuehn.ch`), set `NEON_AUTH_BASE_URL` + `NEON_AUTH_COOKIE_SECRET` on the host, and configure custom SMTP in
-  Neon (the shared sender is for development).
+- **Data rights:** `/api/account/export` (JSON download) and account deletion (profile, plays, stats, community puzzles and
+  the sign-in identity with its sessions and Steam link, in one transaction).
+- **Before production:** set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY` and `MAIL_FROM` (a sender on a domain
+  verified in Resend) on the host, optionally `STEAM_API_KEY`.
 
 ## Operations
 
@@ -290,7 +298,7 @@ plays and solves once per player, and are never worth souls. Three reports hide 
 ## Security and scaling notes
 
 **Before production** (the checklist)
-- Environment on the host: `DATABASE_URL` (pooled), `DIRECT_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `ADMIN_PASSWORD`,
+- Environment on the host: `DATABASE_URL` (pooled), `DIRECT_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_PASSWORD`,
   `SESSION_SECRET`, `CRON_SECRET`, `PUZZLE_SALT`, `TRUSTED_PROXY_HOPS`, `DB_POOL_MAX`; optional `AGENT_API_*` tokens (the agent API is off
   without them) and `ALERT_WEBHOOK_URL`. All are listed in `.env.example`; secrets should be 32+ random characters.
 - Migrations run on the Vercel build (`prisma migrate deploy`); with Docker run `npm run db:migrate` first.

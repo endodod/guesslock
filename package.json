@@ -33,9 +33,9 @@
   "dependencies": {
     "@neon/config": "^1.8.3",
     "@neon/env": "^1.4.8",
-    "@neondatabase/auth": "^0.5.0-beta",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "better-auth": "^1.6.23",
     "dotenv": "^18.0.4",
     "motion": "^13.4.6",
     "mpg123-decoder": "^1.0.3",
@@ -43,6 +43,7 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "resend": "^6.32.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

@@ -314,10 +314,75 @@ model OmenConfig {
   updatedAt DateTime @updatedAt
 }
 
-// ───────────── Accounts (identity lives in Neon Auth's neon_auth schema) ─────────────
+// ───────────── Sign-in (Better Auth's tables; ids copied from the old neon_auth schema keep every Profile linked) ─────────────
+
+model AuthUser {
+  id            String        @id
+  name          String
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  image         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sessions      AuthSession[]
+  accounts      AuthAccount[]
+
+  @@map("auth_user")
+}
+
+model AuthSession {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_session")
+}
+
+/// A way to sign in: providerId "credential" (email + password, hash in `password`) or "steam" (accountId = SteamID64).
+model AuthAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  AuthUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("auth_account")
+}
+
+model AuthVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("auth_verification")
+}
+
+// ───────────── Accounts (identity: self-hosted Better Auth, src/lib/auth/server.ts) ─────────────
 
 model Profile {
-  userId       String     @id // neon_auth user id
+  userId       String     @id // AuthUser.id
   displayName  String
   nameKey      String     @unique // lowercased displayName, for case-insensitive uniqueness
   showOnBoards Boolean    @default(true)

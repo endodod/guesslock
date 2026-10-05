@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState, useTransition } from "react";
-import { changePassword, deleteAccount, setVisibility, updateName, type AccountState } from "@/app/(game)/account/actions";
+import { addEmail, changePassword, deleteAccount, setVisibility, unlinkSteam, updateName, type AccountState } from "@/app/(game)/account/actions";
 import { DecoFrame } from "./ui";
 
 const input =
@@ -12,8 +12,22 @@ function Msg({ s }: { s: AccountState }) {
   return s.error ? <p role="alert" className="text-sm text-[#e6a3a0]">{s.error}</p> : <p role="status" className="text-sm text-ecto">{s.ok}</p>;
 }
 
-export function AccountForms({ name, showOnBoards }: { name: string; showOnBoards: boolean }) {
+const STEAM_NOTE: Record<string, AccountState> = {
+  linked: { ok: "Steam is linked: you can sign in with it from now on." },
+  taken: { error: "That Steam account is already linked to another GUESSLOCK account." },
+  already: { error: "Your account is already linked to a Steam account. Unlink it first." },
+  failed: { error: "Steam didn't confirm the sign-in. Try again." },
+  expired: { error: "That Steam sign-in took too long. Try again." },
+};
+
+export type SignInMethods = { password: boolean; steamId: string | null; email: string | null };
+
+export function AccountForms({ name, showOnBoards, methods, steamStatus }: { name: string; showOnBoards: boolean; methods: SignInMethods; steamStatus?: string }) {
   const [nameState, nameAction, namePending] = useActionState(updateName, null);
+  const [emailState, emailAction, emailPending] = useActionState(addEmail, null);
+  const [steamState, setSteamState] = useState<AccountState>(steamStatus ? STEAM_NOTE[steamStatus] ?? null : null);
+  const [steamPending, startSteam] = useTransition();
+  const codeSent = !!emailState?.ok && !methods.email && emailState.ok.startsWith("A code");
   const [pwState, pwAction, pwPending] = useActionState(changePassword, null);
   const [delState, delAction, delPending] = useActionState(deleteAccount, null);
   const [visible, setVisible] = useState(showOnBoards);
@@ -51,14 +65,56 @@ export function AccountForms({ name, showOnBoards }: { name: string; showOnBoard
       </DecoFrame>
 
       <DecoFrame className="space-y-4 p-5" corners={false}>
+        <h2 className="smallcaps text-brass">Linked accounts</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p>
+            <span className="text-paper">Steam</span>{" "}
+            {methods.steamId ? (
+              <a className="text-sm text-brass underline-offset-4 hover:underline" href={`https://steamcommunity.com/profiles/${methods.steamId}`} target="_blank" rel="noreferrer">linked ({methods.steamId})</a>
+            ) : <span className="text-sm text-ash">not linked</span>}
+          </p>
+          {methods.steamId ? (
+            <button type="button" disabled={steamPending} onClick={() => startSteam(async () => setSteamState(await unlinkSteam()))} className="min-h-11 rounded-[3px] border border-ash/40 px-4 text-paper hover:border-[#b0433f] disabled:opacity-50">Unlink Steam</button>
+          ) : (
+            // A full navigation: the API route redirects to Steam.
+            // eslint-disable-next-line @next/next/no-html-link-for-pages
+            <a href="/api/auth/steam/start?mode=link" className={`${btn} inline-flex items-center`}>Link Steam</a>
+          )}
+        </div>
+        <Msg s={steamState} />
+        {!methods.email && (
+          <form action={emailAction} className="space-y-3 border-t border-brass/15 pt-4">
+            <p className="text-sm text-ash">Add an email address to sign in with codes or a password as well as Steam. We send a code to prove it&apos;s yours.</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="min-w-48 flex-1">
+                <span className="mb-1 block text-sm text-ash">Email</span>
+                <input name="email" type="email" autoComplete="email" defaultValue={emailState?.value} required readOnly={codeSent} className={input} />
+              </label>
+              {codeSent && (
+                <label className="w-36">
+                  <span className="mb-1 block text-sm text-ash">Code</span>
+                  <input name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required className={input} />
+                </label>
+              )}
+              <button disabled={emailPending} className={btn}>{codeSent ? "Confirm" : "Send code"}</button>
+            </div>
+            <Msg s={emailState} />
+          </form>
+        )}
+      </DecoFrame>
+
+      <DecoFrame className="space-y-4 p-5" corners={false}>
         <h2 className="smallcaps text-brass">Password</h2>
         <form action={pwAction} className="grid gap-3 sm:grid-cols-2">
-          <label><span className="mb-1 block text-sm text-ash">Current password</span><input name="currentPassword" type="password" autoComplete="current-password" required className={input} /></label>
+          {methods.password ? (
+            <label><span className="mb-1 block text-sm text-ash">Current password</span><input name="currentPassword" type="password" autoComplete="current-password" required className={input} /></label>
+          ) : (
+            <p className="text-sm text-ash sm:col-span-2">{methods.email ? "You don't have a password yet. Set one to sign in with your email and password." : "Add an email address above first: a password signs in together with your email."}</p>
+          )}
           <label><span className="mb-1 block text-sm text-ash">New password</span><input name="newPassword" type="password" autoComplete="new-password" minLength={8} required className={input} /></label>
-          <div className="sm:col-span-2"><button disabled={pwPending} className={btn}>Change password</button></div>
+          <div className="sm:col-span-2"><button disabled={pwPending || (!methods.password && !methods.email)} className={btn}>{methods.password ? "Change password" : "Set password"}</button></div>
         </form>
         <Msg s={pwState} />
-        <p className="text-xs text-ash">Signed up with a code only? Use &quot;Forgot your password?&quot; on the sign-in page to set one.</p>
       </DecoFrame>
 
       <DecoFrame className="space-y-3 p-5" corners={false}>

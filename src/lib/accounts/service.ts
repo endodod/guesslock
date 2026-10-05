@@ -366,9 +366,8 @@ export async function exportAccount(user: SessionUser) {
 }
 
 /**
- * Deletes a player completely, in one transaction: game data (profile cascades to plays and stats)
- * and the Neon Auth identity (neon_auth.user cascades to its sessions and linked accounts).
- * Managed Auth doesn't expose self-service deleteUser, so the identity row is removed directly.
+ * Deletes a player completely, in one transaction: game data (profile cascades to plays and stats), their community
+ * puzzles, and the sign-in identity (auth_user cascades to its sessions and linked accounts, Steam included).
  */
 export async function deleteAccountCompletely(userId: string) {
   confirmedProfiles.delete(userId);
@@ -378,6 +377,6 @@ export async function deleteAccountCompletely(userId: string) {
     db.$executeRaw`DELETE FROM "CommunityPlay" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "player" = ${userId}`,
     db.$executeRaw`DELETE FROM "CommunityReport" WHERE "puzzleId" IN (SELECT id FROM "CommunityPuzzle" WHERE "authorId" = ${userId}) OR "userId" = ${userId}`,
     db.communityPuzzle.deleteMany({ where: { authorId: userId } }),
-    db.$executeRaw`DELETE FROM neon_auth."user" WHERE id::text = ${userId}`,
+    db.authUser.deleteMany({ where: { id: userId } }),
   ]);
 }

@@ -35,7 +35,8 @@ export async function claimDaily(userId: string): Promise<{ reward: number; stre
 // ───────────── invitations ─────────────
 
 // Keyed with a deployment secret. PUZZLE_SALT is not one (its default is in the repository), so anyone could have forged links.
-const inviteKey = () => `${config.sessionSecret || process.env.NEON_AUTH_COOKIE_SECRET || config.salt}:invite`;
+// NEON_AUTH_COOKIE_SECRET stays in the chain so invite links signed before the move to Better Auth keep working.
+const inviteKey = () => `${config.sessionSecret || process.env.NEON_AUTH_COOKIE_SECRET || process.env.BETTER_AUTH_SECRET || config.salt}:invite`;
 const sign = (userId: string) => createHmac("sha256", inviteKey()).update(userId).digest("base64url").slice(0, 16);
 
 /** The token in a player's invite link: their id and a signature, so a link can be checked without looking anything up. */

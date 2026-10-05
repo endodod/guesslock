@@ -63,10 +63,28 @@ function Submit({ pending, label, busy }: { pending: boolean; label: string; bus
 
 const link = "text-brass underline-offset-4 hover:underline";
 
-export function SignInForm({ next, adminLink = false }: { next: string; adminLink?: boolean }) {
+/** Steam's sign-in page (OpenID), back to `next` afterwards. New players get an account named after their Steam profile. */
+function SteamButton({ next, label }: { next: string; label: string }) {
+  return (
+    <>
+      <a
+        href={`/api/auth/steam/start?mode=login&next=${encodeURIComponent(next)}`}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[3px] border border-[#66c0f4]/60 bg-[#171a21] text-[1.05rem] text-[#c7d5e0] hover:border-[#66c0f4]"
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" /><circle cx="15" cy="9.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.5" /><circle cx="9" cy="15" r="1.8" fill="currentColor" /><path d="M9 15l4.5-3.5" stroke="currentColor" strokeWidth="1.5" /></svg>
+        {label}
+      </a>
+      <div className="my-4 flex items-center gap-3 text-xs text-ash"><span className="h-px flex-1 bg-brass/20" />or<span className="h-px flex-1 bg-brass/20" /></div>
+    </>
+  );
+}
+
+export function SignInForm({ next, adminLink = false, steamError }: { next: string; adminLink?: boolean; steamError?: "failed" | "expired" }) {
   const [state, action, pending] = useActionState(signIn, null);
   return (
     <Shell title="Sign the register" sub="Sign in to keep your souls, streaks and place on the leaderboards.">
+      {steamError && <p role="alert" className="mb-4 rounded-sm border border-[#b0433f]/60 bg-velvet px-3 py-2 text-sm text-paper">{steamError === "failed" ? "Steam didn't confirm the sign-in. Try again." : "That Steam sign-in took too long. Try again."}</p>}
+      <SteamButton next={next} label="Sign in with Steam" />
       <form action={action} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <Field label="Email" name="email" type="email" autoComplete="email" defaultValue={state?.values?.email} />
@@ -92,6 +110,7 @@ export function SignUpForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState(signUp, null);
   return (
     <Shell title="Join the register" sub="Your progress on this device comes with you. Accounts are optional; the game works without one.">
+      <SteamButton next={next} label="Sign up with Steam" />
       <form action={action} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <Field label="Display name" name="name" autoComplete="nickname" minLength={3} maxLength={20} defaultValue={state?.values?.name} hint="Shown on the leaderboards. 3–20 characters." />

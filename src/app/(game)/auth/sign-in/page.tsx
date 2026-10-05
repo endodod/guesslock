@@ -6,8 +6,8 @@ import { config } from "@/lib/config";
 
 export const metadata = { title: "Sign in", robots: { index: false } };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string; steam?: string }> }) {
   if (await currentUser()) redirect("/account");
-  const { next } = await searchParams;
-  return <SignInForm next={safeNextPath(next)} adminLink={config.adminDebug} />;
+  const { next, steam } = await searchParams;
+  return <SignInForm next={safeNextPath(next)} adminLink={config.adminDebug} steamError={steam === "failed" || steam === "expired" ? steam : undefined} />;
 }

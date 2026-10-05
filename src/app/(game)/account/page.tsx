@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { currentUser } from "@/lib/auth/server";
+import { currentUser, signInMethods } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { ensureProfile } from "@/lib/accounts/service";
 import { todayDate } from "@/lib/day";
@@ -11,14 +11,16 @@ import { signOut } from "../auth/actions";
 
 export const metadata = { title: "Your account", robots: { index: false } };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ steam?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/auth/sign-in?next=/account");
   const profile = await ensureProfile(user);
-  const [stats, ranked, imported] = await Promise.all([
+  const { steam } = await searchParams;
+  const [stats, ranked, imported, methods] = await Promise.all([
     db.userStats.findUnique({ where: { userId: user.id } }),
     db.play.count({ where: { userId: user.id, source: "live", archive: false, status: { not: "playing" } } }),
     db.play.count({ where: { userId: user.id, source: "import" } }),
+    signInMethods(user.id),
   ]);
   const streakAlive = stats?.lastDay && stats.lastDay >= addDays(todayDate(), -1);
 
@@ -28,7 +30,7 @@ export default async function AccountPage() {
         <div>
           <p className="smallcaps text-sm text-brass">The register</p>
           <h1 className="font-display text-3xl text-paper">{profile.displayName}</h1>
-          <p className="text-sm text-ash">{user.email}</p>
+          <p className="text-sm text-ash">{methods.email ?? (methods.steamId ? "Signed in with Steam" : "")}</p>
         </div>
         <form action={signOut}>
           <button className="min-h-11 rounded-[3px] border border-ash/40 px-4 text-paper hover:border-brass/60">Sign out</button>
@@ -59,7 +61,7 @@ export default async function AccountPage() {
         </p>
       </DecoFrame>
 
-      <AccountForms name={profile.displayName} showOnBoards={profile.showOnBoards} />
+      <AccountForms name={profile.displayName} showOnBoards={profile.showOnBoards} methods={methods} steamStatus={steam} />
     </div>
   );
 }
