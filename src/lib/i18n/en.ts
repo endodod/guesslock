@@ -6,7 +6,7 @@ export const en = {
   nav: { vault: "The Vault", ledger: "The Ledger", archive: "The Archive", rules: "The Rules", about: "About", settings: "Settings", back: "Back to Vault", hall: "The Hall (leaderboards)", account: "Your account", signIn: "Sign in" },
   /** Shown next to the Omens: a newer kind of puzzle that is still being tuned. */
   earlyAccess: "Early access",
-  groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens", seance: "The Sorting Tables" },
+  groups: { spirits: "The Spirits", shop: "The Curiosity Shop", omens: "The Omens", seance: "The Sorting Tables", words: "The Words" },
   seance: {
     tables: "Tables",
     submit: "Submit",
@@ -46,7 +46,7 @@ export const en = {
     slots: { weapon: "Gun", vitality: "Vitality", spirit: "Spirit" },
   },
   lock: {
-    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "", match: "", grid: "Type a hero’s name…", map: "" },
+    placeholder: { hero: "Name the hero…", ability: "Name the ability…", item: "Name the item…", number: "Enter a number…", omen: "", seance: "", match: "", grid: "Type a hero’s name…", word: "", crossword: "", map: "" },
     submit: "Pick",
     /** What hard mode changes, per lock (shown next to the toggle). */
     hardInfo: {

@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { countedLocks, HARD_LOCKS, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
+import { countedLocks, HARD_LOCKS, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, SEANCE_BOXES, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, WORD_LOCKS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import type { LockMeta } from "@/lib/server/puzzles";
 import { dayStreaks, ignoredSlugs, type LockRecord } from "@/lib/client/store";
 import { dayTotals, shareDay, type LockResult } from "@/lib/game/scoring";
@@ -464,6 +464,13 @@ export function Vault({
             </div>
           ))}
         </div>
+      </section>
+
+      <section aria-labelledby="words-h" className="mt-8">
+        <h2 id="words-h" className="smallcaps mb-3 text-brass">{t.groups.words}</h2>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
+          {WORD_LOCKS.map((l) => strip(l))}
+        </ul>
       </section>
 
       <section aria-labelledby="more-h" className="mt-8">

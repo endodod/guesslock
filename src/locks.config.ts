@@ -1,9 +1,12 @@
 // Single source of truth for lock numbering, names, order and per-mode rules.
 // Local player data is keyed by `slug`, never by numeral, so renumbering is safe.
 
-export type LockGroup = "spirits" | "shop" | "omens" | "seance" | "stars";
-/** `match`: a full assignment (The Cache); `grid`: a cell and a typed name (The Constellation). */
-export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance" | "match" | "grid";
+export type LockGroup = "spirits" | "shop" | "omens" | "seance" | "stars" | "words";
+/**
+ * `match`: a full assignment (The Cache); `grid`: a cell and a typed name (The Constellation); `word`: a typed word (The Lexicon);
+ * `crossword`: the filled-in grid (The Crossword).
+ */
+export type GuessKind = "hero" | "ability" | "item" | "number" | "omen" | "seance" | "match" | "grid" | "word" | "crossword";
 /** The Séance family: sort 16 entities into 4 hidden groups. One box per entity, four tables a day each. */
 export type SeanceBoxId = "seance" | "bazaar" | "grimoire";
 export type SeanceEntity = "hero" | "item" | "ability";
@@ -234,6 +237,16 @@ export const LOCKS: LockDef[] = [
     subtitle: "Fill the 3x3 hero category grid", group: "stars", guess: "grid", picks: 4, maxTries: 4,
     noRepeatDays: 30, hints: [],
   },
+  {
+    slug: "lexicon", soulsWeight: 1, mode: "lexicon", numeral: "XXIX", name: "The Lexicon",
+    subtitle: "Guess the Deadlock word in six tries", group: "words", guess: "word", picks: 6, maxTries: 6,
+    hints: [{ id: "kind", label: "What it is", after: 3 }],
+  },
+  {
+    slug: "crossword", soulsWeight: 1, mode: "crossword", numeral: "XXX", name: "The Crossword",
+    subtitle: "Heroes, items and abilities, crossed", group: "words", guess: "crossword", picks: 4, maxTries: 4,
+    hints: [],
+  },
   // The Séance family: 16 entities, 4 hidden groups of 4. Four tables a day per box, each its own frozen puzzle,
   // sharing one Vault box. 4 mistakes lose a table (src/lib/seance/play.ts).
   ...SEANCE_BOX_LIST.flatMap((b) =>
@@ -273,6 +286,7 @@ export const SPIRIT_LOCKS = LOCKS.filter((l) => l.group === "spirits");
 export const SHOP_LOCKS = LOCKS.filter((l) => l.group === "shop");
 export const OMEN_LOCKS = LOCKS.filter((l) => l.group === "omens");
 export const STAR_LOCKS = LOCKS.filter((l) => l.group === "stars");
+export const WORD_LOCKS = LOCKS.filter((l) => l.group === "words");
 /** Every Séance-family table (all boxes). */
 export const SEANCE_LOCKS = LOCKS.filter((l) => !!l.box);
 export const seanceLocksOf = (box: SeanceBoxId) => LOCKS.filter((l) => l.box === box);

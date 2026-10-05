@@ -9,7 +9,7 @@ import { rateLimitShared } from "@/lib/server/sharedlimit";
 /** A device's whole local history is a few hundred KB at most; anything larger is not a game client. */
 const MAX_BODY = 2_000_000;
 
-const Rec = z.object({ g: z.array(z.string().max(64)).max(200), b: z.string().max(40).optional(), archive: z.boolean().optional(), o: z.unknown().optional() });
+const Rec = z.object({ g: z.array(z.string().max(128)).max(200), b: z.string().max(40).optional(), archive: z.boolean().optional(), o: z.unknown().optional() });
 const Body = z.object({ progress: z.record(z.string(), z.record(z.string(), Rec)).default({}) });
 
 export async function POST(req: Request) {

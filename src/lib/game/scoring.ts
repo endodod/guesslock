@@ -1,5 +1,5 @@
 // Souls and share text (pure; unit-tested). Share text never contains clue content.
-import { boxOf, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, type LockDef, type SeanceBoxId } from "@/locks.config";
+import { boxOf, LOCKS, OMEN_LOCKS, SEANCE_BOX_LIST, seanceLocksOf, SHOP_LOCKS, SPIRIT_LOCKS, STAR_LOCKS, VAULT_UNITS, WORD_LOCKS, type LockDef, type SeanceBoxId } from "@/locks.config";
 import { omenSymbol } from "../omens/scoring";
 import { foldPlays, tableSymbol } from "../seance/scoring";
 import type { Tile } from "../engine/types";
@@ -88,6 +88,7 @@ export function shareDay(opts: {
     `Shop     ${counted(SHOP_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
     `Omens    ${counted(OMEN_LOCKS).map((l) => symbolFor(results[l.slug], l)).join("")}`,
     `Stars    ${counted(STAR_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
+    `Words    ${counted(WORD_LOCKS).map((l) => symbolFor(results[l.slug])).join("")}`,
     ...SEANCE_BOX_LIST.filter((b) => inPlayOf(seanceInPlay, b.id) > 0).map((b) => `${b.name.replace("The ", "").padEnd(8)} ${tablesLine(b.id)}`),
     `🔥 ${streak} ${streak === 1 ? "day" : "days"}`,
     site,

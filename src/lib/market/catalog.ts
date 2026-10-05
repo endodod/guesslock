@@ -126,7 +126,7 @@ const abilityRarity = (id: number, slot: number): Rarity => {
   // Ultimates are the rare ones.
   return slot >= 4 ? (b < 65 ? "epic" : "legendary") : b < 70 ? "common" : "rare";
 };
-const SEAL_BY_GROUP: Record<string, Rarity> = { spirits: "common", shop: "rare", seance: "rare", omens: "epic", stars: "epic" };
+const SEAL_BY_GROUP: Record<string, Rarity> = { spirits: "common", shop: "rare", seance: "rare", omens: "epic", stars: "epic", words: "rare" };
 
 const cap = (s: string) => `${s[0].toUpperCase()}${s.slice(1)}`;
 
@@ -174,7 +174,7 @@ export function buildCollectibles(data: Pick<GameData, "items" | "heroes"> & Par
     const name = u.kind === "lock" ? lock.name : lock.name;
     out.push({
       key: `seal:${u.kind === "lock" ? lock.slug : u.box}`, kind: "seal", name: `Seal of ${name.replace(/^The /, "The ")}`, rarity, value: scaleValue(SEAL_VALUE[rarity]),
-      image: null, glyph: lock.numeral, sub: { spirits: "Spirits lock", shop: "Shop lock", omens: "Omens lock", seance: "Sorting lock", stars: "Stars lock" }[group] ?? "Lock", group,
+      image: null, glyph: lock.numeral, sub: { spirits: "Spirits lock", shop: "Shop lock", omens: "Omens lock", seance: "Sorting lock", stars: "Stars lock", words: "Words lock" }[group] ?? "Lock", group,
     });
   }
   for (const c of COSMETICS) out.push({ key: c.key, kind: "flair", name: c.name, rarity: c.rarity, value: scaleValue(FLAIR_VALUE[c.rarity]), image: null, glyph: FLAIR_GLYPH[c.slot], sub: { title: "Title", color: "Name colour", theme: "Vault theme" }[c.slot], slot: c.slot, flair: c.value, group: c.slot });
@@ -412,7 +412,7 @@ export function buildSets(all: Collectible[]): SetDef[] {
 
   // Locks: the seals of each lock family.
   const seals = kindOf("seal");
-  const groupName: Record<string, string> = { spirits: "Spirits", shop: "Shop", omens: "Omens", seance: "Sorting", stars: "Stars" };
+  const groupName: Record<string, string> = { spirits: "Spirits", shop: "Shop", omens: "Omens", seance: "Sorting", stars: "Stars", words: "Words" };
   for (const g of Object.keys(groupName)) add(`seals:${g}`, `${groupName[g]} locks' seals`, "Locks", seals.filter((x) => x.group === g), 0.3);
   add("seals:all", "Every lock's seal", "Locks", seals, 0.4);
 

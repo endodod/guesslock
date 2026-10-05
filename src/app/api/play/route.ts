@@ -14,7 +14,7 @@ import { clientIp, rateLimit, tooMany } from "@/lib/server/ratelimit";
 const Body = z.object({
   date: z.string().refine(isDay),
   slug: z.string(),
-  guesses: z.array(z.string().max(64)).max(200),
+  guesses: z.array(z.string().max(128)).max(200),
   bonus: z.string().max(40).optional(),
   giveUp: z.boolean().optional(),
 });

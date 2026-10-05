@@ -14,6 +14,7 @@ const TYPICAL_SPECIAL: Record<string, number> = {
   decoy: 62, // 100 / 50 / 25 over three picks
   cache: 60, // 100 / 75 / 50 / 25 over four tries
   constellation: 70, // 10 per cell, 10 for a full grid
+  crossword: 75, // the share of words solved, minus 10 per wrong check
   clash: 55, beast: 55, rift: 55, // an Omen is scored out of 100
 };
 /** A sorting box is worth the average of its tables. */

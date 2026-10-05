@@ -13,6 +13,7 @@ const GROUPS: { id: string; title: string }[] = [
   { id: "omens", title: "The Omens" },
   { id: "seance", title: "The Séance" },
   { id: "stars", title: "More locks" },
+  { id: "words", title: "The Words" },
 ];
 
 const OVERVIEW = [["/admin", "Status"], ["/admin/review", "Review queue"], ["/admin/feedback", "Feedback"], ["/admin/calendar", "Calendar"], ["/admin/coverage", "Data coverage"], ["/admin/debug", "Debug preview"]] as const;

@@ -1,6 +1,6 @@
 # GUESSLOCK
 
-A fan-made daily guessing game for Valve's Deadlock: 28 "locks" per day (guessing games, 3 Omens, 3 sorting tables and a hero grid), same for every player, reset at 00:00 Europe/Zurich. Plus Endless practice, hard mode and The Black Market for spending souls.
+A fan-made daily guessing game for Valve's Deadlock: 30 "locks" per day (guessing games, 3 Omens, 3 sorting tables, a hero grid and two word games), same for every player, reset at 00:00 Europe/Zurich. Plus Endless practice, hard mode and The Black Market for spending souls.
 Live at `guesslock.paulkuehn.ch`. Specs in [`prompts/`](prompts/) (open work in [`prompts/todo/`](prompts/todo/), finished prompts in [`prompts/done/`](prompts/done/)): [`guesslock-build-prompt.md`](prompts/guesslock-build-prompt.md) (data & engine),
 [`guesslock-design-prompt.md`](prompts/guesslock-design-prompt.md) (design & gameflow),
 [`guesslock-addendum-emoji-quote.md`](prompts/guesslock-addendum-emoji-quote.md) (The Cipher & The Echo),
@@ -38,6 +38,8 @@ signed-out players keep their progress in `localStorage`. Agent API for puzzle s
 | XXVI | The Decoy | spot the fake item in a hero's core build (3 picks) | analytics API (fake: < 1% on this hero, ≥ 3% elsewhere) |
 | XXVII | The Cache | match a real team's six final inventories to its heroes (4 submissions) | Omen match harvest |
 | XXVIII | The Constellation | 3×3 grid: a hero per cell fitting its row and column (hero search, 4 lives, heroes can be taken off again; warns when the grid can't be finished) | Reckoning columns + approved Séance hero groups |
+| XXIX | The Lexicon | guess a Deadlock name as one word, Wordle rules (6 tries; "hero / item / ability" after 3 wrong) | hero, item and ability names, A–Z only (`src/lib/words/corpus.ts`) |
+| XXX | The Crossword | a seeded crossword of 6–8 names, clued by redacted lore and descriptions; Check locks right words in, a check with a wrong word costs a pick (4) | same word list; clues that name any word of the grid are dropped (`src/lib/words/`) |
 
 Numerals XXIII+ were added after the Séance family so existing ones never change; the Vault shows each with its group.
 

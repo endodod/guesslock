@@ -82,6 +82,17 @@ export type Clue =
       solution?: ({ name: string; image: string | null } | null)[];
     }
   | { kind: "relic"; image: string; blur: number; rotate?: number; mono?: boolean }
+  /** The Lexicon: only the word's length (the rows carry the coloured letters). */
+  | { kind: "lexicon"; length: number; tries: number }
+  | {
+      kind: "crossword"; w: number; h: number;
+      words: {
+        n: number; dir: "across" | "down"; x: number; y: number; len: number; clue: string;
+        /** The word's letters once a check got it right (all of them once the crossword is finished). */
+        solved: string | null;
+        answer?: { name: string; image: string | null };
+      }[];
+    }
   | {
       kind: "lineage";
       direction: "into" | "from";

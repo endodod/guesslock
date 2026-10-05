@@ -8,7 +8,7 @@ import { clientIp, rateLimit, tooMany } from "@/lib/server/ratelimit";
 const Create = z.object({ slug: z.string().max(40), avoid: z.array(z.string().max(80)).max(20).optional() });
 const Play = z.object({
   token: z.string().regex(/^[a-f0-9]{32}$/),
-  guesses: z.array(z.string().max(64)).max(200),
+  guesses: z.array(z.string().max(128)).max(200),
   bonus: z.string().max(40).optional(),
   giveUp: z.boolean().optional(),
   hard: z.boolean().optional(),
