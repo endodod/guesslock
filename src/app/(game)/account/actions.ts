@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth, currentUser, getAuth, signInMethods } from "@/lib/auth/server";
 import { finishAddEmail, startAddEmail } from "@/lib/auth/add-email";
+import { throttle, TOO_MANY } from "@/lib/auth/throttle";
 import { db } from "@/lib/db";
 import { deleteAccountCompletely, ensureProfile, setDisplayName } from "@/lib/accounts/service";
 
@@ -38,6 +39,7 @@ export async function changePassword(_prev: AccountState, f: FormData): Promise<
   const user = await requireUser();
   const newPassword = String(f.get("newPassword") ?? "");
   if (newPassword.length < 8) return { error: "Use at least 8 characters for the new password." };
+  if (await throttle.password(user.id)) return { error: TOO_MANY };
   // Signed up with Steam or codes only: there is no current password, this sets the first one.
   if (!(await signInMethods(user.id)).password) {
     const { error } = await auth.setPassword(newPassword);
@@ -85,6 +87,7 @@ export async function addEmail(_prev: AccountState, f: FormData): Promise<Accoun
   const code = String(f.get("code") ?? "").trim();
   const email = String(f.get("email") ?? "").trim();
   if (!code) {
+    if (await throttle.mail(email)) return { error: TOO_MANY, value: email };
     const error = await startAddEmail(user.id, email).catch(() => "Could not send the code. Try again later.");
     return error ? { error, value: email } : { ok: `A code is on its way to ${email}.`, value: email };
   }
