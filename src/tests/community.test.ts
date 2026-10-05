@@ -39,6 +39,14 @@ describe("hand-picked Constellations", () => {
     expect(checkGrid(rows, [cols[0], cols[1], facet("a", "A2", [1, 2])])).toEqual({ error: expect.stringMatching(/different kind/) });
     expect(checkGrid(rows, [cols[0], cols[1], facet("g", "G1", [5])])).toEqual({ error: expect.stringMatching(/fewer than/) });
   });
+
+  it("refuses near-identical categories and a row inside a column", () => {
+    // "Gender: Female" and "Female heroes" from two sources, one hero apart.
+    expect(checkGrid(rows, [cols[0], cols[1], facet("g", "A1 again", [1, 2, 3, 4, 5])])).toEqual({ error: expect.stringMatching(/nearly the same/) });
+    // Every hero of C1 is also in the column: that cell would only ask for C1.
+    const wide = facet("g", "G1", [1, 2, 7, 8, 13, 14, 5, 11, 4, 10]);
+    expect(checkGrid(rows, [cols[0], cols[1], wide])).toEqual({ error: expect.stringMatching(/asks only one thing/) });
+  });
 });
 
 describe("community sorting tables", () => {

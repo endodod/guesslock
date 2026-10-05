@@ -11,7 +11,7 @@ import { shadow, arsenal } from "@/lib/engine/modes/sight";
 import { calculus, CALCULUS_MIN_STATS, censorLabel } from "@/lib/engine/modes/calculus";
 import { decoy, fakeCandidates } from "@/lib/engine/modes/decoy";
 import { cache, finalInventory, teamProblem } from "@/lib/engine/modes/cache";
-import { constellation, dedupeFacets, normalizeName, pickGrid, solveGrid, canFinish, type Facet } from "@/lib/engine/modes/constellation";
+import { constellation, dedupeFacets, normalizeName, pickGrid, redundantCell, similarity, solveGrid, canFinish, type Facet } from "@/lib/engine/modes/constellation";
 import { reckoning, visage } from "@/lib/engine/modes/hero";
 import { relic } from "@/lib/engine/modes/item";
 import { buildTimeline } from "@/lib/omens/ingest";
@@ -280,6 +280,21 @@ describe("The Constellation", () => {
     expect(grid!.valid.every((v) => v.length >= 2)).toBe(true);
     expect(new Set(grid!.solution).size).toBe(9);
     expect(pickGrid([f("a", [1]), f("b", [2]), f("c", [3]), f("d", [4]), f("e", [5]), f("f", [6])], makeRng("g"), 50)).toBeNull();
+  });
+
+  it("never puts near-identical categories or one inside another into a grid", () => {
+    expect(similarity(f("a", [1, 2, 3, 4]), f("b", [1, 2, 3, 4, 5]))).toBeCloseTo(0.8);
+    const all = Array.from({ length: 30 }, (_, i) => i + 1);
+    const base = Array.from({ length: 8 }, (_, k) => f(`d${k}`, all.filter((h) => (h + k) % 2 === 0 || h % 3 === k % 3)));
+    // A near copy of every category, from another source: picked together they would repeat each other.
+    const copies = base.map((x, k) => f(`copy${k}`, [...x.members].slice(1)));
+    for (const seed of ["a", "b", "c", "d", "e"]) {
+      const grid = pickGrid([...base, ...copies], makeRng(seed));
+      expect(grid).not.toBeNull();
+      const six = [...grid!.rows, ...grid!.cols];
+      for (const x of six) for (const y of six) if (x !== y) expect(similarity(x, y)).toBeLessThan(0.7);
+      expect(redundantCell(grid!.rows, grid!.cols)).toBeNull();
+    }
   });
 
   it("judges typed names: unknown and duplicate names cost nothing, a wrong hero costs a life, partial credit", async () => {

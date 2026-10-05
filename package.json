@@ -26,6 +26,7 @@
     "check:hard": "tsx --tsconfig tsconfig.json scripts/check-hard.ts",
     "sim:collection": "tsx --tsconfig tsconfig.json scripts/sim-collection.ts",
     "check:market": "tsx --tsconfig tsconfig.json scripts/check-market.ts",
+    "check:categories": "tsx --tsconfig tsconfig.json scripts/check-categories.ts",
     "restore:curation": "tsx --tsconfig tsconfig.json scripts/restore-curation.ts",
     "import:weapons": "tsx --tsconfig tsconfig.json scripts/import-weapons.ts",
     "sync:wiki": "tsx --tsconfig tsconfig.json scripts/sync-wiki.ts"

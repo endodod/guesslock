@@ -58,6 +58,36 @@ export function dedupeFacets(facets: Facet[]): Facet[] {
   });
 }
 
+/**
+ * Two categories this close are the same idea from different sources ("Gender: Female" and the Séance group "Female
+ * heroes", which can differ by a hero or two): nearly all of their heroes are shared. A grid never uses both: as row and
+ * column the cell would just be one category again.
+ */
+export const RELATED_SIMILARITY = 0.7;
+
+/** Shared heroes out of the heroes in either category (1: the same heroes). */
+export function similarity(a: Facet, b: Facet): number {
+  let both = 0;
+  for (const h of a.members) if (b.members.has(h)) both++;
+  const either = a.members.size + b.members.size - both;
+  return either ? both / either : 0;
+}
+
+const related = (a: Facet, b: Facet) => similarity(a, b) >= RELATED_SIMILARITY;
+
+/** Every hero of the smaller category is in the larger one ("Ultimate is channelled" inside "Has a channelled ability"). */
+const within = (a: Facet, b: Facet) => {
+  const [small, big] = a.members.size <= b.members.size ? [a, b] : [b, a];
+  for (const h of small.members) if (!big.members.has(h)) return false;
+  return true;
+};
+
+/** A row and column where one holds the other: that cell asks only for the smaller category. The first such pair, or null. */
+export function redundantCell(rows: Facet[], cols: Facet[]): [Facet, Facet] | null {
+  for (const r of rows) for (const c of cols) if (within(r, c)) return [r, c];
+  return null;
+}
+
 /** Distinct heroes for all 9 cells, or null (simple backtracking over the smallest cells first). */
 export function solveGrid(valid: number[][]): number[] | null {
   const order = valid.map((v, i) => ({ i, n: v.length })).sort((a, b) => a.n - b.n).map((x) => x.i);
@@ -77,19 +107,23 @@ export function solveGrid(valid: number[][]): number[] | null {
   return go(0) ? pick : null;
 }
 
-/** Three row and three column facets, six different dimensions, every cell fair and the grid solvable. */
+/**
+ * Three row and three column facets, six different dimensions, no two related, no row inside a column (or the other way
+ * round), every cell fair and the grid solvable.
+ */
 export function pickGrid(facets: Facet[], rng: Rng, tries = 4000): { rows: Facet[]; cols: Facet[]; valid: number[][]; solution: number[] } | null {
   if (facets.length < 6) return null;
   for (let t = 0; t < tries; t++) {
     const chosen: Facet[] = [];
     const dims = new Set<string>();
     for (const f of rng.shuffle(facets)) {
-      if (dims.has(f.dim)) continue;
+      if (dims.has(f.dim) || chosen.some((c) => related(c, f))) continue;
       chosen.push(f); dims.add(f.dim);
       if (chosen.length === 6) break;
     }
     if (chosen.length < 6) return null;
     const rows = chosen.slice(0, 3), cols = chosen.slice(3);
+    if (redundantCell(rows, cols)) continue;
     const valid = gridCells(rows, cols);
     if (valid.some((v) => v.length < MIN_PER_CELL)) continue;
     const solution = solveGrid(valid);
@@ -151,13 +185,19 @@ export function gridCells(rows: Facet[], cols: Facet[]): number[][] {
   return rows.flatMap((r) => cols.map((c) => [...r.members].filter((h) => c.members.has(h)).sort((a, b) => a - b)));
 }
 
-/** Why a hand-picked grid isn't fair (six different dimensions, every cell with MIN_PER_CELL heroes, solvable), or its solution. */
+/** Why a hand-picked grid isn't fair (see pickGrid), or its solution. */
 export function checkGrid(rows: Facet[], cols: Facet[]): { valid: number[][]; solution: number[] } | { error: string } {
   if (rows.length !== 3 || cols.length !== 3) return { error: "Pick three rows and three columns." };
   if (new Set([...rows, ...cols].map((f) => f.dim)).size !== 6) return { error: "Each row and column needs a different kind of category." };
+  const all = [...rows, ...cols];
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    if (related(all[i], all[j])) return { error: `"${all[i].label}" and "${all[j].label}" are nearly the same category: use only one.` };
+  }
   const valid = gridCells(rows, cols);
   const thin = valid.findIndex((v) => v.length < MIN_PER_CELL);
   if (thin >= 0) return { error: `Cell ${thin + 1} (${rows[Math.floor(thin / 3)].label} × ${cols[thin % 3].label}) fits fewer than ${MIN_PER_CELL} heroes.` };
+  const inside = redundantCell(rows, cols);
+  if (inside) return { error: `Every hero of one of "${inside[0].label}" and "${inside[1].label}" is in the other, so their cell asks only one thing.` };
   const solution = solveGrid(valid);
   return solution ? { valid, solution } : { error: "No way to fill all nine cells with different heroes." };
 }
