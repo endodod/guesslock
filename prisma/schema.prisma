@@ -199,7 +199,7 @@ model MirroredAsset {
   id          String   @id // sha1 of the source url
   sourceUrl   String   @unique
   contentType String
-  bytes       Bytes
+  bytes       Bytes? // null: the bytes are in the object store under media/<id> (src/lib/objectstore.ts)
   byteSize    Int
   fetchedAt   DateTime @default(now())
 }

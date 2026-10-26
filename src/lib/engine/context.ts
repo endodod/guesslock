@@ -1,5 +1,7 @@
 // In-memory view of the DB used to generate puzzles and to build the guess catalog.
 // Curation values override API values where both exist.
+import { gunzipSync, gzipSync } from "node:zlib";
+import { unstable_cache } from "next/cache";
 import { db } from "../db";
 import { readSetting } from "../settings";
 import type { NormAbility, NormHero, NormItem } from "../deadlock/types";
@@ -110,11 +112,21 @@ export function parseAttrs(raw: unknown): Attrs {
   ) as Attrs;
 }
 
-export async function loadGameData(): Promise<GameData> {
+/** What GameData is built from, as plain JSON (numeric ids, dates as strings) so it can be cached between requests. */
+async function queryGameRows() {
   const [heroRows, abilityRows, itemRows, texts, lines, categories, clips, soundMaps, entryRows, groupsRow] = await Promise.all([
-    db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
-    db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.hero.findMany({
+      where: { active: true }, orderBy: { name: "asc" },
+      select: {
+        id: true, name: true, className: true, aliases: true, excludeFromModes: true, source: true, genderOverride: true, species: true,
+        weaponTypeOverride: true, releaseDate: true, emojis: true, emojisReviewed: true, genericVoice: true, setup: true, attrs: true,
+      },
+    }),
+    db.ability.findMany({
+      where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }],
+      select: { id: true, heroId: true, name: true, slot: true, aliases: true, excludeFromModes: true, source: true },
+    }),
+    db.item.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, aliases: true, excludeFromModes: true, source: true, attrs: true } }),
     // Only what usableText() reads: the raw source text is the widest column and is never shown.
     db.textEntry.findMany({ select: { entityType: true, entityId: true, autoText: true, finalText: true, status: true, stale: true } }),
     // Every line that passed the automatic filters; "needs_redaction" lines use their redacted text.
@@ -122,23 +134,79 @@ export async function loadGameData(): Promise<GameData> {
       where: { status: { not: "excluded" } }, orderBy: { id: "asc" },
       select: { id: true, heroId: true, text: true, autoText: true, starred: true, section: true, audioAssetId: true },
     }),
-    db.category.findMany(),
+    db.category.findMany({ select: { key: true, entity: true, label: true, info: true, type: true, unit: true, builtin: true, enabled: true, order: true } }),
     // Only reviewed and mirrored clips: nothing unreviewed is ever used.
     db.soundClip.findMany({
       where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" },
       select: { id: true, kind: true, heroId: true, abilityId: true, assetId: true, role: true, gainDb: true, durationMs: true, preferred: true },
     }),
-    db.heroSoundMap.findMany(),
-    db.voiceEntry.findMany({ where: { status: "approved" }, orderBy: { id: "asc" } }),
+    db.heroSoundMap.findMany({ select: { heroId: true, abilityFolders: true, weaponFolders: true } }),
+    db.voiceEntry.findMany({
+      where: { status: "approved" }, orderBy: { id: "asc" },
+      select: { id: true, heroId: true, kind: true, fileKey: true, abilityId: true, abilitySlot: true, otherHeroId: true, text: true, lines: true },
+    }),
     readSetting(WEAPON_GROUPS_KEY),
   ]);
-  const weaponGroups = parseWeaponGroups(groupsRow?.value);
+  const num = (v: bigint | null) => (v === null ? null : Number(v));
+  return {
+    heroes: heroRows.map((h) => ({ ...h, releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null })),
+    abilities: abilityRows.map((a) => ({ ...a, id: Number(a.id) })),
+    items: itemRows.map((i) => ({ ...i, id: Number(i.id) })),
+    texts: texts.map((t) => ({ ...t, entityId: Number(t.entityId) })),
+    lines,
+    categories,
+    clips: clips.map((c) => ({ ...c, abilityId: num(c.abilityId) })),
+    soundMaps,
+    entries: entryRows.map((e) => ({ ...e, abilityId: num(e.abilityId) })),
+    weaponGroups: groupsRow?.value ?? null,
+  };
+}
+type GameRows = Awaited<ReturnType<typeof queryGameRows>>;
+
+const GAME_TABLES = ["Hero", "Ability", "Item", "TextEntry", "VoiceLine", "Category", "SoundClip", "HeroSoundMap", "VoiceEntry", "Setting"];
+
+/**
+ * Changes whenever a table GameData is built from changes: every insert or update gives the row a new xmin, and a
+ * delete changes the count. A few hundred bytes, against megabytes for the rows themselves.
+ */
+async function gameDataStamp(): Promise<string> {
+  const parts = GAME_TABLES.map((t) => `(SELECT count(*) || ':' || coalesce(max(xmin::text::bigint), 0) FROM "${t}")`);
+  const [row] = await db.$queryRawUnsafe<{ stamp: string }[]>(`SELECT concat_ws('|', ${parts.join(", ")}) AS stamp`);
+  return row.stamp;
+}
+
+// The rows, shared by every server instance and kept until the stamp moves (so edits from the admin, the agent API,
+// crons and CLI scripts all show at once). Gzipped: the Next.js data cache refuses entries over 2 MB.
+const cachedRows = unstable_cache(
+  async (stamp: string) => {
+    void stamp; // only part of the cache key
+    return gzipSync(JSON.stringify(await queryGameRows())).toString("base64");
+  },
+  ["game-rows"],
+  { revalidate: 86400 },
+);
+
+async function gameRows(): Promise<GameRows> {
+  let packed: string;
+  try {
+    packed = await cachedRows(await gameDataStamp());
+  } catch (e) {
+    // Outside a Next.js request (CLI scripts) there is no data cache: read the rows directly.
+    if (!String((e as Error).message).includes("incrementalCache missing")) throw e;
+    return queryGameRows();
+  }
+  return JSON.parse(gunzipSync(Buffer.from(packed, "base64")).toString("utf8")) as GameRows;
+}
+
+export async function loadGameData(): Promise<GameData> {
+  const { heroes: heroRows, abilities: abilityRows, items: itemRows, texts, lines, categories, clips, soundMaps, entries: entryRows, weaponGroups: groupsValue } = await gameRows();
+  const weaponGroups = parseWeaponGroups(groupsValue);
   const entriesBy = new Map<string, VoiceEntryData[]>();
   for (const e of entryRows) {
     const k = `${e.heroId}:${e.kind}`;
     if (!entriesBy.has(k)) entriesBy.set(k, []);
     entriesBy.get(k)!.push({
-      id: e.id, kind: e.kind as VoiceEntryData["kind"], fileKey: e.fileKey, abilityId: e.abilityId === null ? null : Number(e.abilityId),
+      id: e.id, kind: e.kind as VoiceEntryData["kind"], fileKey: e.fileKey, abilityId: e.abilityId,
       abilitySlot: e.abilitySlot, otherHeroId: e.otherHeroId, text: e.text, lines: (e.lines as { h: number; t: string }[] | null) ?? null,
     });
   }
@@ -159,7 +227,7 @@ export async function loadGameData(): Promise<GameData> {
       weaponType: h.weaponTypeOverride || src.gunTag,
       weaponFamily: weaponFamily(h.weaponTypeOverride || src.gunTag, weaponGroups),
       apiWeaponFamily: weaponFamily(src.gunTag, weaponGroups),
-      releaseDate: h.releaseDate ? h.releaseDate.toISOString().slice(0, 10) : null,
+      releaseDate: h.releaseDate,
       // The Cipher needs 10: a hero without a complete set uses the default one (the sync also stores it).
       emojis: h.emojis.length >= 10 ? h.emojis : DEFAULT_EMOJIS[h.name] ?? h.emojis,
       emojisReviewed: h.emojisReviewed,
@@ -179,19 +247,19 @@ export async function loadGameData(): Promise<GameData> {
     .map((a) => {
       const src = a.source as unknown as NormAbility;
       return {
-        id: Number(a.id), heroId: a.heroId, name: a.name, slot: a.slot,
+        id: a.id, heroId: a.heroId, name: a.name, slot: a.slot,
         aliases: a.aliases, exclude: a.excludeFromModes, src, icon: mediaUrl(src.image),
       };
     });
   const items: ItemData[] = itemRows.map((i) => {
     const src = i.source as unknown as NormItem;
     return {
-      id: Number(i.id), name: i.name, aliases: i.aliases, exclude: i.excludeFromModes, src, attrs: parseAttrs(i.attrs),
+      id: i.id, name: i.name, aliases: i.aliases, exclude: i.excludeFromModes, src, attrs: parseAttrs(i.attrs),
       image: mediaUrl(src.image), glyph: mediaUrl(src.glyph),
     };
   });
 
-  const textMap = new Map(texts.map((t) => [`${t.entityType}:${Number(t.entityId)}`, t]));
+  const textMap = new Map(texts.map((t) => [`${t.entityType}:${t.entityId}`, t]));
   const linesByHero = new Map<number, VoiceLineData[]>();
   for (const l of lines) {
     if (!linesByHero.has(l.heroId)) linesByHero.set(l.heroId, []);
@@ -204,7 +272,7 @@ export async function loadGameData(): Promise<GameData> {
   const weaponSounds = new Map<number, SoundData[]>();
   for (const c of clips) {
     const d: SoundData = { id: c.id, url: `/media/${c.assetId}`, role: c.role, gainDb: c.gainDb ?? 0, durationMs: c.durationMs ?? 0, preferred: c.preferred };
-    const [map, key] = c.kind === "weapon" ? [weaponSounds, c.heroId] : [abilitySounds, c.abilityId === null ? null : Number(c.abilityId)];
+    const [map, key] = c.kind === "weapon" ? [weaponSounds, c.heroId] : [abilitySounds, c.abilityId];
     if (key === null) continue;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(d);

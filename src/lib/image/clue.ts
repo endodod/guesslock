@@ -5,9 +5,8 @@
 // dev tools. So each reveal step is its own image (cropped, blurred, covered or cut out to a silhouette), named by
 // sha1(salt + puzzle + step): the browser only ever holds what that step shows.
 import { createHash } from "node:crypto";
-import { db } from "../db";
 import { config } from "../config";
-import { storeAsset } from "../media";
+import { readAsset, storeAsset } from "../media";
 import { decodePng, encodePng, silhouette, type Rgba } from "./png";
 
 export type CropStep = { zoom: number; originX: number; originY: number };
@@ -37,7 +36,7 @@ function derivedId(tag: string, sourceId: string, op: string): string {
 async function load(url: string): Promise<{ id: string; img: Rgba } | null> {
   const m = MEDIA.exec(url);
   if (!m) return null;
-  const row = await db.mirroredAsset.findUnique({ where: { id: m[1] }, select: { bytes: true } });
+  const row = await readAsset(m[1]);
   if (!row) return null;
   try {
     return { id: m[1], img: decodePng(row.bytes) };

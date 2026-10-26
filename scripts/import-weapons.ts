@@ -4,7 +4,7 @@
 import "dotenv/config";
 import { db } from "../src/lib/db";
 import { config } from "../src/lib/config";
-import { mirror } from "../src/lib/media";
+import { mirror, readAsset } from "../src/lib/media";
 import { parseSetup } from "../src/lib/admin/setup";
 import { decodePng, silhouette } from "../src/lib/image/png";
 
@@ -36,7 +36,7 @@ async function wikiFileUrls(names: string[]): Promise<Map<string, string>> {
     if (setup.weapon && !force) { console.log(h.name, "kept"); continue; }
     if (!url) { console.log(h.name, "no wiki picture"); continue; }
     const id = await mirror(url);
-    const asset = id ? await db.mirroredAsset.findUnique({ where: { id }, select: { bytes: true } }) : null;
+    const asset = id ? await readAsset(id) : null;
     try {
       if (!asset || !silhouette(decodePng(asset.bytes))) { console.log(h.name, "skipped: not a transparent cut-out"); continue; }
     } catch { console.log(h.name, "skipped: unsupported PNG"); continue; }

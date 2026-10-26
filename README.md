@@ -194,7 +194,8 @@ puzzles are generated 7 days ahead. Functions are pinned to `fra1`, next to the 
 
 The site keeps running for at least a week if deadlock-api or the wiki goes down:
 
-- **Puzzles** are generated 7 days ahead and frozen in `DailyPuzzle`. Images and audio are mirrored into Postgres.
+- **Puzzles** are generated 7 days ahead and frozen in `DailyPuzzle`. Images and audio are mirrored into the object store
+  (`MEDIA_S3_*`, e.g. Cloudflare R2), or into Postgres when none is configured.
 - **Every API response** the app uses (heroes, items, client version, The Belongings' usage stats) is stored in
   `ApiSnapshot` whenever a call succeeds. Puzzle generation falls back to it while the API is down; snapshots older
   than `API_BACKUP_MAX_DAYS` (default 14) aren't used.
@@ -313,8 +314,8 @@ functions in `src/lib/duels/games.ts`, used by the server to check every move an
 
 **Before production** (the checklist)
 - Environment on the host: `DATABASE_URL` (pooled), `DIRECT_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_PASSWORD`,
-  `SESSION_SECRET`, `CRON_SECRET`, `PUZZLE_SALT`, `TRUSTED_PROXY_HOPS`, `DB_POOL_MAX`; optional `AGENT_API_*` tokens (the agent API is off
-  without them) and `ALERT_WEBHOOK_URL`. All are listed in `.env.example`; secrets should be 32+ random characters.
+  `SESSION_SECRET`, `CRON_SECRET`, `PUZZLE_SALT`, `TRUSTED_PROXY_HOPS`, `DB_POOL_MAX`, `MEDIA_S3_*` (object store for images
+  and audio); optional `AGENT_API_*` tokens (the agent API is off without them) and `ALERT_WEBHOOK_URL`. All are listed in `.env.example`; secrets should be 32+ random characters.
 - Migrations run on the Vercel build (`prisma migrate deploy`); with Docker run `npm run db:migrate` first.
 - After a deploy: `/api/health` is 200, the daily crons are listed in the Vercel dashboard, and `[ratelimit] shared store unavailable`
   does not appear in the logs (it means the `RateLimit` table is missing).
@@ -338,15 +339,20 @@ functions in `src/lib/duels/games.ts`, used by the server to check every move an
   to a precomputed table refreshed by cron.
 - *Database connections*: `DB_POOL_MAX` per instance (default 10). On Vercel/serverless use the pooled `DATABASE_URL` and a low
   value (2-5) so many instances don't exhaust Neon's connection limit.
-- *Mirrored images and sounds* are served from Postgres with a long immutable cache header, so a CDN absorbs nearly all traffic;
-  put one in front (Vercel does this).
+- *Mirrored images and sounds* are served by `/media/<id>` from the object store (`MEDIA_S3_*`; Postgres only keeps a row per
+  file) with a long immutable cache header, so a CDN absorbs nearly all traffic; put one in front (Vercel does this). Without an
+  object store the bytes stay in Postgres, and every CDN miss and every Endless clue image counts against Neon's network transfer
+  (5 GB/month on the Free plan): set one up and run `npm run media:offload` once to move the existing files.
+- *Neon network transfer*: game data (heroes, items, texts, voice lines, clips) is read once per change, not per request:
+  `loadGameData` keys a shared, gzipped cache entry on a cheap change stamp of its tables (`engine/context.ts`). Watch the
+  project's Overview page in the Neon console; `pg_stat_statements` (rows per query) shows what moves the bytes.
 - *Daily cron* (`/api/cron/sync`, 300 s) is a single job; it is the thing to watch as the sound and wiki imports grow.
 
 ## Scripts
 
 `npm run test` · `typecheck` · `lint` · `sync` · `generate [-- --days N]` · `backup [-- --days N]` · `omens:harvest [-- --minutes N]` · `validate:leaks [-- --all]` ·
 `import:voicelines [-- --hero <id>]` · `import:sounds [-- --measure <s>]` · `make:grain` · `check:market -- --yes` · `check:hard` ·
-`sim:collection` (Monte Carlo of finishing the collection)
+`sim:collection` (Monte Carlo of finishing the collection) · `media:offload [-- --dry-run]` (move mirrored files from Postgres to the object store)
 
 `/styleguide` shows every component in every state (dev only; set `ENABLE_STYLEGUIDE=1` to enable in production). `robots.txt` and
 `sitemap.xml` are generated (`src/app/robots.ts`, `sitemap.ts`); the admin, the API and the account pages are disallowed.

@@ -1,5 +1,5 @@
-// Serves mirrored images/audio from Postgres. Ids are content-addressed by source URL: cache forever.
-import { db } from "@/lib/db";
+// Serves mirrored images/audio (object store, else Postgres). Ids are content-addressed by source URL: cache forever.
+import { readAsset } from "@/lib/media";
 
 type Cached = { bytes: Buffer; contentType: string; at: number };
 
@@ -32,9 +32,9 @@ async function load(id: string): Promise<Cached | null> {
     cache.set(id, hit);
     return hit;
   }
-  const asset = await db.mirroredAsset.findUnique({ where: { id }, select: { bytes: true, contentType: true } });
+  const asset = await readAsset(id);
   if (!asset) return null;
-  const entry = { bytes: Buffer.from(asset.bytes), contentType: asset.contentType, at: Date.now() };
+  const entry = { ...asset, at: Date.now() };
   remember(id, entry);
   return entry;
 }

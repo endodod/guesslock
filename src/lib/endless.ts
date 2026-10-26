@@ -13,6 +13,7 @@ import { evaluate } from "./engine/play";
 import { getCatalog, lookupFor } from "./engine/catalog";
 import { fetchAbilityOrder } from "./deadlock/api";
 import { clueImages } from "./image/clue";
+import { deleteAssets } from "./media";
 import { heroCategories, memoAnalytics, memoMatches } from "./engine/generate";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -75,6 +76,6 @@ export async function playEndless(token: string, guesses: string[], opts: { bonu
 export async function pruneEndless(): Promise<{ puzzles: number; images: number }> {
   const cutoff = new Date(Date.now() - ENDLESS_TTL_DAYS * 86400_000);
   const puzzles = await db.endlessPuzzle.deleteMany({ where: { createdAt: { lt: cutoff } } });
-  const images = await db.mirroredAsset.deleteMany({ where: { sourceUrl: { startsWith: "derived:endless:" }, fetchedAt: { lt: cutoff } } });
-  return { puzzles: puzzles.count, images: images.count };
+  const old = await db.mirroredAsset.findMany({ where: { sourceUrl: { startsWith: "derived:endless:" }, fetchedAt: { lt: cutoff } }, select: { id: true } });
+  return { puzzles: puzzles.count, images: await deleteAssets(old.map((a) => a.id)) };
 }

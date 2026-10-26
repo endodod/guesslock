@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSetup } from "@/lib/admin/auth";
 import { CUSTOM_LINE_PREFIX, parseSetup, type HeroSetup } from "@/lib/admin/setup";
-import { mirror } from "@/lib/media";
+import { mirror, readAsset } from "@/lib/media";
 import { saveCategoryValues } from "@/lib/admin/categories";
 import { syncTexts } from "@/lib/sync/assets";
 import { redact } from "@/lib/text/redact";
@@ -102,7 +102,7 @@ export async function saveWeapon(heroId: number, form: FormData): Promise<string
     if (!/^https?:\/\//.test(url)) return "Use an http(s) image URL.";
     const id = await mirror(url);
     if (!id) return "Couldn't download that image.";
-    const asset = await db.mirroredAsset.findUnique({ where: { id }, select: { bytes: true } });
+    const asset = await readAsset(id);
     try {
       if (!asset || !silhouette(decodePng(asset.bytes))) return "The picture needs a transparent background (a cut-out).";
     } catch {
