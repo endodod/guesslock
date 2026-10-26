@@ -37,9 +37,11 @@ export async function getPuzzleFresh(date: string, slug: string) {
 }
 
 // Frozen puzzles change only when a day is (re)generated, overridden or healed, all of which call puzzlesChanged().
-// Caching them for a minute takes the database read out of every guess (/api/play) and lock page view.
-const cachedPuzzle = unstable_cache(getPuzzleFresh, ["puzzle"], { revalidate: 60, tags: [PUZZLES_TAG] });
-const cachedMeta = unstable_cache((date: string) => db.dailyPuzzle.findMany({ where: { date }, select: { mode: true, sealed: true, sealedReason: true } }), ["day-meta"], { revalidate: 60, tags: [PUZZLES_TAG] });
+// Caching them takes the database read out of every guess (/api/play) and lock page view. The tag clears them on every
+// change made through the app; the lifetime only bounds how long a write from a CLI script stays unseen.
+const PUZZLE_TTL_S = 15 * 60;
+const cachedPuzzle = unstable_cache(getPuzzleFresh, ["puzzle"], { revalidate: PUZZLE_TTL_S, tags: [PUZZLES_TAG] });
+const cachedMeta = unstable_cache((date: string) => db.dailyPuzzle.findMany({ where: { date }, select: { mode: true, sealed: true, sealedReason: true } }), ["day-meta"], { revalidate: PUZZLE_TTL_S, tags: [PUZZLES_TAG] });
 
 export async function getPuzzle(date: string, slug: string) {
   return cachedPuzzle(date, slug);
@@ -64,9 +66,10 @@ async function metaFor(locks: typeof LOCKS, date: string): Promise<LockMeta[]> {
   });
 }
 
-export async function answersFor(date: string) {
-  const rows = await db.dailyPuzzle.findMany({ where: { date, sealed: false } });
-  const by = new Map(rows.map((r) => {
+// Every payload of a day is read to name its answers: cache the (small) result rather than reading them per page view.
+const cachedAnswers = unstable_cache(async (date: string) => {
+  const rows = await db.dailyPuzzle.findMany({ where: { date, sealed: false }, select: { mode: true, answerId: true, payload: true } });
+  return rows.map((r): [string, AnswerView] => {
     const payload = r.payload as unknown as BasePayload | OmenPayload | SeancePayload;
     if (payload.mode === "seance") {
       // The Séance: the day's four group names, easiest first.
@@ -74,7 +77,11 @@ export async function answersFor(date: string) {
       return [r.mode, { id: r.answerId, name: p.groups.map((g) => g.label).join(" · "), image: null, sub: `${p.redHerrings} red herrings` }];
     }
     return [r.mode, payload.mode === "omen" ? omenOutcome(payload as OmenPayload) : (payload as BasePayload).answer];
-  }));
+  });
+}, ["day-answers"], { revalidate: PUZZLE_TTL_S, tags: [PUZZLES_TAG] });
+
+export async function answersFor(date: string) {
+  const by = new Map(await cachedAnswers(date));
   return LOCKS.map((l) => ({ lock: l, answer: by.get(l.slug) ?? null }));
 }
 

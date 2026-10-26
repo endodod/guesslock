@@ -10,8 +10,8 @@ export async function GET() {
   const today = todayDate();
   try {
     const [lastSync, lastOk, puzzles] = await Promise.all([
-      db.syncRun.findFirst({ where: { kind: "assets" }, orderBy: { id: "desc" } }),
-      db.syncRun.findFirst({ where: { kind: "assets", status: "ok" }, orderBy: { id: "desc" } }),
+      db.syncRun.findFirst({ where: { kind: "assets" }, orderBy: { id: "desc" }, select: { status: true } }),
+      db.syncRun.findFirst({ where: { kind: "assets", status: "ok" }, orderBy: { id: "desc" }, select: { finishedAt: true } }),
       db.dailyPuzzle.findMany({ where: { date: today }, select: { mode: true, sealed: true } }),
     ]);
     const syncAgeH = lastOk?.finishedAt ? (Date.now() - lastOk.finishedAt.getTime()) / 3600000 : Infinity;

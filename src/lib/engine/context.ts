@@ -115,12 +115,19 @@ export async function loadGameData(): Promise<GameData> {
     db.hero.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.ability.findMany({ where: { active: true }, orderBy: [{ heroId: "asc" }, { slot: "asc" }] }),
     db.item.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    db.textEntry.findMany(),
+    // Only what usableText() reads: the raw source text is the widest column and is never shown.
+    db.textEntry.findMany({ select: { entityType: true, entityId: true, autoText: true, finalText: true, status: true, stale: true } }),
     // Every line that passed the automatic filters; "needs_redaction" lines use their redacted text.
-    db.voiceLine.findMany({ where: { status: { not: "excluded" } }, orderBy: { id: "asc" } }),
+    db.voiceLine.findMany({
+      where: { status: { not: "excluded" } }, orderBy: { id: "asc" },
+      select: { id: true, heroId: true, text: true, autoText: true, starred: true, section: true, audioAssetId: true },
+    }),
     db.category.findMany(),
     // Only reviewed and mirrored clips: nothing unreviewed is ever used.
-    db.soundClip.findMany({ where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" } }),
+    db.soundClip.findMany({
+      where: { status: "approved", assetId: { not: null } }, orderBy: { id: "asc" },
+      select: { id: true, kind: true, heroId: true, abilityId: true, assetId: true, role: true, gainDb: true, durationMs: true, preferred: true },
+    }),
     db.heroSoundMap.findMany(),
     db.voiceEntry.findMany({ where: { status: "approved" }, orderBy: { id: "asc" } }),
     readSetting(WEAPON_GROUPS_KEY),

@@ -46,7 +46,7 @@ export async function heroCategories() {
 }
 
 async function latestDataVersion(): Promise<number | null> {
-  const run = await db.syncRun.findFirst({ where: { kind: "assets", status: "ok" }, orderBy: { id: "desc" } });
+  const run = await db.syncRun.findFirst({ where: { kind: "assets", status: "ok" }, orderBy: { id: "desc" }, select: { clientVersion: true } });
   return run?.clientVersion ?? null;
 }
 
@@ -137,7 +137,7 @@ export async function generateDay(
   // The hard puzzles come after the normal locks, so they can stay clear of today's normal answers.
   for (const lock of [...LOCKS, ...HARD_LOCKS]) {
     if (opts.slugs && !opts.slugs.includes(lock.slug)) continue;
-    const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: lock.slug } } });
+    const existing = await db.dailyPuzzle.findUnique({ where: { date_mode: { date, mode: lock.slug } }, select: { answerId: true, sealed: true, overridden: true } });
     // Never regenerate a day that is live or past unless forced; overrides always stick.
     if (existing && (!opts.force || existing.overridden)) {
       if (!(existing.sealed && date >= today)) {
